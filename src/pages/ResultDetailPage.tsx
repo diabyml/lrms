@@ -2,6 +2,35 @@
 
 // no typescript check
 
+// draggable-categories
+// src/pages/ResultDetailPage.tsx
+// ... other imports ...
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent, // Type for the drag end event
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable, // Hook for individual items
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+// --- Icons ---
+// Add GripVertical for drag handle
+import {
+  // ... other icons ...
+  GripVertical, // Drag handle icon
+} from "lucide-react";
+
 import { cn } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -148,6 +177,14 @@ const ResultDetailPage: React.FC = () => {
 
   const [headerConfig, setHeaderConfig] = useState<PrintConfig | null>(null);
   const [loadingHeader, setLoadingHeader] = useState<boolean>(true); // Separate loading state
+
+  // draggable-categories
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const reportContentRef = useRef<HTMLDivElement>(null); // Create the ref
 
@@ -378,6 +415,32 @@ const ResultDetailPage: React.FC = () => {
     // Optional: Could add checks here, like if data is loaded
     window.print();
   };
+
+  // draggable-categories
+  // src/pages/ResultDetailPage.tsx -> within the component
+
+  // --- Drag and Drop Handler ---
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setGroupedResults((items) => {
+        // Find the original index of the dragged item (active)
+        const oldIndex = items.findIndex(
+          (item) => item.category.id === active.id
+        );
+        // Find the new index of the item it was dropped over (over)
+        const newIndex = items.findIndex(
+          (item) => item.category.id === over.id
+        );
+
+        // Use arrayMove utility to create the new sorted array
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+  // --- End Drag and Drop Handler ---
 
   // --- Render Logic ---
   // --- Render Logic ---
@@ -687,134 +750,218 @@ const ResultDetailPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* 3. Grouped Results Section */}
-        <div className="space-y-6 print:space-y-4">
-          {groupedResults.length === 0 && (
-            <Card className="print:border-none print:shadow-none">
-              <CardContent className="pt-6 text-center text-muted-foreground print:pt-2">
-                Aucune valeur de résultat enregistrée pour ce rapport.
-              </CardContent>
-            </Card>
-          )}
+        {/* --- 3. Grouped Results Section (UPDATED with Drag and Drop) --- */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={groupedResults.map((g) => g.category.id)} // Provide category IDs as items
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-6 print:space-y-4">
+              {groupedResults.length === 0 &&
+                !loading && ( // Added !loading check
+                  <Card className="print:border-none print:shadow-none">
+                    <CardContent className="pt-6 text-center text-muted-foreground print:pt-2">
+                      Aucune valeur de résultat enregistrée pour ce rapport.
+                    </CardContent>
+                  </Card>
+                )}
 
-          {groupedResults.map((categoryGroup) => (
-            <div
-              key={categoryGroup.category.id}
-              className="space-y-3 print:break-inside-avoid-page"
-            >
-              {/* Category Header */}
-              <div className="flex items-center gap-3 pt-4 print:pt-2">
-                <Layers className="h-5 w-5 text-primary print:h-4 print:w-4" />
-                <h2 className="text-xl font-semibold tracking-tight print:text-base">
-                  {categoryGroup.category.name}
-                </h2>
-                <Separator className="flex-1 print:hidden" />
-              </div>
+              {groupedResults.map((categoryGroup) => (
+                // Wrap each category group with SortableCategoryItem
+                <SortableCategoryItem
+                  key={categoryGroup.category.id}
+                  categoryGroup={categoryGroup}
+                >
+                  {/* Pass the original rendering content as children */}
+                  <div className="space-y-3 print:break-inside-avoid-page">
+                    {" "}
+                    {/* Reduced space-y */}
+                    {/* Category Header with Drag Handle */}
+                    <div className="flex items-center gap-2 pt-4 print:pt-2">
+                      {/* <button
+                        type="button"
+                        {...useSortable({ id: categoryGroup.category.id })
+                          .listeners} 
+                        className="cursor-grab touch-none p-1 text-muted-foreground hover:bg-accent rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:hidden" // Hide handle on print
+                        aria-label={`Réorganiser la catégorie ${categoryGroup.category.name}`}
+                      >
+                        <GripVertical className="h-5 w-5" />
+                      </button> */}
 
-              {/* Test Type Tables/Rows within Category */}
-              {categoryGroup.testTypes.map((testTypeGroup) => {
-                const isSingleParameter = testTypeGroup.parameters.length === 1;
-                const singleParam = isSingleParameter
-                  ? testTypeGroup.parameters[0]
-                  : null;
+                      <Layers className="h-5 w-5 text-primary print:h-4 print:w-4" />
+                      <h2 className="text-xl font-semibold tracking-tight print:text-base">
+                        {categoryGroup.category.name}
+                      </h2>
+                      <Separator className="flex-1 print:hidden" />
+                    </div>
+                    {/* Test Type Tables/Rows within Category */}
+                    {categoryGroup.testTypes.map((testTypeGroup) => {
+                      const isSingleParameter =
+                        testTypeGroup.parameters.length === 1;
+                      const singleParam = isSingleParameter
+                        ? testTypeGroup.parameters[0]
+                        : null;
 
-                return (
-                  <div
-                    key={testTypeGroup.testType.id}
-                    className={cn(
-                      "print:break-inside-avoid",
-                      !isSingleParameter && "ml-4 sm:ml-8 print:ml-0" // Indent only if multiple params or zero
-                    )}
-                  >
-                    {/* Conditionally render Test Type Name */}
-                    {!isSingleParameter && (
-                      <h3 className="text-base font-bold mb-1 print:text-sm">
-                        {testTypeGroup.testType.name}
-                      </h3>
-                    )}
+                      return (
+                        <div
+                          key={testTypeGroup.testType.id}
+                          className={cn(
+                            "print:break-inside-avoid",
+                            // Indent based on whether it's a table or single row for better alignment
+                            !isSingleParameter && "ml-4 sm:ml-8 print:ml-0"
+                          )}
+                        >
+                          {/* Conditionally render Test Type Name header or not */}
+                          {!isSingleParameter && (
+                            <h3 className="text-base font-bold mb-1 print:text-sm ml-4 sm:ml-0">
+                              {" "}
+                              {/* Adjust margin for non-indented header */}
+                              {testTypeGroup.testType.name}
+                            </h3>
+                          )}
 
-                    {/* Render Table */}
-                    <Table
-                      className={cn(
-                        "print:text-xs",
-                        isSingleParameter && "mt-1"
-                      )}
-                    >
-                      {/* Conditionally render TableHeader only if NOT single parameter */}
-                      {!isSingleParameter && (
-                        <TableHeader className="bg-muted/10 print:bg-gray-100">
-                          <TableRow>
-                            <TableHead className="w-[40%] pl-2 print:pl-0">
-                              Paramètre
-                            </TableHead>
-                            <TableHead className="w-[20%]">Valeur</TableHead>
-                            <TableHead className="w-[15%]">Unité</TableHead>
-                            <TableHead className="w-[25%] pr-2 print:pr-0">
-                              Réf.
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                      )}
-                      <TableBody>
-                        {/* If single param, render it directly WITH EXPLICIT WIDTHS */}
-                        {isSingleParameter && singleParam ? (
-                          <TableRow className="print:even:bg-white">
-                            {/* Apply matching width classes here */}
-                            <TableCell className="font-medium pl-10   print:pl-0 w-[40%]">
-                              {singleParam.name}
-                            </TableCell>
-                            <TableCell className=" pl-7 print:pl-2 w-[20%]">
-                              {singleParam.resultValue}
-                            </TableCell>
-                            <TableCell className="pl-5 print:pl-2 w-[15%]">
-                              {singleParam.unit || "-"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground pr-2 print:pr-0 w-[25%]">
-                              {singleParam.reference_range || "-"}
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          // Otherwise, map multiple parameters (widths applied via TableHead)
-                          testTypeGroup.parameters.map((param) => (
-                            <TableRow
-                              key={param.id}
-                              className="print:even:bg-white"
-                            >
-                              <TableCell className="font-medium pl-2 print:pl-0">
-                                {param.name}
-                              </TableCell>
-                              <TableCell>{param.resultValue}</TableCell>
-                              <TableCell>{param.unit || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground pr-2 print:pr-0">
-                                {param.reference_range || "-"}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                        {/* Handle case of a test type with ZERO parameters */}
-                        {testTypeGroup.parameters.length === 0 && (
-                          // ... zero parameters row ...
-                          <TableRow>
-                            <TableCell
-                              colSpan={4}
-                              className="h-10 text-center text-xs italic text-muted-foreground pl-2 print:pl-0"
-                            >
-                              (Aucun paramètre pour ce test)
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                          {/* Render Table for multiple params or direct row for single */}
+                          <Table
+                            className={cn(
+                              "print:text-xs",
+                              isSingleParameter && "mt-1"
+                            )}
+                          >
+                            {/* TableHeader only if multiple params */}
+                            {!isSingleParameter && (
+                              <TableHeader className="bg-muted/10 print:bg-gray-100">
+                                <TableRow>
+                                  <TableHead className="w-[40%] pl-2 print:pl-0">
+                                    Paramètre
+                                  </TableHead>
+                                  <TableHead className="w-[20%]">
+                                    Valeur
+                                  </TableHead>
+                                  <TableHead className="w-[15%]">
+                                    Unité
+                                  </TableHead>
+                                  <TableHead className="w-[25%] pr-2 print:pr-0">
+                                    Réf.
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                            )}
+                            <TableBody>
+                              {/* Single Parameter Row */}
+                              {isSingleParameter && singleParam ? (
+                                <TableRow className="print:even:bg-white">
+                                  {/* Use fixed width percentages */}
+                                  <TableCell className="font-medium pl-4 sm:pl-8 md:pl-12 print:pl-0 w-[40%]">
+                                    {" "}
+                                    {/* Adjust left padding */}
+                                    {singleParam.name}
+                                  </TableCell>
+                                  <TableCell className="w-[20%]">
+                                    {singleParam.resultValue}
+                                  </TableCell>
+                                  <TableCell className="w-[15%]">
+                                    {singleParam.unit || "-"}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground pr-2 print:pr-0 w-[25%]">
+                                    {singleParam.reference_range || "-"}
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                // Multiple Parameter Rows
+                                testTypeGroup.parameters.map((param) => (
+                                  <TableRow
+                                    key={param.id}
+                                    className="print:even:bg-white"
+                                  >
+                                    <TableCell className="font-medium pl-2 print:pl-0">
+                                      {param.name}
+                                    </TableCell>
+                                    <TableCell>{param.resultValue}</TableCell>
+                                    <TableCell>{param.unit || "-"}</TableCell>
+                                    <TableCell className="text-muted-foreground pr-2 print:pr-0">
+                                      {param.reference_range || "-"}
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                              {/* Zero Parameter Row */}
+                              {testTypeGroup.parameters.length === 0 && (
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={4}
+                                    className="h-10 text-center text-xs italic text-muted-foreground pl-2 print:pl-0"
+                                  >
+                                    (Aucun paramètre pour ce test)
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </SortableCategoryItem>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>{" "}
+          </SortableContext>
+        </DndContext>
+        {/* --- End Grouped Results Section --- */}
+      </div>
       {/* End Report Content Wrapper */}
     </div> // End main container div
   );
 };
+
+// src/pages/ResultDetailPage.tsx -> Define this component within or import it
+
+interface SortableCategoryProps {
+  categoryGroup: GroupedCategoryResult;
+  children: React.ReactNode; // Pass the rendered content as children
+}
+
+const SortableCategoryItem: React.FC<SortableCategoryProps> = ({
+  categoryGroup,
+  children,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef, // Ref for the draggable node
+    transform,
+    transition,
+    isDragging, // State to know if currently dragging
+  } = useSortable({ id: categoryGroup.category.id }); // Use category ID as the unique sortable ID
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1, // Make slightly transparent when dragging
+    zIndex: isDragging ? 10 : undefined, // Bring dragging item to front
+  };
+
+  return (
+    // Apply ref, style, and attributes to the main container div
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {/* Render the children (the original category content) */}
+      {children}
+      {/* You can optionally place the drag handle listeners here */}
+      <button
+        type="button"
+        {...listeners}
+        className="cursor-grab touch-none p-1 text-muted-foreground hover:bg-accent rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:hidden" // Hide handle on print
+        aria-label={`Réorganiser la catégorie ${categoryGroup.category.name}`}
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+    </div>
+  );
+};
+
+// --- End Sortable Item Component ---
 
 export default ResultDetailPage;
