@@ -139,8 +139,18 @@ body {
 
       /* --- Reset page layout for print --- */
       body {
-          margin: 0;
-          padding: 0;
+          /* margin: 0;
+          padding: 0; */
+
+
+          /* /----------------- */
+          margin: 0 !important;
+          padding: 0 !important;
+          /* ----------------- */
+
+
+
+
           background-color: #fff; /* Ensure white background */
           font-size: 10pt; /* Set a base print font size */
            /* Consider a print-friendly font stack if default isn't ideal */
@@ -163,6 +173,7 @@ body {
       /* --- Style the report content container --- */
       .report-content {
            margin: 1cm; /* Add print margins */
+           margin-top: 0cm; 
            padding: 0 !important; /* Remove screen padding */
            border: none !important; /* Remove screen border */
            box-shadow: none !important; /* Remove screen shadow */
@@ -170,6 +181,16 @@ body {
            min-height: auto !important;
            background-color: #fff !important; /* Ensure white */
       }
+
+      .report-content > div:first-child {
+        margin-top: 0 !important;
+        margin-bottom: 0.5rem !important; /* Add back a smaller bottom margin for print */
+        padding-top: 0 !important;
+     }
+
+     .report-content > div:first-child > header {
+     padding-top: 0 !important;
+  }
 
       /* --- General Print Element Adjustments --- */
       h1, h2, h3 {

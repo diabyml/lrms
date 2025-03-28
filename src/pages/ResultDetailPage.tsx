@@ -69,6 +69,27 @@ const availableHeaderTemplates = [
 ];
 const defaultTemplateId = "template1"; // Match default in DB/settings page
 
+// draggable-categories
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable, // Keep this one for the button item
+  horizontalListSortingStrategy, // Use horizontal strategy for buttons
+  // verticalListSortingStrategy, // No longer needed for categories directly
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react"; // Keep or use another handle icon if preferred
+
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
 type Patient = Tables<"patient">;
@@ -150,6 +171,13 @@ const ResultDetailPage: React.FC = () => {
   const [loadingHeader, setLoadingHeader] = useState<boolean>(true); // Separate loading state
 
   const reportContentRef = useRef<HTMLDivElement>(null); // Create the ref
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates, // sortableKeyboardCoordinates might need adjustments for horizontal
+    })
+  );
 
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
@@ -377,6 +405,24 @@ const ResultDetailPage: React.FC = () => {
   const handlePrint = () => {
     // Optional: Could add checks here, like if data is loaded
     window.print();
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setGroupedResults((items) => {
+        // active.id and over.id will be category IDs from the buttons
+        const oldIndex = items.findIndex(
+          (item) => item.category.id === active.id
+        );
+        const newIndex = items.findIndex(
+          (item) => item.category.id === over.id
+        );
+        if (oldIndex === -1 || newIndex === -1) return items; // Safety check
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
 
   // --- Render Logic ---
@@ -687,6 +733,38 @@ const ResultDetailPage: React.FC = () => {
           </Card>
         </div>
 
+        {/* --- Category Reorder Buttons (UPDATED with DND) --- */}
+        {groupedResults.length > 1 && (
+          <div className="my-6 print:hidden">
+            <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Réorganiser les Catégories (Glisser-Déposer) :
+            </Label>
+            {/* Wrap buttons in Dnd Context */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={groupedResults.map((g) => g.category.id)} // IDs for context
+                strategy={horizontalListSortingStrategy} // Use horizontal strategy
+              >
+                <div className="flex flex-wrap gap-2">
+                  {/* Map over groupedResults to render sortable buttons */}
+                  {groupedResults.map((categoryGroup) => (
+                    <SortableCategoryButton
+                      key={categoryGroup.category.id}
+                      category={categoryGroup.category}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            <Separator className="mt-6" />
+          </div>
+        )}
+        {/* --- End Category Reorder Buttons --- */}
+
         {/* 3. Grouped Results Section */}
         <div className="space-y-6 print:space-y-4">
           {groupedResults.length === 0 && (
@@ -700,12 +778,12 @@ const ResultDetailPage: React.FC = () => {
           {groupedResults.map((categoryGroup) => (
             <div
               key={categoryGroup.category.id}
-              className="space-y-3 print:break-inside-avoid-page"
+              className="space-y-3 _print:break-inside-avoid-page"
             >
               {/* Category Header */}
               <div className="flex items-center gap-3 pt-4 print:pt-2">
                 <Layers className="h-5 w-5 text-primary print:h-4 print:w-4" />
-                <h2 className="text-xl font-semibold tracking-tight print:text-base">
+                <h2 className="text-xl font-bold  tracking-tight print:text-base">
                   {categoryGroup.category.name}
                 </h2>
                 <Separator className="flex-1 print:hidden" />
@@ -728,7 +806,7 @@ const ResultDetailPage: React.FC = () => {
                   >
                     {/* Conditionally render Test Type Name */}
                     {!isSingleParameter && (
-                      <h3 className="text-base font-bold mb-1 print:text-sm">
+                      <h3 className="text-base font-regular mb-1 print:text-sm">
                         {testTypeGroup.testType.name}
                       </h3>
                     )}
@@ -758,7 +836,7 @@ const ResultDetailPage: React.FC = () => {
                       <TableBody>
                         {/* If single param, render it directly WITH EXPLICIT WIDTHS */}
                         {isSingleParameter && singleParam ? (
-                          <TableRow className="print:even:bg-white">
+                          <TableRow className="print:even:bg-white print:break-inside-avoid">
                             {/* Apply matching width classes here */}
                             <TableCell className="font-medium pl-10   print:pl-0 w-[40%]">
                               {singleParam.name}
@@ -778,7 +856,7 @@ const ResultDetailPage: React.FC = () => {
                           testTypeGroup.parameters.map((param) => (
                             <TableRow
                               key={param.id}
-                              className="print:even:bg-white"
+                              className="print:even:bg-white print:break-inside-avoid"
                             >
                               <TableCell className="font-medium pl-2 print:pl-0">
                                 {param.name}
@@ -794,7 +872,7 @@ const ResultDetailPage: React.FC = () => {
                         {/* Handle case of a test type with ZERO parameters */}
                         {testTypeGroup.parameters.length === 0 && (
                           // ... zero parameters row ...
-                          <TableRow>
+                          <TableRow className="print:break-inside-avoid">
                             <TableCell
                               colSpan={4}
                               className="h-10 text-center text-xs italic text-muted-foreground pl-2 print:pl-0"
@@ -816,5 +894,51 @@ const ResultDetailPage: React.FC = () => {
     </div> // End main container div
   );
 };
+
+// src/pages/ResultDetailPage.tsx -> Define this component within or import it
+
+interface SortableCategoryButtonProps {
+  category: Category; // Pass the category object
+  // No children needed if button content is defined here
+}
+
+const SortableCategoryButton: React.FC<SortableCategoryButtonProps> = ({
+  category,
+}) => {
+  const {
+    attributes,
+    listeners, // Listeners for the drag handle
+    setNodeRef, // Ref for the whole sortable item (the button container)
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id }); // Use category ID
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    // Apply ref, style, and non-listener attributes to the container
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {/* Button now includes the drag handle */}
+      <Button
+        variant="secondary"
+        size="sm"
+        className="cursor-grab touch-none flex items-center gap-1.5" // Add flex styling
+      >
+        {/* Drag Handle Element - Apply listeners here */}
+        <span {...listeners} aria-label={`Réorganiser ${category.name}`}>
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </span>
+        {category.name}
+      </Button>
+    </div>
+  );
+};
+// --- End SortableCategoryButton ---
 
 export default ResultDetailPage;
