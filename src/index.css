@@ -253,5 +253,19 @@ body {
            padding-bottom: 0.5cm !important;
            margin-bottom: 0.5cm !important;
       }
+
+      /* Class to force a page break BEFORE an element */
+  .print-force-break-before {
+    break-before: page !important; /* Modern standard */
+    page-break-before: always !important; /* Older fallback */
+    /* Optional: Add some padding/margin at the top of the element after the break */
+    padding-top: 1rem !important;
+    margin-top: 0 !important; /* Reset any default margin */
+  }
+
+
   }
 }
+
+
+

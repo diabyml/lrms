@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"; // Adjust path if needed
 import { Separator } from "@/components/ui/separator"; // Adjust path if needed
 import { Skeleton } from "@/components/ui/skeleton"; // Adjust path if needed
+import { Checkbox } from "@/components/ui/checkbox"; // Adjust path if needed
 import {
   Table,
   TableBody,
@@ -35,6 +36,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   AlertCircle,
+  ArrowDownToLine,
   ArrowLeft,
   CalendarDays,
   CheckCircle,
@@ -89,6 +91,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react"; // Keep or use another handle icon if preferred
+import { DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
@@ -178,6 +181,10 @@ const ResultDetailPage: React.FC = () => {
       coordinateGetter: sortableKeyboardCoordinates, // sortableKeyboardCoordinates might need adjustments for horizontal
     })
   );
+
+  const [forceBreakBefore, setForceBreakBefore] = useState<
+    Record<string, boolean>
+  >({}); // Maps categoryId to boolean
 
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
@@ -425,6 +432,15 @@ const ResultDetailPage: React.FC = () => {
     }
   };
 
+  // --- Page Break Toggle Handler --- NEW FUNCTION ---
+  const handleForceBreakToggle = (categoryId: string, shouldBreak: boolean) => {
+    setForceBreakBefore((prev) => ({
+      ...prev,
+      [categoryId]: shouldBreak, // Set the boolean value for the specific categoryId
+    }));
+  };
+  // --- End Page Break Toggle Handler ---
+
   // --- Render Logic ---
   // --- Render Logic ---
   const renderInfoItem = (
@@ -443,7 +459,9 @@ const ResultDetailPage: React.FC = () => {
           </p>
           <p className="text-sm font-bold print:text-xs">
             {value || (
-              <span className="text-muted-foreground italic">Non spécifié</span>
+              <span className="text-muted-foreground italic font-normal">
+                Non spécifié
+              </span>
             )}
           </p>
         </div>
@@ -611,9 +629,9 @@ const ResultDetailPage: React.FC = () => {
         <Separator className="my-4 print:hidden" />
 
         {/* 2. Info Grid (Patient, Doctor, Result Meta) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2">
           {/* Patient Card */}
-          <Card className="overflow-hidden print:shadow-none _print:border-none">
+          <Card className="overflow-hidden print:shadow-none">
             <CardHeader className="pb-2 print:pb-1">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 print:text-xs">
                 <User className="h-4 w-4" />
@@ -621,10 +639,10 @@ const ResultDetailPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 pt-1 print:space-y-0.5 print:pt-0.5">
-              {renderInfoItem(Info, "Nom Complet", patientData?.full_name)}
+              {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
               {renderInfoItem(
                 Info,
-                "ID Unique",
+                "IDENTIFIANT Unique",
                 patientData?.patient_unique_id
               )}
               {renderInfoItem(
@@ -636,8 +654,20 @@ const ResultDetailPage: React.FC = () => {
                     })
                   : null
               )}
+              <div className="hidden print:block">
+                {renderInfoItem(
+                  CalendarDays,
+                  "Date Résultat",
+                  resultData.result_date
+                    ? format(parseISO(resultData.result_date), "Pp", {
+                        locale: fr,
+                      })
+                    : null
+                )}
+              </div>
             </CardContent>
           </Card>
+
           {/* Doctor Card */}
           <Card className="overflow-hidden print:shadow-none _print:border-none">
             <CardHeader className="pb-2 print:pb-1">
@@ -647,13 +677,13 @@ const ResultDetailPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 pt-1 print:space-y-0.5 print:pt-0.5">
-              {renderInfoItem(User, "Nom", doctorData?.full_name)}
+              {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
               {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
               {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
             </CardContent>
           </Card>
           {/* Result Info Card */}
-          <Card className="overflow-hidden print:shadow-none _print:border-none">
+          <Card className="overflow-hidden print:shadow-none _print:border-none  print:hidden">
             <CardHeader className="pb-2 print:pb-1">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 print:text-xs">
                 <ListChecks className="h-4 w-4" />
@@ -765,130 +795,166 @@ const ResultDetailPage: React.FC = () => {
         )}
         {/* --- End Category Reorder Buttons --- */}
 
-        {/* 3. Grouped Results Section */}
-        <div className="space-y-6 print:space-y-4">
-          {groupedResults.length === 0 && (
+        {/* --- 3. Grouped Results Section (Single Table per Category + Page Break Toggle) --- */}
+        <div className="space-y-8 print:space-y-4">
+          {" "}
+          {/* Increased space between categories */}
+          {groupedResults.length === 0 && !loading && (
             <Card className="print:border-none print:shadow-none">
               <CardContent className="pt-6 text-center text-muted-foreground print:pt-2">
                 Aucune valeur de résultat enregistrée pour ce rapport.
               </CardContent>
             </Card>
           )}
+          {groupedResults.map((categoryGroup) => {
+            // Check the state for this category for page break
+            const shouldForceBreak =
+              forceBreakBefore[categoryGroup.category.id] ?? false;
 
-          {groupedResults.map((categoryGroup) => (
-            <div
-              key={categoryGroup.category.id}
-              className="space-y-3 _print:break-inside-avoid-page"
-            >
-              {/* Category Header */}
-              <div className="flex items-center gap-3 pt-4 print:pt-2">
-                <Layers className="h-5 w-5 text-primary print:h-4 print:w-4" />
-                <h2 className="text-xl font-bold  tracking-tight print:text-base">
-                  {categoryGroup.category.name}
-                </h2>
-                <Separator className="flex-1 print:hidden" />
-              </div>
-
-              {/* Test Type Tables/Rows within Category */}
-              {categoryGroup.testTypes.map((testTypeGroup) => {
-                const isSingleParameter = testTypeGroup.parameters.length === 1;
-                const singleParam = isSingleParameter
-                  ? testTypeGroup.parameters[0]
-                  : null;
-
-                return (
-                  <div
-                    key={testTypeGroup.testType.id}
-                    className={cn(
-                      "print:break-inside-avoid",
-                      !isSingleParameter && "ml-4 sm:ml-8 print:ml-0" // Indent only if multiple params or zero
-                    )}
-                  >
-                    {/* Conditionally render Test Type Name */}
-                    {!isSingleParameter && (
-                      <h3 className="text-base font-regular mb-1 print:text-sm">
-                        {testTypeGroup.testType.name}
-                      </h3>
-                    )}
-
-                    {/* Render Table */}
-                    <Table
-                      className={cn(
-                        "print:text-xs",
-                        isSingleParameter && "mt-1"
-                      )}
+            return (
+              // Apply force break class here if needed
+              <div
+                key={categoryGroup.category.id}
+                className={cn(
+                  // Removed: print:break-inside-avoid-page - let category content break naturally
+                  shouldForceBreak && "print-force-break-before" // Apply force break class
+                )}
+              >
+                {/* Category Header (Includes Page Break Toggle) */}
+                <div className="flex items-center gap-3 mb-3 print:mb-2">
+                  {" "}
+                  {/* Added bottom margin */}
+                  {/* <Layers className="h-5 w-5 text-primary print:h-4 print:w-4" /> */}
+                  <h2 className="text-xl font-bold uppercase mx-auto tracking-tight  print:text-center">
+                    {" "}
+                    {/* Corrected font-weight */}
+                    {categoryGroup.category.name}
+                  </h2>
+                  <Separator className="flex-1 print:hidden" />
+                  {/* --- Page Break Toggle Checkbox (Screen Only - KEPT FROM YOUR CODE) --- */}
+                  <div className="flex items-center space-x-2 ml-auto print:hidden pl-4">
+                    <Checkbox
+                      id={`break-${categoryGroup.category.id}`}
+                      checked={shouldForceBreak}
+                      onCheckedChange={(checked) => {
+                        const isChecked = checked === true;
+                        handleForceBreakToggle(
+                          categoryGroup.category.id,
+                          isChecked
+                        );
+                      }}
+                      aria-label="Forcer saut de page avant"
+                    />
+                    <Label
+                      htmlFor={`break-${categoryGroup.category.id}`}
+                      className="text-xs font-medium text-muted-foreground cursor-pointer flex items-center gap-1"
+                      title="Forcer un saut de page avant cette catégorie à l'impression"
                     >
-                      {/* Conditionally render TableHeader only if NOT single parameter */}
-                      {!isSingleParameter && (
-                        <TableHeader className="bg-muted/10 print:bg-gray-100">
-                          <TableRow>
-                            <TableHead className="w-[40%] pl-2 print:pl-0">
-                              Paramètre
-                            </TableHead>
-                            <TableHead className="w-[20%]">Valeur</TableHead>
-                            <TableHead className="w-[15%]">Unité</TableHead>
-                            <TableHead className="w-[25%] pr-2 print:pr-0">
-                              Réf.
-                            </TableHead>
+                      <ArrowDownToLine className="h-3.5 w-3.5" /> Saut Page
+                      Avant
+                    </Label>
+                  </div>
+                  {/* --- End Page Break Toggle Checkbox --- */}
+                </div>
+
+                {/* == START: SINGLE TABLE PER CATEGORY == */}
+                <Table className="print:text-xs">
+                  {/* == Table Header (Rendered ONCE per category) == */}
+                  <TableHeader className="bg-muted/10 print:bg-gray-100">
+                    <TableRow>
+                      <TableHead className="w-[40%] pl-4 print:pl-1">
+                        Paramètre
+                      </TableHead>
+                      <TableHead className="w-[20%] pl-2 print:pl-1">
+                        Valeur
+                      </TableHead>
+                      <TableHead className="w-[15%] pl-2 print:pl-1">
+                        Unité
+                      </TableHead>
+                      <TableHead className="w-[25%] pr-4 print:pr-1">
+                        Réf.
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  {/* == Table Body (Contains Test Type Subheaders and Parameter Rows) == */}
+                  <TableBody>
+                    {/* Check if there are any test types */}
+                    {categoryGroup.testTypes.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="h-10 text-center text-xs italic text-muted-foreground"
+                        >
+                          (Aucun type de test dans cette catégorie)
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {/* Loop through Test Types WITHIN the Table Body */}
+                    {categoryGroup.testTypes.map((testTypeGroup) => (
+                      <React.Fragment key={testTypeGroup.testType.id}>
+                        {/* --- Test Type Subheader Row --- */}
+                        {testTypeGroup.parameters.length > 1 && (
+                          <TableRow className="bg-muted/50 print:bg-gray-50 hover:bg-muted/60 print:break-inside-avoid">
+                            <TableCell
+                              colSpan={4}
+                              className="py-1.5 px-4 print:px-1 font-semibold text-sm print:text-xs text-foreground"
+                            >
+                              {testTypeGroup.testType.name}
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                      )}
-                      <TableBody>
-                        {/* If single param, render it directly WITH EXPLICIT WIDTHS */}
-                        {isSingleParameter && singleParam ? (
-                          <TableRow className="print:even:bg-white print:break-inside-avoid">
-                            {/* Apply matching width classes here */}
-                            <TableCell className="font-medium pl-10   print:pl-0 w-[40%]">
-                              {singleParam.name}
-                            </TableCell>
-                            <TableCell className=" pl-7 print:pl-2 w-[20%]">
-                              {singleParam.resultValue}
-                            </TableCell>
-                            <TableCell className="pl-5 print:pl-2 w-[15%]">
-                              {singleParam.unit || "-"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground pr-2 print:pr-0 w-[25%]">
-                              {singleParam.reference_range || "-"}
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          // Otherwise, map multiple parameters (widths applied via TableHead)
+                        )}
+
+                        {/* --- Parameter Rows --- */}
+                        {testTypeGroup.parameters.length > 0 ? (
                           testTypeGroup.parameters.map((param) => (
                             <TableRow
                               key={param.id}
-                              className="print:even:bg-white print:break-inside-avoid"
+                              className="print:even:bg-white print:break-inside-avoid  "
                             >
-                              <TableCell className="font-medium pl-2 print:pl-0">
+                              <TableCell className="font-medium pl-6 print:pl-2 w-[40%]">
                                 {param.name}
                               </TableCell>
-                              <TableCell>{param.resultValue}</TableCell>
-                              <TableCell>{param.unit || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground pr-2 print:pr-0">
+                              <TableCell className="pl-2 print:pl-1 w-[20%]">
+                                {param.resultValue}
+                              </TableCell>
+                              <TableCell className="pl-2 print:pl-1 w-[15%]">
+                                {param.unit || "-"}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%]">
                                 {param.reference_range || "-"}
                               </TableCell>
                             </TableRow>
                           ))
+                        ) : (
+                          <></> // Render nothing if no params (subheader is also skipped)
                         )}
-                        {/* Handle case of a test type with ZERO parameters */}
-                        {testTypeGroup.parameters.length === 0 && (
-                          // ... zero parameters row ...
-                          <TableRow className="print:break-inside-avoid">
-                            <TableCell
-                              colSpan={4}
-                              className="h-10 text-center text-xs italic text-muted-foreground pl-2 print:pl-0"
-                            >
-                              (Aucun paramètre pour ce test)
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                      </React.Fragment>
+                    ))}
+
+                    {/* Optional: Handle case where category has TTypes, but NONE have params */}
+                    {categoryGroup.testTypes.length > 0 &&
+                      categoryGroup.testTypes.every(
+                        (tt) => tt.parameters.length === 0
+                      ) && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={4}
+                            className="h-10 text-center text-xs italic text-muted-foreground"
+                          >
+                            (Aucun paramètre défini pour les tests de cette
+                            catégorie)
+                          </TableCell>
+                        </TableRow>
+                      )}
+                  </TableBody>
+                </Table>
+                {/* == END: SINGLE TABLE PER CATEGORY == */}
+              </div> // End Category Group Div
+            );
+          })}
         </div>
+        {/* --- End Grouped Results Section --- */}
       </div>{" "}
       {/* End Report Content Wrapper */}
     </div> // End main container div
