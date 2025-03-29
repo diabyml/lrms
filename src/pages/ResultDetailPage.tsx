@@ -1041,8 +1041,14 @@ const ResultDetailPage: React.FC = () => {
                                 <TableCell className="pl-2 print:pl-1 w-[15%]">
                                   {param.unit || "-"}
                                 </TableCell>
-                                <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%]">
-                                  {param.reference_range || "-"}
+                                <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%] !whitespace-pre-line">
+                                  {!param.reference_range && "-"}
+                                  {param.reference_range &&
+                                    param.reference_range
+                                      .split(";")
+                                      .map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
                                 </TableCell>
                               </TableRow>
                             );
