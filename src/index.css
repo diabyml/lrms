@@ -126,6 +126,22 @@ body {
 }
 
 
+
+
+ /* Ensure warning background prints */
+ .result-indeterminate-range {
+  background-color: rgba(251, 191, 36, 0.4) !important;
+  /* color: #78350f !important; */ /* if text color is set */
+}
+
+/* Ensure out-of-range background prints */
+.result-out-of-range {
+   background-color: rgba(254, 226, 226, 0.7) !important;
+   background-color: rgba(248, 208, 208, 0.7) !important;
+   /* color: #991b1b !important; */ /* if text color is set */
+}
+
+
 /* === Print Specific Styles === */
 @layer utilities { /* Or place directly after @tailwind utilities */
   @media print {
@@ -155,7 +171,15 @@ body {
           font-size: 10pt; /* Set a base print font size */
            /* Consider a print-friendly font stack if default isn't ideal */
            /* font-family: 'Times New Roman', Times, serif; */
+
+
+           -webkit-print-color-adjust: exact !important; /* Chrome, Safari, Edge */
+            print-color-adjust: exact !important; /* Standard */
       }
+
+      .bg-red-100 { 
+    -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;  }
 
       /* Target the main content area from MainLayout to remove constraints */
       /* Adjust selector based on your MainLayout structure if needed */

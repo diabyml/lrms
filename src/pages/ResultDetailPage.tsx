@@ -92,6 +92,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react"; // Keep or use another handle icon if preferred
 import { DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import {
+  checkValueRangeStatus,
+  isValueOutOfRange,
+  RangeCheckStatus,
+} from "@/lib/rangeChecker";
 
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
@@ -185,6 +190,11 @@ const ResultDetailPage: React.FC = () => {
   const [forceBreakBefore, setForceBreakBefore] = useState<
     Record<string, boolean>
   >({}); // Maps categoryId to boolean
+
+  type HighlightOverride = "on" | "off" | "warn";
+  const [highlightOverrides, setHighlightOverrides] = useState<
+    Record<string, HighlightOverride>
+  >({});
 
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
@@ -440,6 +450,53 @@ const ResultDetailPage: React.FC = () => {
     }));
   };
   // --- End Page Break Toggle Handler ---
+
+  // src/pages/ResultDetailPage.tsx -> within the component
+
+  // --- Highlight Override Handler --- NEW FUNCTION ---
+  // --- Override Toggle Handler ---
+  const handleHighlightToggle = (parameterId: string) => {
+    setHighlightOverrides((prevOverrides) => {
+      const currentOverride = prevOverrides[parameterId];
+      const newOverrides = { ...prevOverrides };
+
+      // Determine automatic status first
+      let autoStatus: RangeCheckStatus = "indeterminate";
+      // Find the parameter data (consider optimizing this lookup if needed)
+      for (const category of groupedResults) {
+        for (const testType of category.testTypes) {
+          const param = testType.parameters.find((p) => p.id === parameterId);
+          if (param) {
+            autoStatus = checkValueRangeStatus(
+              param.resultValue,
+              param.reference_range
+            );
+            break;
+          }
+        }
+        if (autoStatus !== "indeterminate") break; // Found and checked
+      }
+
+      // Cycle logic: Auto -> Force Off -> Force On -> Force Warn -> Auto...
+      if (currentOverride === undefined) {
+        // No override -> Force Off
+        newOverrides[parameterId] = "off";
+      } else if (currentOverride === "off") {
+        // Forced Off -> Force On (Red)
+        newOverrides[parameterId] = "on";
+      } else if (currentOverride === "on") {
+        // Forced On -> Force Warn (Orange)
+        newOverrides[parameterId] = "warn";
+      } else {
+        // currentOverride === 'warn'
+        // Forced Warn -> Remove override (back to Auto)
+        delete newOverrides[parameterId];
+      }
+
+      return newOverrides;
+    });
+  };
+  // --- End Highlight Override Handler ---
 
   // --- Render Logic ---
   // --- Render Logic ---
@@ -907,25 +964,89 @@ const ResultDetailPage: React.FC = () => {
 
                         {/* --- Parameter Rows --- */}
                         {testTypeGroup.parameters.length > 0 ? (
-                          testTypeGroup.parameters.map((param) => (
-                            <TableRow
-                              key={param.id}
-                              className="print:even:bg-white print:break-inside-avoid  "
-                            >
-                              <TableCell className="font-medium pl-6 print:pl-2 w-[40%]">
-                                {param.name}
-                              </TableCell>
-                              <TableCell className="pl-2 print:pl-1 w-[20%]">
-                                {param.resultValue}
-                              </TableCell>
-                              <TableCell className="pl-2 print:pl-1 w-[15%]">
-                                {param.unit || "-"}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%]">
-                                {param.reference_range || "-"}
-                              </TableCell>
-                            </TableRow>
-                          ))
+                          testTypeGroup.parameters.map((param) => {
+                            // 1. Automatic check status
+                            const autoStatus: RangeCheckStatus =
+                              checkValueRangeStatus(
+                                param.resultValue,
+                                param.reference_range
+                              );
+                            // 2. Check override state
+                            const overrideState = highlightOverrides[param.id];
+
+                            // 3. Determine final highlight class
+                            let highlightClass = "";
+                            const isClickable = true; // Values are generally clickable now
+                            let valueClasses = ""; // For optional text styling
+
+                            if (overrideState === "on") {
+                              highlightClass = "result-out-of-range"; // Force Red
+                              valueClasses =
+                                "font-bold text-red-700 dark:text-red-400 print:text-red-700";
+                            } else if (overrideState === "off") {
+                              highlightClass = ""; // Force Normal
+                            } else if (overrideState === "warn") {
+                              highlightClass = "result-indeterminate-range"; // Force Orange
+                              // valueClasses = 'text-amber-800 dark:text-amber-400 print:text-amber-800'; // Optional text style
+                            } else {
+                              // overrideState is undefined, use automatic check
+                              if (autoStatus === "out-of-range") {
+                                highlightClass = "result-out-of-range"; // Auto Red
+                                valueClasses =
+                                  "font-bold text-red-700 dark:text-red-400 print:text-red-700";
+                              } else if (autoStatus === "indeterminate") {
+                                highlightClass = "result-indeterminate-range"; // Auto Orange
+                                // valueClasses = 'text-amber-800 dark:text-amber-400 print:text-amber-800';
+                              } else {
+                                // autoStatus === 'in-range'
+                                highlightClass = ""; // Auto Normal
+                                // isClickable = false; // Optionally make in-range values non-clickable? Maybe keep clickable for consistency.
+                              }
+                            }
+
+                            return (
+                              <TableRow
+                                key={param.id}
+                                className={cn(
+                                  "print:even:bg-white print:break-inside-avoid  "
+                                  // shouldHighlight &&
+                                  //   "bg-red-100 dark:bg-red-900/30 print:bg-white" // Lighter red for screen/print
+                                  // highlightClass
+                                )}
+                              >
+                                <TableCell className="font-medium pl-6 print:pl-2 w-[40%]">
+                                  {param.name}
+                                </TableCell>
+                                <TableCell
+                                  className={cn(
+                                    "pl-2 print:pl-1 w-[20%] cursor-pointer hover:bg-muted/50",
+                                    isClickable &&
+                                      "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
+                                    valueClasses, // Apply text styles
+                                    highlightClass
+                                  )}
+                                  onClick={
+                                    isClickable
+                                      ? () => handleHighlightToggle(param.id)
+                                      : undefined
+                                  }
+                                  title={
+                                    isClickable
+                                      ? "Cliquer pour changer le surlignage"
+                                      : undefined
+                                  }
+                                >
+                                  {param.resultValue}
+                                </TableCell>
+                                <TableCell className="pl-2 print:pl-1 w-[15%]">
+                                  {param.unit || "-"}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%]">
+                                  {param.reference_range || "-"}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
                         ) : (
                           <></> // Render nothing if no params (subheader is also skipped)
                         )}
