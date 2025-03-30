@@ -167,7 +167,7 @@ body {
 
 
 
-          background-color: #fff; /* Ensure white background */
+          background-color: #fff !important; /* Ensure white background */
           font-size: 10pt; /* Set a base print font size */
            /* Consider a print-friendly font stack if default isn't ideal */
            /* font-family: 'Times New Roman', Times, serif; */

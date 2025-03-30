@@ -163,7 +163,7 @@ function checkSingleRangeLine(
       }
     }
     // Less than or equal "<= X"
-    else if (cleanedRange.startsWith("<=")) {
+    else if (cleanedRange.startsWith("<=") || cleanedRange.startsWith("≤")) {
       const limit = parseFloat(
         cleanedRange.substring(2).trim().replace(",", ".")
       );
@@ -172,7 +172,7 @@ function checkSingleRangeLine(
       }
     }
     // Greater than or equal ">= X"
-    else if (cleanedRange.startsWith(">=")) {
+    else if (cleanedRange.startsWith(">=") || cleanedRange.startsWith("≥")) {
       const limit = parseFloat(
         cleanedRange.substring(2).trim().replace(",", ".")
       );
@@ -224,6 +224,25 @@ export function checkValueRangeStatus(
     rangeStr.trim() === ""
   ) {
     return "indeterminate"; // Cannot compare if value or range is missing/empty
+  }
+
+  //   SOME EDGE CASES
+  if (rangeStr.trim() === "-") {
+    switch (valueStr.trim().toLocaleLowerCase()) {
+      case "0 negatif":
+      case "0 négatif":
+      case "negatif":
+      case "négatif":
+      case "neant":
+      case "néant":
+      case "0":
+        return "in-range";
+    }
+
+    // if valueStr is a number return out-of-range
+    if (!isNaN(parseFloat(valueStr))) {
+      return "out-of-range";
+    }
   }
 
   // --- Get values ready ---

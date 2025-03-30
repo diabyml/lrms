@@ -657,7 +657,7 @@ const ResultDetailPage: React.FC = () => {
       {/* --- Report Content Wrapper (for Print/PDF) --- */}
       <div
         ref={reportContentRef}
-        className="report-content bg-white p-4 sm:p-6 border border-transparent print:border-none print:p-0 print:shadow-none"
+        className="report-content bg-white  p-4 sm:p-6 border border-transparent print:border-none print:p-0 print:shadow-none"
       >
         {/* 1. Render the Dynamic Header */}
         {headerConfig ? (
@@ -1014,9 +1014,12 @@ const ResultDetailPage: React.FC = () => {
                                   // highlightClass
                                 )}
                               >
-                                <TableCell className="font-medium pl-6 print:pl-2 w-[40%]">
-                                  {param.name}
-                                </TableCell>
+                                <TableCell
+                                  className="font-medium pl-6 print:pl-2 w-[40%]"
+                                  dangerouslySetInnerHTML={{
+                                    __html: param.name,
+                                  }}
+                                ></TableCell>
                                 <TableCell
                                   className={cn(
                                     "pl-2 print:pl-1 w-[20%] cursor-pointer hover:bg-muted/50",
@@ -1038,12 +1041,19 @@ const ResultDetailPage: React.FC = () => {
                                 >
                                   {param.resultValue}
                                 </TableCell>
-                                <TableCell className="pl-2 print:pl-1 w-[15%]">
-                                  {param.unit || "-"}
+                                <TableCell
+                                  className="pl-2 print:pl-1 w-[15%]"
+                                  dangerouslySetInnerHTML={{
+                                    __html: param.unit || "-",
+                                  }}
+                                >
+                                  {/* {param.unit || "-"} */}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%] !whitespace-pre-line">
                                   {!param.reference_range && "-"}
-                                  {param.reference_range &&
+                                  {param.reference_range === "NEGATIF" && "-"}
+                                  {param.reference_range !== "NEGATIF" &&
+                                    param.reference_range &&
                                     param.reference_range
                                       .split(";")
                                       .map((line, index) => (

@@ -1169,7 +1169,7 @@ const ResultFormPage: React.FC = () => {
                 />
               </div>
               {availableTestTypes.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-3 rounded-md border p-4 max-h-60 overflow-y-auto">
+                <div className="grid grid-cols-2 _sm:grid-cols-3 _md:grid-cols-4 gap-x-4 gap-y-3 rounded-md border p-4 max-h-80 overflow-y-auto">
                   {filteredAvailableTestTypes.length > 0 ? (
                     filteredAvailableTestTypes.map((tt) => (
                       <div key={tt.id} className="flex items-center space-x-2">
@@ -1255,7 +1255,12 @@ const ResultFormPage: React.FC = () => {
                               htmlFor={`param-${param.id}`}
                               className="text-sm font-medium flex items-center gap-1"
                             >
-                              <span>{param.name}</span>
+                              {/* <span>{param.name}</span> */}
+                              <span
+                                dangerouslySetInnerHTML={{
+                                  __html: param.name,
+                                }}
+                              ></span>
                               {param.unit && (
                                 <span className="text-xs text-muted-foreground">
                                   ({param.unit})

@@ -720,9 +720,9 @@ const PatientFormPage: React.FC = () => {
                     <SelectValue placeholder="Sélectionner..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Male">Masculin</SelectItem>
-                    <SelectItem value="Female">Féminin</SelectItem>
-                    <SelectItem value="Other">Autre</SelectItem>
+                    <SelectItem value="Masculin">Masculin</SelectItem>
+                    <SelectItem value="Féminin">Féminin</SelectItem>
+                    <SelectItem value="Autre">Autre</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
