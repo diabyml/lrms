@@ -1052,7 +1052,17 @@ const ResultDetailPage: React.FC = () => {
                                 <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%] !whitespace-pre-line">
                                   {!param.reference_range && "-"}
                                   {param.reference_range === "NEGATIF" && "-"}
+
+                                  {param.reference_range?.includes("style") && (
+                                    <div
+                                      dangerouslySetInnerHTML={{
+                                        __html: param.reference_range,
+                                      }}
+                                    ></div>
+                                  )}
+
                                   {param.reference_range !== "NEGATIF" &&
+                                    !param.reference_range?.includes("style") &&
                                     param.reference_range &&
                                     param.reference_range
                                       .split(";")

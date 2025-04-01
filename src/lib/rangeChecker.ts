@@ -237,6 +237,8 @@ export function checkValueRangeStatus(
       case "néant":
       case "0":
         return "in-range";
+      case "positif":
+        return "out-of-range";
     }
 
     // if valueStr is a number return out-of-range
