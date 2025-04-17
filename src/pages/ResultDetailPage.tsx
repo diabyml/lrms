@@ -312,8 +312,8 @@ const ResultDetailPage: React.FC = () => {
         // Type assertion might be needed based on Supabase client version/typing
         const param = rv.test_parameter as
           | (TestParameter & {
-              test_type: (TestType & { category: Category | null }) | null;
-            })
+            test_type: (TestType & { category: Category | null }) | null;
+          })
           | null;
 
         if (param && param.test_type && param.test_type.category) {
@@ -769,7 +769,7 @@ const ResultDetailPage: React.FC = () => {
         <Separator className="my-4 print:hidden" />
 
         {/* 2. Info Grid (Patient, Doctor, Result Meta) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 print:hidden">
           {/* Patient Card */}
           <Card className="overflow-hidden print:shadow-none">
             <CardHeader className="pb-2 print:pb-1">
@@ -790,8 +790,8 @@ const ResultDetailPage: React.FC = () => {
                 "Date Naissance",
                 patientData?.date_of_birth
                   ? format(parseISO(patientData.date_of_birth), "P", {
-                      locale: fr,
-                    })
+                    locale: fr,
+                  })
                   : null
               )}
               <div className="hidden print:block">
@@ -800,8 +800,8 @@ const ResultDetailPage: React.FC = () => {
                   "Date Résultat",
                   resultData.result_date
                     ? format(parseISO(resultData.result_date), "Pp", {
-                        locale: fr,
-                      })
+                      locale: fr,
+                    })
                     : null
                 )}
               </div>
@@ -836,8 +836,8 @@ const ResultDetailPage: React.FC = () => {
                 "Date Résultat",
                 resultData.result_date
                   ? format(parseISO(resultData.result_date), "Pp", {
-                      locale: fr,
-                    })
+                    locale: fr,
+                  })
                   : null
               )}
               {/* --- Price Fields (Screen Only, Not Print) --- */}
@@ -977,6 +977,47 @@ const ResultDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+
+
+       {/* print info grid */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 hidden print:grid">
+  {/* Patient Info */}
+  <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
+    <div className="flex items-center gap-2 font-semibold mb-1">
+      <User className="h-4 w-4" /> Patient
+    </div>
+    {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
+    {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
+    {renderInfoItem(
+      CalendarDays,
+      "Naissance",
+      patientData?.date_of_birth
+        ? format(parseISO(patientData.date_of_birth), "P", { locale: fr })
+        : null
+    )}
+    <div className="hidden print:block">
+      {renderInfoItem(
+        CalendarDays,
+        "Date Résultat",
+        resultData.result_date
+          ? format(parseISO(resultData.result_date), "Pp", { locale: fr })
+          : null
+      )}
+    </div>
+  </div>
+
+  {/* Doctor Info */}
+  <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
+    <div className="flex items-center gap-2 font-semibold mb-1">
+      <Stethoscope className="h-4 w-4" /> Médecin
+    </div>
+    {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
+    {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
+    {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
+  </div>
+</div>
+
+
 
         {/* --- Category Reorder Buttons (UPDATED with DND) --- */}
         {groupedResults.length > 1 && (
@@ -1183,7 +1224,7 @@ const ResultDetailPage: React.FC = () => {
                                     className={cn(
                                       "pl-2 print:pl-1 w-[20%] cursor-pointer hover:bg-muted/50",
                                       isClickable &&
-                                        "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
+                                      "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
                                       valueClasses, // Apply text styles
                                       highlightClass
                                     )}
@@ -1236,9 +1277,9 @@ const ResultDetailPage: React.FC = () => {
                             {testTypeGroup.testType.description && (
                               <TableRow>
                                 <TableCell colSpan={4} className="py-2 px-6 print:px-2 text-sm print:text-xs text-muted-foreground">
-                                  <div 
-                                    dangerouslySetInnerHTML={{ 
-                                      __html: testTypeGroup.testType.description 
+                                  <div
+                                    dangerouslySetInnerHTML={{
+                                      __html: testTypeGroup.testType.description
                                     }}
                                   />
                                 </TableCell>
@@ -1297,9 +1338,9 @@ const ResultDetailPage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-            <div className="mt-2 text-sm text-muted-foreground hidden print:block print:mt-4">
-              <div className="font-bold" dangerouslySetInnerHTML={{ __html: description }} />
-            </div>
+        <div className="mt-2 text-sm text-muted-foreground hidden print:block print:mt-4">
+          <div className="font-bold" dangerouslySetInnerHTML={{ __html: description }} />
+        </div>
       </div>{" "}
       {/* End Report Content Wrapper */}
     </div> // End main container div

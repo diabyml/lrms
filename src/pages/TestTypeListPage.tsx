@@ -36,7 +36,18 @@ import {
   AlertCircle,
   DatabaseZap,
   Edit,
+  Trash,
 } from "lucide-react"; // Icons
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 // Define Types
 type Category = Tables<"category">;
@@ -53,6 +64,8 @@ const TestTypeListPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all"); // 'all' or category ID
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   // Debounce search term
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -122,6 +135,23 @@ const TestTypeListPage: React.FC = () => {
 
     return results;
   }, [testTypes, categoryFilter, debouncedSearchTerm]);
+
+  // Delete handler
+  const handleDelete = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.from("test_type").delete().eq("id", id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) {
+      setError(err?.message || "Erreur lors de la suppression.");
+    } finally {
+      setLoading(false);
+      setDialogOpen(false);
+      setPendingDeleteId(null);
+    }
+  };
 
   // --- Render Logic ---
 
@@ -267,7 +297,21 @@ const TestTypeListPage: React.FC = () => {
                           <span className="sm:hidden">Éditer</span>
                         </Button>
                       </Link>
-                      {/* Add Delete buttons later if needed, with caution */}
+                      {/* Delete Button with Dialog */}
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="ml-2"
+                        title="Supprimer"
+                        onClick={() => {
+                          setPendingDeleteId(testType.id);
+                          setDialogOpen(true);
+                        }}
+                      >
+                        <Trash className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">Supprimer</span>
+                        <span className="sm:hidden">Del</span>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -293,6 +337,31 @@ const TestTypeListPage: React.FC = () => {
           {/* Add Pagination if the list becomes very long */}
         </div>
       )}
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer ce type de test ? Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Annuler</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingDeleteId) handleDelete(pendingDeleteId);
+              }}
+              disabled={loading}
+            >
+              Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

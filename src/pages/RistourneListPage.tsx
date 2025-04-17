@@ -81,6 +81,49 @@ const RistourneListPage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Add state and effect for access code modal
+  const [showAccessModal, setShowAccessModal] = useState(() => {
+    // Only show modal if sessionStorage does not have the access flag
+    return !sessionStorage.getItem("ristourne_access_granted");
+  });
+  const [accessCodeInput, setAccessCodeInput] = useState("");
+  const [accessCodeError, setAccessCodeError] = useState<string | null>(null);
+  const [ristourneAccessCode, setRistourneAccessCode] = useState<string | null>(null);
+  const [loadingAccessCode, setLoadingAccessCode] = useState(true);
+
+  // Fetch ristourne_access_code from settings table
+  useEffect(() => {
+    const fetchAccessCode = async () => {
+      setLoadingAccessCode(true);
+      const { data, error } = await supabase
+        .from("settings")
+        .select("ristourne_access_code")
+        .limit(1)
+        .single();
+      if (!error && data && data.ristourne_access_code) {
+        setRistourneAccessCode(data.ristourne_access_code);
+      } else {
+        setRistourneAccessCode(null);
+      }
+      setLoadingAccessCode(false);
+    };
+    fetchAccessCode();
+  }, []);
+
+  // Handler for access code submit
+  const handleAccessCodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (accessCodeInput === ristourneAccessCode) {
+      setShowAccessModal(false);
+      setAccessCodeInput("");
+      setAccessCodeError(null);
+      // Set session flag so modal is not shown again this session
+      sessionStorage.setItem("ristourne_access_granted", "1");
+    } else {
+      setAccessCodeError("Code incorrect. Veuillez réessayer.");
+    }
+  };
+
   // Fetch Ristournes with pagination
   const fetchData = async () => {
     setLoading(true);
@@ -182,195 +225,231 @@ const RistourneListPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Banknote className="h-6 w-6" />
-          Gestion des Ristournes
-        </h1>
-        <Link to="/ristournes/new">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nouvelle Ristourne
-          </Button>
-        </Link>
-      </div>
-
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Rechercher par médecin ou hôpital..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 w-full md:w-1/3 h-10"
-          disabled={loading}
-        />
-      </div>
-
-      {/* Loading State */}
-      {loading && (
-        <div className="border rounded-lg">
-          <Skeleton className="h-12 w-full rounded-t-lg" />
-          <div className="p-4 space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
-      {!loading && error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Erreur de Chargement</AlertTitle>
-          <AlertDescription>
-            {error}{" "}
-            <Button
-              variant="link"
-              onClick={fetchData}
-              className="p-0 h-auto text-destructive-foreground underline"
-            >
-              Réessayer
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Data Table */}
-      {!loading && !error && (
-        <div className="border rounded-lg overflow-hidden bg-background">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Médecin</TableHead>
-                <TableHead>Hôpital</TableHead>
-                <TableHead>Montant Total</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRistournes.length > 0 ? (
-                filteredRistournes.slice().reverse().map((ristourne) => (
-                  <TableRow key={ristourne.id}>
-                    <TableCell>
-                      {formatDate(ristourne.created_date)}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {ristourne.doctor?.full_name}
-                    </TableCell>
-                    <TableCell>
-                      {ristourne.doctor?.hospital || (
-                        <span className="italic text-muted-foreground">
-                          N/A
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {formatCurrency(ristourne.total_fee)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusColors[ristourne.status]}>
-                        {statusLabels[ristourne.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link to={`/ristournes/${ristourne.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Edit className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
-                          <span className="hidden sm:inline">Modifier</span>
-                          <span className="sm:hidden">Éditer</span>
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="ml-2"
-                        onClick={() => setRistourneToDelete(ristourne)}
-                        disabled={deleting}
-                      >
-                        <Trash2 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
-                        <span className="hidden sm:inline">Supprimer</span>
-                        <span className="sm:hidden">Del</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    {searchTerm ? (
-                      "Aucune ristourne ne correspond à votre recherche."
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <p>Aucune ristourne n'a été créée.</p>
-                        <Link to="/ristournes/new">
-                          <Button variant="link" className="gap-2">
-                            <PlusCircle className="h-4 w-4" />
-                            Créer une ristourne
-                          </Button>
-                        </Link>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          {/* Pagination Controls */}
-          <div className="flex justify-between items-center py-3 px-2 border-t bg-muted text-xs">
-            <div>
-              Page {page} sur {totalPages}
-            </div>
-            <div className="space-x-2">
-              <Button size="sm" variant="outline" onClick={() => setPage(page - 1)} disabled={!canPrev}>
-                Précédent
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setPage(page + 1)} disabled={!canNext}>
-                Suivant
-              </Button>
-            </div>
-            <div>
-              {totalCount} résultats
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Delete confirmation dialog */}
-      <Dialog open={!!ristourneToDelete} onOpenChange={() => setRistourneToDelete(null)}>
-        <DialogContent>
+    <>
+      {/* Access Code Modal */}
+      <Dialog open={showAccessModal}>
+        <DialogContent className="max-w-[350px]">
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>Code d'accès requis</DialogTitle>
           </DialogHeader>
-          <div>
-            Voulez-vous vraiment supprimer cette ristourne ? Cette action est irréversible.
-            {deleteError && (
-              <Alert variant="destructive" className="mt-2">
+          <form onSubmit={handleAccessCodeSubmit} className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Entrer le code d'accès"
+              value={accessCodeInput}
+              onChange={(e) => setAccessCodeInput(e.target.value)}
+              disabled={loadingAccessCode}
+              autoFocus
+            />
+            {accessCodeError && (
+              <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Erreur</AlertTitle>
-                <AlertDescription>{deleteError}</AlertDescription>
+                <AlertDescription>{accessCodeError}</AlertDescription>
               </Alert>
             )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRistourneToDelete(null)} disabled={deleting}>
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} loading={deleting}>
-              Supprimer
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="submit" disabled={loadingAccessCode || !accessCodeInput}>
+                {loadingAccessCode ? "Chargement..." : "Valider"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Main page content, only visible if access granted */}
+      {!showAccessModal && (
+        <div className="space-y-6">
+          {/* Page Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Banknote className="h-6 w-6" />
+              Gestion des Ristournes
+            </h1>
+            <Link to="/ristournes/new">
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nouvelle Ristourne
+              </Button>
+            </Link>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Rechercher par médecin ou hôpital..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full md:w-1/3 h-10"
+              disabled={loading}
+            />
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="border rounded-lg">
+              <Skeleton className="h-12 w-full rounded-t-lg" />
+              <div className="p-4 space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erreur de Chargement</AlertTitle>
+              <AlertDescription>
+                {error}{" "}
+                <Button
+                  variant="link"
+                  onClick={fetchData}
+                  className="p-0 h-auto text-destructive-foreground underline"
+                >
+                  Réessayer
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Data Table */}
+          {!loading && !error && (
+            <div className="border rounded-lg overflow-hidden bg-background">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Médecin</TableHead>
+                    <TableHead>Hôpital</TableHead>
+                    <TableHead>Montant Total</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRistournes.length > 0 ? (
+                    filteredRistournes.slice().reverse().map((ristourne) => (
+                      <TableRow key={ristourne.id}>
+                        <TableCell>
+                          {formatDate(ristourne.created_date)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {ristourne.doctor?.full_name}
+                        </TableCell>
+                        <TableCell>
+                          {ristourne.doctor?.hospital || (
+                            <span className="italic text-muted-foreground">
+                              N/A
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(ristourne.total_fee)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusColors[ristourne.status]}>
+                            {statusLabels[ristourne.status]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Link to={`/ristournes/${ristourne.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Edit className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+                              <span className="hidden sm:inline">Modifier</span>
+                              <span className="sm:hidden">Éditer</span>
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="ml-2"
+                            onClick={() => setRistourneToDelete(ristourne)}
+                            disabled={deleting}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+                            <span className="hidden sm:inline">Supprimer</span>
+                            <span className="sm:hidden">Del</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        {searchTerm ? (
+                          "Aucune ristourne ne correspond à votre recherche."
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <p>Aucune ristourne n'a été créée.</p>
+                            <Link to="/ristournes/new">
+                              <Button variant="link" className="gap-2">
+                                <PlusCircle className="h-4 w-4" />
+                                Créer une ristourne
+                              </Button>
+                            </Link>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              {/* Pagination Controls */}
+              <div className="flex justify-between items-center py-3 px-2 border-t bg-muted text-xs">
+                <div>
+                  Page {page} sur {totalPages}
+                </div>
+                <div className="space-x-2">
+                  <Button size="sm" variant="outline" onClick={() => setPage(page - 1)} disabled={!canPrev}>
+                    Précédent
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setPage(page + 1)} disabled={!canNext}>
+                    Suivant
+                  </Button>
+                </div>
+                <div>
+                  {totalCount} résultats
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Delete confirmation dialog */}
+          <Dialog open={!!ristourneToDelete} onOpenChange={() => setRistourneToDelete(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Confirmer la suppression</DialogTitle>
+              </DialogHeader>
+              <div>
+                Voulez-vous vraiment supprimer cette ristourne ? Cette action est irréversible.
+                {deleteError && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Erreur</AlertTitle>
+                    <AlertDescription>{deleteError}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRistourneToDelete(null)} disabled={deleting}>
+                  Annuler
+                </Button>
+                <Button variant="destructive" onClick={handleDelete} loading={deleting}>
+                  Supprimer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -100,7 +100,7 @@ const RistourneFormPage: React.FC = () => {
   const statusOptions = [
     { value: "pending", label: "En attente" },
     { value: "paid", label: "Payé" },
-    { value: "cancelled", label: "Annulé" }
+    // { value: "cancelled", label: "Annulé" }
   ];
 
   useEffect(() => {
@@ -210,7 +210,7 @@ const RistourneFormPage: React.FC = () => {
     const total = updatedResults
       .filter(r => r.isSelected)
       .reduce((sum, r) => sum + r.calculatedFee, 0);
-    
+
     setTotalFee(total);
     return updatedResults;
   }, []);
@@ -221,14 +221,14 @@ const RistourneFormPage: React.FC = () => {
       const updated = current.map(result =>
         result.id === resultId ? { ...result, isSelected } : result
       );
-      
+
       if (doctorFeeConfig) {
         const total = updated
           .filter(r => r.isSelected)
           .reduce((sum, r) => sum + r.calculatedFee, 0);
         setTotalFee(total);
       }
-      
+
       return updated;
     });
   };
@@ -255,6 +255,8 @@ const RistourneFormPage: React.FC = () => {
 
       setDoctorFeeConfig(data);
       setPatientResults(current => recalculateFeesAndTotal(current, data));
+      // Refetch patient results with new config
+      await loadPatientResults(selectedDoctor.id, data, patientResults.filter(r => r.isSelected));
     } catch (err: any) {
       console.error("Error saving fee config:", err);
       setError(err.message || "Une erreur est survenue lors de la sauvegarde de la configuration");
@@ -269,6 +271,35 @@ const RistourneFormPage: React.FC = () => {
       idsToInclude = existingResults.map(r => r.id);
     }
 
+    // --- NEW LOGIC: Find results that are paid or pending in other ristournes ---
+    let excludeResultIds: string[] = [];
+    if (isEditMode && ristourneId) {
+      // Fetch all patient_result_ids that are paid/pending in other ristournes
+      const { data: lockedResults, error: lockedError } = await supabase
+        .from("ristourne_patient_result")
+        .select("patient_result_id, ristourne(status, id)");
+      if (!lockedError && Array.isArray(lockedResults)) {
+        excludeResultIds = lockedResults
+          .filter(
+            (r: any) =>
+              r.ristourne &&
+              ["paid", "pending"].includes(r.ristourne.status) &&
+              r.ristourne.id !== ristourneId
+          )
+          .map((r: any) => r.patient_result_id);
+      }
+    } else {
+      // In create mode, exclude all paid/pending results
+      const { data: lockedResults, error: lockedError } = await supabase
+        .from("ristourne_patient_result")
+        .select("patient_result_id, ristourne(status)");
+      if (!lockedError && Array.isArray(lockedResults)) {
+        excludeResultIds = lockedResults
+          .filter((r: any) => r.ristourne && ["paid", "pending"].includes(r.ristourne.status))
+          .map((r: any) => r.patient_result_id);
+      }
+    }
+
     // Fetch all unpaid results, and also any paid results that are part of the current ristourne
     let query = supabase
       .from("patient_result")
@@ -281,6 +312,16 @@ const RistourneFormPage: React.FC = () => {
     } else {
       // In create mode: only unpaid
       query = query.eq("doctor_id", doctorId).eq("paid_status", "unpaid");
+    }
+
+    if (excludeResultIds.length > 0) {
+      // Always allow those already selected in this ristourne (idsToInclude)
+      const idsToReallyExclude = excludeResultIds.filter(
+        (id) => !idsToInclude.includes(id)
+      );
+      if (idsToReallyExclude.length > 0) {
+        query = query.not('id', 'in', `(${idsToReallyExclude.join(',')})`);
+      }
     }
 
     const { data, error } = await query;
@@ -306,7 +347,6 @@ const RistourneFormPage: React.FC = () => {
     });
 
     setPatientResults(resultsWithFee);
-    
     // Calculate total for selected results
     const total = resultsWithFee
       .filter(r => r.isSelected)
@@ -488,8 +528,8 @@ const RistourneFormPage: React.FC = () => {
       )}
 
       {/* Print-only section: Doctor name and selected paid results */}
-      <div className="ristourne-print-summary hidden print:block">
-        <h1>Ristourne du Dr. {selectedDoctor?.full_name || "-"}</h1>
+      <div className="ristourne-print-summary  hidden print:block">
+        <h1>Ristourne: {selectedDoctor?.full_name || "-"}</h1>
         <table>
           <thead>
             <tr>
@@ -508,14 +548,19 @@ const RistourneFormPage: React.FC = () => {
                 <tr key={result.id}>
                   <td>{result.patient.full_name}</td>
                   <td>{new Date(result.result_date).toLocaleDateString('fr-FR')}</td>
-                  <td>{result.normal_price?.toLocaleString()} FCFA</td>
-                  <td>{result.insurance_price?.toLocaleString()} FCFA</td>
-                  <td>{result.calculatedFee.toLocaleString()} FCFA</td>
+                  <td>{result.normal_price?.toLocaleString()} </td>
+                  <td>{result.insurance_price?.toLocaleString()} </td>
+                  <td>{result.calculatedFee.toLocaleString()} </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+        <div className="flex items-center justify-end">
+          <Badge variant="secondary" className="text-lg px-4 py-2">
+            Total: {totalFee.toLocaleString()} FCFA
+          </Badge>
+        </div>
       </div>
 
       {/* Main Form (hide in print) */}
@@ -555,7 +600,7 @@ const RistourneFormPage: React.FC = () => {
             <CardHeader>
               <CardTitle>Configuration des Frais</CardTitle>
               <CardDescription>
-                {doctorFeeConfig 
+                {doctorFeeConfig
                   ? "Modifier la configuration des frais du médecin"
                   : "Créer une nouvelle configuration des frais pour le médecin"}
               </CardDescription>
@@ -665,7 +710,7 @@ const RistourneFormPage: React.FC = () => {
               </div>
 
               {/* Total Fee */}
-              <div className="mt-4 flex justify-end items-center gap-2">
+              <div className="mt-4 flex justify-end items-center gap-2 print:block">
                 <Badge variant="secondary" className="text-lg px-4 py-2">
                   Total: {totalFee.toLocaleString()} FCFA
                 </Badge>
