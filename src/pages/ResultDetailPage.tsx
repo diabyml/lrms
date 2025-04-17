@@ -362,6 +362,11 @@ const ResultDetailPage: React.FC = () => {
       categoryMap.forEach((categoryGroup) => {
         categoryGroup.testTypes.forEach((testTypeGroup) => {
           testTypeGroup.parameters.sort((a, b) => a.name.localeCompare(b.name));
+          // testTypeGroup.parameters.sort(
+          //   (a, b) =>
+          //     new Date(a.created_at).getTime() -
+          //     new Date(b.created_at).getTime()
+          // );
         });
         categoryGroup.testTypes.sort((a, b) =>
           a.testType.name.localeCompare(b.testType.name)
@@ -925,10 +930,10 @@ const ResultDetailPage: React.FC = () => {
                       <TableHead className="w-[20%] pl-2 print:pl-1">
                         Valeur
                       </TableHead>
-                      <TableHead className="w-[15%] pl-2 print:pl-1">
+                      <TableHead className="w-[10%] pl-2 print:pl-1">
                         Unité
                       </TableHead>
-                      <TableHead className="w-[25%] pr-4 print:pr-1">
+                      <TableHead className="w-[30%] pr-4 print:pr-1">
                         Réf.
                       </TableHead>
                     </TableRow>
@@ -1042,14 +1047,14 @@ const ResultDetailPage: React.FC = () => {
                                   {param.resultValue}
                                 </TableCell>
                                 <TableCell
-                                  className="pl-2 print:pl-1 w-[15%]"
+                                  className="pl-2 print:pl-1 w-[10%]"
                                   dangerouslySetInnerHTML={{
                                     __html: param.unit || "-",
                                   }}
                                 >
                                   {/* {param.unit || "-"} */}
                                 </TableCell>
-                                <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[25%] !whitespace-pre-line">
+                                <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[30%] !whitespace-pre-line">
                                   {!param.reference_range && "-"}
                                   {param.reference_range === "NEGATIF" && "-"}
 
