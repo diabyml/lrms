@@ -3,6 +3,9 @@ import React, { useState, useEffect, FormEvent, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient";
 
+// --- date-fns Import ---
+import { format } from "date-fns";
+
 // --- Shadcn/ui Imports ---
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -547,7 +550,7 @@ const RistourneFormPage: React.FC = () => {
               patientResults.filter(r => r.isSelected && r.paid_status === 'paid').map(result => (
                 <tr key={result.id}>
                   <td>{result.patient.full_name}</td>
-                  <td>{new Date(result.result_date).toLocaleDateString('fr-FR')}</td>
+                  <td>{result.result_date ? format(new Date(result.result_date), 'dd/MM/yyyy') : ''}</td>
                   <td>{result.normal_price?.toLocaleString()} </td>
                   <td>{result.insurance_price?.toLocaleString()} </td>
                   <td>{result.calculatedFee.toLocaleString()} </td>
@@ -691,7 +694,7 @@ const RistourneFormPage: React.FC = () => {
                           </TableCell>
                           <TableCell>{result.patient.full_name}</TableCell>
                           <TableCell>
-                            {new Date(result.result_date).toLocaleDateString()}
+                            {result.result_date ? format(new Date(result.result_date), 'dd/MM/yyyy') : ''}
                           </TableCell>
                           <TableCell>
                             {result.normal_price?.toLocaleString()} FCFA

@@ -11,6 +11,7 @@ import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if need
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Adjust path if needed
 import { Button } from "@/components/ui/button"; // Adjust path if needed
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Adjust path if needed
+import { Checkbox } from "@/components/ui/checkbox"; // Adjust path if needed
 import { Label } from "@/components/ui/label"; // Added Label
 import {
   Select,
@@ -21,7 +22,6 @@ import {
 } from "@/components/ui/select"; // Adjust path if needed
 import { Separator } from "@/components/ui/separator"; // Adjust path if needed
 import { Skeleton } from "@/components/ui/skeleton"; // Adjust path if needed
-import { Checkbox } from "@/components/ui/checkbox"; // Adjust path if needed
 import {
   Table,
   TableBody,
@@ -45,14 +45,13 @@ import {
   FileText,
   Hourglass,
   Info,
-  Layers,
   ListChecks,
   Loader2,
   Phone,
   Printer,
   Stethoscope,
   User,
-  Workflow,
+  Workflow
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -73,30 +72,27 @@ const defaultTemplateId = "template1"; // Match default in DB/settings page
 
 // draggable-categories
 import {
-  DndContext,
+  checkValueRangeStatus,
+  RangeCheckStatus
+} from "@/lib/rangeChecker";
+import {
   closestCenter,
+  DndContext,
+  DragEndEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
+  arrayMove, // Keep this one for the button item
+  horizontalListSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable, // Keep this one for the button item
-  horizontalListSortingStrategy, // Use horizontal strategy for buttons
-  // verticalListSortingStrategy, // No longer needed for categories directly
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react"; // Keep or use another handle icon if preferred
-import { DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
-import {
-  checkValueRangeStatus,
-  isValueOutOfRange,
-  RangeCheckStatus,
-} from "@/lib/rangeChecker";
 
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
@@ -204,6 +200,9 @@ const ResultDetailPage: React.FC = () => {
   const [insurancePrice, setInsurancePrice] = useState<string>("");
   const [savingPrices, setSavingPrices] = useState(false);
   const [pricesError, setPricesError] = useState<string | null>(null);
+
+  // Add state for margin top control
+  const [marginTop, setMarginTop] = useState(20); // default to 20
 
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
@@ -977,47 +976,43 @@ const ResultDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+        {/* print info grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 hidden print:grid">
+          {/* Patient Info */}
+          <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <User className="h-4 w-4" /> Patient
+            </div>
+            {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
+            {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
+            {renderInfoItem(
+              CalendarDays,
+              "Naissance",
+              patientData?.date_of_birth
+                ? format(parseISO(patientData.date_of_birth), "P", { locale: fr })
+                : null
+            )}
+            <div className="hidden print:block">
+              {renderInfoItem(
+                CalendarDays,
+                "Date Résultat",
+                resultData.result_date
+                  ? format(parseISO(resultData.result_date), "Pp", { locale: fr })
+                  : null
+              )}
+            </div>
+          </div>
 
-
-       {/* print info grid */}
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 hidden print:grid">
-  {/* Patient Info */}
-  <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
-    <div className="flex items-center gap-2 font-semibold mb-1">
-      <User className="h-4 w-4" /> Patient
-    </div>
-    {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
-    {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-    {renderInfoItem(
-      CalendarDays,
-      "Naissance",
-      patientData?.date_of_birth
-        ? format(parseISO(patientData.date_of_birth), "P", { locale: fr })
-        : null
-    )}
-    <div className="hidden print:block">
-      {renderInfoItem(
-        CalendarDays,
-        "Date Résultat",
-        resultData.result_date
-          ? format(parseISO(resultData.result_date), "Pp", { locale: fr })
-          : null
-      )}
-    </div>
-  </div>
-
-  {/* Doctor Info */}
-  <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
-    <div className="flex items-center gap-2 font-semibold mb-1">
-      <Stethoscope className="h-4 w-4" /> Médecin
-    </div>
-    {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
-    {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
-    {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
-  </div>
-</div>
-
-
+          {/* Doctor Info */}
+          <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <Stethoscope className="h-4 w-4" /> Médecin
+            </div>
+            {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
+            {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
+            {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
+          </div>
+        </div>
 
         {/* --- Category Reorder Buttons (UPDATED with DND) --- */}
         {groupedResults.length > 1 && (
@@ -1121,13 +1116,13 @@ const ResultDetailPage: React.FC = () => {
                       <TableHead className="w-[40%] pl-4 print:pl-1">
                         Paramètre
                       </TableHead>
-                      <TableHead className="w-[20%] pl-2 print:pl-1">
+                      <TableHead className="w-[15%] pl-2 print:pl-1">
                         Valeur
                       </TableHead>
                       <TableHead className="w-[10%] pl-2 print:pl-1">
                         Unité
                       </TableHead>
-                      <TableHead className="w-[30%] pr-4 print:pr-1">
+                      <TableHead className="w-[35%] pr-4 print:pr-1">
                         Réf.
                       </TableHead>
                     </TableRow>
@@ -1222,7 +1217,7 @@ const ResultDetailPage: React.FC = () => {
                                   ></TableCell>
                                   <TableCell
                                     className={cn(
-                                      "pl-2 print:pl-1 w-[20%] cursor-pointer hover:bg-muted/50",
+                                      "pl-2 print:pl-1 w-[15%] cursor-pointer hover:bg-muted/50",
                                       isClickable &&
                                       "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
                                       valueClasses, // Apply text styles
@@ -1249,7 +1244,7 @@ const ResultDetailPage: React.FC = () => {
                                   >
                                     {/* {param.unit || "-"} */}
                                   </TableCell>
-                                  <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[30%] !whitespace-pre-line">
+                                  <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[35%] !whitespace-pre-line">
                                     {!param.reference_range && "-"}
                                     {param.reference_range === "NEGATIF" && "-"}
 
@@ -1338,8 +1333,33 @@ const ResultDetailPage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        <div className="mt-2 text-sm text-muted-foreground hidden print:block print:mt-4">
+        {/* Padding control (screen only, not print) */}
+        <div className="flex items-center gap-2 mb-2 print:hidden">
+          <label htmlFor="marginTopControl" className="text-xs">Décalage vertical (mt):</label>
+          <input
+            id="marginTopControl"
+            type="number"
+            min={0}
+            max={20}
+            value={marginTop}
+            onChange={e => setMarginTop(Number(e.target.value))}
+            className="border px-2 py-1 text-xs w-16 rounded"
+          />
+        </div>
+        {/* Controlled margin top for signature block */}
+        <div
+          className="text-sm text-muted-foreground print:block print:mt-4"
+          style={{ marginTop: `${marginTop * 0.25}rem` }}
+        >
           <div className="font-bold" dangerouslySetInnerHTML={{ __html: description }} />
+          <div className="flex items-center justify-between mt-4 font-bold">
+            <p>
+              Bamako, le {resultData.result_date ? format(new Date(resultData.result_date), 'dd/MM/yyyy') : ''}
+            </p>
+            <p>
+              Signature
+            </p>
+          </div>
         </div>
       </div>{" "}
       {/* End Report Content Wrapper */}
