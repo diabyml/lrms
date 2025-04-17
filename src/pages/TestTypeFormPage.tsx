@@ -47,14 +47,15 @@ type TestParameter = Tables<"test_parameter">;
 type TestType = Tables<"test_type">;
 
 // Parameter state within the form, including temporary ID for new ones
-interface FormParameter extends Partial<TestParameter> {
+interface FormParameter {
   tempId: string; // Unique ID within the form session (UUID)
-  // id?: string | null; // Actual DB ID if it exists
-  // test_type_id?: string | null; // DB test_type_id if it exists
-  name?: string;
-  unit?: string;
-  reference_range?: string;
-  description?: string;
+  id?: string; // Actual DB ID if it exists
+  test_type_id?: string; // DB test_type_id if it exists
+  name: string;
+  unit?: string | null;
+  reference_range?: string | null;
+  description?: string | null;
+  order?: number;
 }
 // --- End Types ---
 
@@ -66,6 +67,7 @@ const TestTypeFormPage: React.FC = () => {
 
   // --- State ---
   const [testTypeName, setTestTypeName] = useState<string>("");
+  const [testTypeDescription, setTestTypeDescription] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     string | undefined
   >(undefined);
@@ -94,6 +96,7 @@ const TestTypeFormPage: React.FC = () => {
     setOriginalParameters([]);
     setOriginalTestType(null);
     setTestTypeName("");
+    setTestTypeDescription("");
     setSelectedCategoryId(undefined);
 
     try {
@@ -127,6 +130,7 @@ const TestTypeFormPage: React.FC = () => {
         // Populate state
         setOriginalTestType(testTypeData);
         setTestTypeName(testTypeData.name);
+        setTestTypeDescription(testTypeData.description || "");
         setSelectedCategoryId(testTypeData.category_id);
         const initialParams = (paramsData || []).map((p) => ({
           ...p,
@@ -152,22 +156,26 @@ const TestTypeFormPage: React.FC = () => {
   const handleParameterChange = (
     tempId: string,
     field: keyof FormParameter,
-    value: string
+    value: string | number
   ) => {
     setParameters((currentParams) =>
       currentParams.map((p) =>
-        p.tempId === tempId ? { ...p, [field]: value } : p
+        p.tempId === tempId ? { ...p, [field]: field === "order" ? Number(value) : value } : p
       )
     );
   };
 
   const handleParameterAdd = () => {
+    // Get the highest current order value
+    const maxOrder = parameters.reduce((max, p) => Math.max(max, p.order ?? 0), 0);
+    
     const newParam: FormParameter = {
       tempId: uuidv4(), // Generate a unique temporary ID
       name: "",
       unit: "",
       reference_range: "",
       description: "",
+      order: maxOrder + 1, // Set order to be one more than the current highest
       // Explicitly set DB fields to null/undefined for clarity on insert
       id: undefined,
       test_type_id: undefined,
@@ -214,6 +222,7 @@ const TestTypeFormPage: React.FC = () => {
       const testTypePayload = {
         name: testTypeName.trim(),
         category_id: selectedCategoryId,
+        description: testTypeDescription.trim() || null,
       };
 
       if (isEditMode) {
@@ -241,11 +250,23 @@ const TestTypeFormPage: React.FC = () => {
       ); // Map by tempId (uses DB id if available)
 
       const paramsToDelete: string[] = []; // Store actual DB IDs (UUIDs) to delete
-      const paramsToInsert: Omit<
-        TestParameter,
-        "id" | "created_at" | "updated_at"
-      >[] = [];
-      const paramsToUpdate: Partial<TestParameter>[] = []; // Store {id, name, unit, ...} for update
+      const paramsToInsert: Array<{
+        test_type_id: string;
+        name: string;
+        unit: string | null;
+        reference_range: string | null;
+        description: string | null;
+        order: number;
+      }> = [];
+      const paramsToUpdate: Array<{
+        id: string;
+        test_type_id: string;
+        name: string;
+        unit: string | null;
+        reference_range: string | null;
+        description: string | null;
+        order: number;
+      }> = []; // Store {id, name, unit, ...} for update
 
       // Find parameters to delete
       originalParameters.forEach((origParam) => {
@@ -260,22 +281,24 @@ const TestTypeFormPage: React.FC = () => {
         const originalParam = originalParamsMap.get(finalParam.tempId);
         const paramPayload = {
           test_type_id: currentTestTypeId!, // Link to the saved test type
-          name: finalParam.name!.trim(), // Assume validated non-empty
-          unit: finalParam.unit?.trim() || null,
-          reference_range: finalParam.reference_range?.trim() || null,
-          description: finalParam.description?.trim() || null,
-        };
+          name: finalParam.name, // Already validated non-empty
+          unit: finalParam.unit || null,
+          reference_range: finalParam.reference_range || null,
+          description: finalParam.description || null,
+          order: finalParam.order ?? 0, // Use the order field, default to 0 if not set
+        } satisfies Pick<TestParameter, 'test_type_id' | 'name' | 'unit' | 'reference_range' | 'description' | 'order'>;
 
         if (originalParam?.id) {
           // It exists in the DB, check if needs update
           // Simple check: stringify comparison (could be more granular)
           const originalPayload = {
             test_type_id: originalParam.test_type_id || currentTestTypeId!, // Use original or current TT ID
-            name: originalParam.name!.trim(),
-            unit: originalParam.unit?.trim() || null,
-            reference_range: originalParam.reference_range?.trim() || null,
-            description: originalParam.description?.trim() || null,
-          };
+            name: originalParam.name,
+            unit: originalParam.unit || null,
+            reference_range: originalParam.reference_range || null,
+            description: originalParam.description || null,
+            order: originalParam.order ?? 0, // Use the order field, default to 0 if not set
+          } satisfies Pick<TestParameter, 'test_type_id' | 'name' | 'unit' | 'reference_range' | 'description' | 'order'>;
           if (
             JSON.stringify(paramPayload) !== JSON.stringify(originalPayload)
           ) {
@@ -311,22 +334,13 @@ const TestTypeFormPage: React.FC = () => {
       }
       if (paramsToUpdate.length > 0) {
         console.log("Updating parameters:", paramsToUpdate);
-        // Use upsert for simplicity if primary key `id` is provided
         const { error: updateError } = await supabase
           .from("test_parameter")
-          .upsert(paramsToUpdate, { onConflict: "id" });
+          .upsert(paramsToUpdate);
         if (updateError)
           throw new Error(
             `Erreur mise à jour paramètres: ${updateError.message}`
           );
-        /* // Alternative: Individual updates (slower but explicit)
-                 const updatePromises = paramsToUpdate.map(p =>
-                     supabase.from('test_parameter').update({ name: p.name, unit: p.unit, reference_range: p.reference_range, description: p.description, test_type_id: p.test_type_id }).eq('id', p.id!)
-                 );
-                 const updateResults = await Promise.all(updatePromises);
-                 const firstError = updateResults.find(res => res.error);
-                 if(firstError?.error) throw new Error(`Erreur mise à jour paramètres: ${firstError.error.message}`);
-                 */
       }
 
       // Success
@@ -437,6 +451,19 @@ const TestTypeFormPage: React.FC = () => {
                   placeholder="Ex: Numération Formule Sanguine"
                   disabled={loadingSubmit}
                   required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="testTypeDescription" className="font-semibold">
+                  Description
+                </Label>
+                <Textarea
+                  id="testTypeDescription"
+                  value={testTypeDescription}
+                  onChange={(e) => setTestTypeDescription(e.target.value)}
+                  placeholder="Description du type de test, instructions de préparation, etc."
+                  disabled={loadingSubmit}
+                  rows={3}
                 />
               </div>
               <div className="space-y-2">
@@ -571,6 +598,29 @@ const TestTypeFormPage: React.FC = () => {
                             disabled={loadingSubmit}
                             className="bg-background"
                             rows={2}
+                          />
+                        </div>
+                        {/* Order */}
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor={`param-order-${param.tempId}`}
+                            className="text-sm"
+                          >
+                            Ordre
+                          </Label>
+                          <Input
+                            id={`param-order-${param.tempId}`}
+                            value={param.order || ""}
+                            onChange={(e) =>
+                              handleParameterChange(
+                                param.tempId,
+                                "order",
+                                e.target.value
+                              )
+                            }
+                            type="number"
+                            disabled={loadingSubmit}
+                            className="bg-background h-9"
                           />
                         </div>
                       </div>

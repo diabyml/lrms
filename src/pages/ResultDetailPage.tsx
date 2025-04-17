@@ -196,6 +196,15 @@ const ResultDetailPage: React.FC = () => {
     Record<string, HighlightOverride>
   >({});
 
+  const [description, setDescription] = useState<string>("");
+  const [savingDescription, setSavingDescription] = useState(false);
+
+  const [editingPrices, setEditingPrices] = useState(false);
+  const [normalPrice, setNormalPrice] = useState<string>("");
+  const [insurancePrice, setInsurancePrice] = useState<string>("");
+  const [savingPrices, setSavingPrices] = useState(false);
+  const [pricesError, setPricesError] = useState<string | null>(null);
+
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
     const templateId = headerConfig?.selected_template || defaultTemplateId;
@@ -361,12 +370,14 @@ const ResultDetailPage: React.FC = () => {
       // Sort parameters, test types, and categories
       categoryMap.forEach((categoryGroup) => {
         categoryGroup.testTypes.forEach((testTypeGroup) => {
-          testTypeGroup.parameters.sort((a, b) => a.name.localeCompare(b.name));
-          // testTypeGroup.parameters.sort(
-          //   (a, b) =>
-          //     new Date(a.created_at).getTime() -
-          //     new Date(b.created_at).getTime()
-          // );
+          testTypeGroup.parameters.sort((a, b) => {
+            // First sort by order
+            if (a.order !== b.order) {
+              return a.order - b.order;
+            }
+            // If orders are equal, fallback to sorting by name
+            return a.name.localeCompare(b.name);
+          });
         });
         categoryGroup.testTypes.sort((a, b) =>
           a.testType.name.localeCompare(b.testType.name)
@@ -390,6 +401,75 @@ const ResultDetailPage: React.FC = () => {
   useEffect(() => {
     fetchResultDetails();
   }, [fetchResultDetails]);
+
+  useEffect(() => {
+    if (resultData?.description) {
+      setDescription(resultData.description);
+    }
+  }, [resultData]);
+
+  useEffect(() => {
+    setNormalPrice(resultData?.normal_price != null ? String(resultData.normal_price) : "");
+    setInsurancePrice(resultData?.insurance_price != null ? String(resultData.insurance_price) : "");
+  }, [resultData]);
+
+  // Save description with debounce
+  const saveDescription = useCallback(async (newDescription: string) => {
+    if (!resultId) return;
+    setSavingDescription(true);
+
+    try {
+      const { error } = await supabase
+        .from("patient_result")
+        .update({ description: newDescription })
+        .eq("id", resultId);
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Error saving description:", err);
+    } finally {
+      setSavingDescription(false);
+    }
+  }, [resultId]);
+
+  // Debounced save
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (description !== resultData?.description) {
+        saveDescription(description);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [description, resultData?.description, saveDescription]);
+
+  // Save prices
+  const savePrices = useCallback(async () => {
+    setSavingPrices(true);
+    setPricesError(null);
+    try {
+      const normal = normalPrice !== "" ? Number(normalPrice) : null;
+      const insurance = insurancePrice !== "" ? Number(insurancePrice) : null;
+      if ((normalPrice !== "" && isNaN(normal)) || (insurancePrice !== "" && isNaN(insurance))) {
+        setPricesError("Les prix doivent être des nombres valides.");
+        setSavingPrices(false);
+        return;
+      }
+      const { error, data } = await supabase
+        .from("patient_result")
+        .update({ normal_price: normal, insurance_price: insurance })
+        .eq("id", resultData.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setResultData((prev) => (prev ? { ...prev, normal_price: normal, insurance_price: insurance } : prev));
+      setEditingPrices(false);
+    } catch (err: any) {
+      setPricesError(err.message || "Erreur lors de la sauvegarde des prix.");
+    } finally {
+      setSavingPrices(false);
+    }
+  }, [resultData, normalPrice, insurancePrice]);
 
   // --- Handle Status Change ---
   const handleStatusChange = async (newStatus: ResultStatus) => {
@@ -455,8 +535,6 @@ const ResultDetailPage: React.FC = () => {
     }));
   };
   // --- End Page Break Toggle Handler ---
-
-  // src/pages/ResultDetailPage.tsx -> within the component
 
   // --- Highlight Override Handler --- NEW FUNCTION ---
   // --- Override Toggle Handler ---
@@ -762,6 +840,81 @@ const ResultDetailPage: React.FC = () => {
                     })
                   : null
               )}
+              {/* --- Price Fields (Screen Only, Not Print) --- */}
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="normal_price" className="text-xs font-medium">
+                    Prix Normal
+                  </Label>
+                  {editingPrices ? (
+                    <input
+                      id="normal_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="border rounded px-2 py-1 text-xs w-28"
+                      value={normalPrice}
+                      onChange={(e) => setNormalPrice(e.target.value)}
+                      disabled={savingPrices}
+                    />
+                  ) : (
+                    <input
+                      id="normal_price"
+                      type="text"
+                      className="border-none bg-transparent text-xs w-28"
+                      value={normalPrice}
+                      disabled
+                      readOnly
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="insurance_price" className="text-xs font-medium">
+                    Prix Assurance
+                  </Label>
+                  {editingPrices ? (
+                    <input
+                      id="insurance_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="border rounded px-2 py-1 text-xs w-28"
+                      value={insurancePrice}
+                      onChange={(e) => setInsurancePrice(e.target.value)}
+                      disabled={savingPrices}
+                    />
+                  ) : (
+                    <input
+                      id="insurance_price"
+                      type="text"
+                      className="border-none bg-transparent text-xs w-28"
+                      value={insurancePrice}
+                      disabled
+                      readOnly
+                    />
+                  )}
+                </div>
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-1">
+                  {editingPrices ? (
+                    <>
+                      <Button size="xs" variant="secondary" onClick={savePrices} disabled={savingPrices}>
+                        {savingPrices ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Sauvegarder
+                      </Button>
+                      <Button size="xs" variant="outline" onClick={() => setEditingPrices(false)} disabled={savingPrices}>
+                        Annuler
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="xs" variant="outline" onClick={() => setEditingPrices(true)}>
+                      Modifier Prix
+                    </Button>
+                  )}
+                </div>
+                {pricesError && <p className="text-xs text-destructive mt-1">{pricesError}</p>}
+              </div>
+              {/* --- End Price Fields --- */}
               {/* Status Display */}
               <div className="flex items-start space-x-3">
                 <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0 print:h-4 print:w-4" />
@@ -969,115 +1122,129 @@ const ResultDetailPage: React.FC = () => {
 
                         {/* --- Parameter Rows --- */}
                         {testTypeGroup.parameters.length > 0 ? (
-                          testTypeGroup.parameters.map((param) => {
-                            // 1. Automatic check status
-                            const autoStatus: RangeCheckStatus =
-                              checkValueRangeStatus(
-                                param.resultValue,
-                                param.reference_range
-                              );
-                            // 2. Check override state
-                            const overrideState = highlightOverrides[param.id];
+                          <>
+                            {testTypeGroup.parameters.map((param) => {
+                              // 1. Automatic check status
+                              const autoStatus: RangeCheckStatus =
+                                checkValueRangeStatus(
+                                  param.resultValue,
+                                  param.reference_range
+                                );
+                              // 2. Check override state
+                              const overrideState = highlightOverrides[param.id];
 
-                            // 3. Determine final highlight class
-                            let highlightClass = "";
-                            const isClickable = true; // Values are generally clickable now
-                            let valueClasses = ""; // For optional text styling
+                              // 3. Determine final highlight class
+                              let highlightClass = "";
+                              const isClickable = true; // Values are generally clickable now
+                              let valueClasses = ""; // For optional text styling
 
-                            if (overrideState === "on") {
-                              highlightClass = "result-out-of-range"; // Force Red
-                              valueClasses =
-                                "font-bold text-red-700 dark:text-red-400 print:text-red-700";
-                            } else if (overrideState === "off") {
-                              highlightClass = ""; // Force Normal
-                            } else if (overrideState === "warn") {
-                              highlightClass = "result-indeterminate-range"; // Force Orange
-                              // valueClasses = 'text-amber-800 dark:text-amber-400 print:text-amber-800'; // Optional text style
-                            } else {
-                              // overrideState is undefined, use automatic check
-                              if (autoStatus === "out-of-range") {
-                                highlightClass = "result-out-of-range"; // Auto Red
+                              if (overrideState === "on") {
+                                highlightClass = "result-out-of-range"; // Force Red
                                 valueClasses =
                                   "font-bold text-red-700 dark:text-red-400 print:text-red-700";
-                              } else if (autoStatus === "indeterminate") {
-                                highlightClass = "result-indeterminate-range"; // Auto Orange
-                                // valueClasses = 'text-amber-800 dark:text-amber-400 print:text-amber-800';
+                              } else if (overrideState === "off") {
+                                highlightClass = ""; // Force Normal
+                              } else if (overrideState === "warn") {
+                                highlightClass = "result-indeterminate-range"; // Force Orange
+                                // valueClasses = 'text-amber-800 dark:text-amber-400 print:text-amber-800'; // Optional text style
                               } else {
-                                // autoStatus === 'in-range'
-                                highlightClass = ""; // Auto Normal
-                                // isClickable = false; // Optionally make in-range values non-clickable? Maybe keep clickable for consistency.
+                                // overrideState is undefined, use automatic check
+                                if (autoStatus === "out-of-range") {
+                                  highlightClass = "result-out-of-range"; // Auto Red
+                                  valueClasses =
+                                    "font-bold text-red-700 dark:text-red-400 print:text-red-700";
+                                } else if (autoStatus === "indeterminate") {
+                                  highlightClass = "result-indeterminate-range"; // Auto Orange
+                                  // valueClasses = 'text-amber-800 dark:text-amber-400 print:text-amber-800';
+                                } else {
+                                  // autoStatus === 'in-range'
+                                  highlightClass = ""; // Auto Normal
+                                  // isClickable = false; // Optionally make in-range values non-clickable? Maybe keep clickable for consistency.
+                                }
                               }
-                            }
 
-                            return (
-                              <TableRow
-                                key={param.id}
-                                className={cn(
-                                  "print:even:bg-white print:break-inside-avoid  "
-                                  // shouldHighlight &&
-                                  //   "bg-red-100 dark:bg-red-900/30 print:bg-white" // Lighter red for screen/print
-                                  // highlightClass
-                                )}
-                              >
-                                <TableCell
-                                  className="font-medium pl-6 print:pl-2 w-[40%]"
-                                  dangerouslySetInnerHTML={{
-                                    __html: param.name,
-                                  }}
-                                ></TableCell>
-                                <TableCell
+                              return (
+                                <TableRow
+                                  key={param.id}
                                   className={cn(
-                                    "pl-2 print:pl-1 w-[20%] cursor-pointer hover:bg-muted/50",
-                                    isClickable &&
-                                      "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
-                                    valueClasses, // Apply text styles
-                                    highlightClass
+                                    "print:even:bg-white print:break-inside-avoid  "
+                                    // shouldHighlight &&
+                                    //   "bg-red-100 dark:bg-red-900/30 print:bg-white" // Lighter red for screen/print
+                                    // highlightClass
                                   )}
-                                  onClick={
-                                    isClickable
-                                      ? () => handleHighlightToggle(param.id)
-                                      : undefined
-                                  }
-                                  title={
-                                    isClickable
-                                      ? "Cliquer pour changer le surlignage"
-                                      : undefined
-                                  }
                                 >
-                                  {param.resultValue}
-                                </TableCell>
-                                <TableCell
-                                  className="pl-2 print:pl-1 w-[10%]"
-                                  dangerouslySetInnerHTML={{
-                                    __html: param.unit || "-",
-                                  }}
-                                >
-                                  {/* {param.unit || "-"} */}
-                                </TableCell>
-                                <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[30%] !whitespace-pre-line">
-                                  {!param.reference_range && "-"}
-                                  {param.reference_range === "NEGATIF" && "-"}
+                                  <TableCell
+                                    className="font-medium pl-6 print:pl-2 w-[40%]"
+                                    dangerouslySetInnerHTML={{
+                                      __html: param.name,
+                                    }}
+                                  ></TableCell>
+                                  <TableCell
+                                    className={cn(
+                                      "pl-2 print:pl-1 w-[20%] cursor-pointer hover:bg-muted/50",
+                                      isClickable &&
+                                        "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
+                                      valueClasses, // Apply text styles
+                                      highlightClass
+                                    )}
+                                    onClick={
+                                      isClickable
+                                        ? () => handleHighlightToggle(param.id)
+                                        : undefined
+                                    }
+                                    title={
+                                      isClickable
+                                        ? "Cliquer pour changer le surlignage"
+                                        : undefined
+                                    }
+                                  >
+                                    {param.resultValue}
+                                  </TableCell>
+                                  <TableCell
+                                    className="pl-2 print:pl-1 w-[10%]"
+                                    dangerouslySetInnerHTML={{
+                                      __html: param.unit || "-",
+                                    }}
+                                  >
+                                    {/* {param.unit || "-"} */}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[30%] !whitespace-pre-line">
+                                    {!param.reference_range && "-"}
+                                    {param.reference_range === "NEGATIF" && "-"}
 
-                                  {param.reference_range?.includes("style") && (
-                                    <div
-                                      dangerouslySetInnerHTML={{
-                                        __html: param.reference_range,
-                                      }}
-                                    ></div>
-                                  )}
+                                    {param.reference_range?.includes("style") && (
+                                      <div
+                                        dangerouslySetInnerHTML={{
+                                          __html: param.reference_range,
+                                        }}
+                                      ></div>
+                                    )}
 
-                                  {param.reference_range !== "NEGATIF" &&
-                                    !param.reference_range?.includes("style") &&
-                                    param.reference_range &&
-                                    param.reference_range
-                                      .split(";")
-                                      .map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                    {param.reference_range !== "NEGATIF" &&
+                                      !param.reference_range?.includes("style") &&
+                                      param.reference_range &&
+                                      param.reference_range
+                                        .split(";")
+                                        .map((line, index) => (
+                                          <div key={index}>{line}</div>
+                                        ))}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                            {/* Add test type description if it exists */}
+                            {testTypeGroup.testType.description && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="py-2 px-6 print:px-2 text-sm print:text-xs text-muted-foreground">
+                                  <div 
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: testTypeGroup.testType.description 
+                                    }}
+                                  />
                                 </TableCell>
                               </TableRow>
-                            );
-                          })
+                            )}
+                          </>
                         ) : (
                           <></> // Render nothing if no params (subheader is also skipped)
                         )}
@@ -1107,6 +1274,32 @@ const ResultDetailPage: React.FC = () => {
           })}
         </div>
         {/* --- End Grouped Results Section --- */}
+        <Card className="mt-8 print:hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Description du résultat
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full min-h-[100px] p-2 border rounded-md resize-y"
+                placeholder="Entrez une description pour ce résultat..."
+              />
+              {savingDescription && (
+                <div className="absolute right-2 top-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+            <div className="mt-2 text-sm text-muted-foreground hidden print:block print:mt-4">
+              <div className="font-bold" dangerouslySetInnerHTML={{ __html: description }} />
+            </div>
       </div>{" "}
       {/* End Report Content Wrapper */}
     </div> // End main container div

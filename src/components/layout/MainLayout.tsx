@@ -25,6 +25,7 @@ import {
   Menu, // Patients Icon
   Stethoscope, // App Logo Icon
   Users,
+  Banknote,
 } from "lucide-react";
 
 import { Settings, FileText } from "lucide-react"; // Example icons
@@ -51,6 +52,7 @@ const MainLayout: React.FC = () => {
     { to: "/doctors", label: "Médecins", icon: Stethoscope }, // Doctors in French
     { to: "/test-types", label: "Types de Tests", icon: ClipboardList }, // Test Types in French
     { to: "/categories", label: "Catégories", icon: Layers }, // Add this item
+    { to: "/ristournes", label: "Ristournes", icon: Banknote }, // Add ristourne management
     {
       to: "/settings/print-header",
       label: "En-tête Impression",

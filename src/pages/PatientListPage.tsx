@@ -25,10 +25,24 @@ import {
   DatabaseZap,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react"; // Added pagination icons
 import { useDebounce } from "../hooks/useDebounce"; // Assuming a debounce hook (implementation below)
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 
 type Patient = Tables<"patient">;
+type Doctor = Tables<"doctor">;
 const ITEMS_PER_PAGE = 10; // Define how many items per page
 
 const PatientListPage: React.FC = () => {
@@ -38,11 +52,27 @@ const PatientListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorFilter, setDoctorFilter] = useState<string>("");
 
   // Debounce the search term to avoid excessive API calls while typing
   const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms delay
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  // Fetch doctors for filter
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      const { data, error } = await supabase
+        .from("doctor")
+        .select("id, full_name")
+        .order("full_name", { ascending: true });
+      if (!error) setDoctors(data || []);
+    };
+    fetchDoctors();
+  }, []);
 
   // Fetch patients data with pagination and search
   const fetchPatients = useCallback(async () => {
@@ -63,12 +93,37 @@ const PatientListPage: React.FC = () => {
         );
       }
 
+      // Apply doctor filter if selected (indirectly via patient_result)
+      if (doctorFilter) {
+        // 1. Get all patient_ids for this doctor from patient_result
+        const { data: resultRows, error: resultError } = await supabase
+          .from("patient_result")
+          .select("patient_id")
+          .eq("doctor_id", doctorFilter);
+        if (resultError) {
+          console.error("Supabase error while fetching patient_result:", resultError);
+          throw resultError;
+        }
+        const patientIds = (resultRows || []).map((row) => row.patient_id);
+        if (patientIds.length === 0) {
+          setPatients([]);
+          setTotalCount(0);
+          setLoading(false);
+          return;
+        }
+        query = query.in("id", patientIds);
+      }
+
       // Apply ordering and pagination range
       query = query.order("created_at", { ascending: false }).range(from, to);
 
       const { data, error: dbError, count } = await query;
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        // Log error for debugging
+        console.error("Supabase error while fetching patients:", dbError);
+        throw dbError;
+      }
 
       setPatients(data || []);
       setTotalCount(count ?? 0); // Update total count
@@ -84,17 +139,17 @@ const PatientListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearchTerm]); // Depend on currentPage and debounced search term
+  }, [currentPage, debouncedSearchTerm, doctorFilter]); // Depend on currentPage, debounced search term, and doctor filter
 
   // useEffect to fetch data when page or search term changes
   useEffect(() => {
     fetchPatients();
-  }, [fetchPatients]); // fetchPatients includes currentPage and debouncedSearchTerm in its dependency array
+  }, [fetchPatients]); // fetchPatients includes currentPage, debouncedSearchTerm, doctorFilter
 
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm]);
+  }, [debouncedSearchTerm, doctorFilter]);
 
   const handlePreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
@@ -102,6 +157,30 @@ const PatientListPage: React.FC = () => {
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  // Delete Patient Handler
+  const handleDelete = async () => {
+    if (!patientToDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const { error: deleteError } = await supabase
+        .from("patient")
+        .delete()
+        .eq("id", patientToDelete.id);
+      if (deleteError) throw deleteError;
+      setPatients((prev) => prev.filter((pat) => pat.id !== patientToDelete.id));
+      setTotalCount((prev) => prev - 1);
+      setPatientToDelete(null);
+    } catch (err: unknown) {
+      setError(
+        (err instanceof Error ? err.message : "") ||
+          "Erreur lors de la suppression du patient."
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // --- Render Logic ---
@@ -134,6 +213,24 @@ const PatientListPage: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 w-full md:w-1/3"
         />
+      </div>
+
+      {/* Doctor Filter Dropdown */}
+      <div className="flex items-center gap-2 pt-2">
+        <Label htmlFor="doctor-filter">Filtrer par médecin :</Label>
+        <select
+          id="doctor-filter"
+          value={doctorFilter}
+          onChange={(e) => setDoctorFilter(e.target.value)}
+          className="border rounded px-2 py-1 text-sm"
+        >
+          <option value="">Tous les médecins</option>
+          {doctors.map((doc) => (
+            <option key={doc.id} value={doc.id}>
+              {doc.full_name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Loading State */}
@@ -205,6 +302,35 @@ const PatientListPage: React.FC = () => {
                             Voir Détails
                           </Button>
                         </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="ml-2"
+                              title="Supprimer le patient"
+                              onClick={() => setPatientToDelete(patient)}
+                              disabled={loading}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Supprimer</span>
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Supprimer ce patient ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Cette action est irréversible. Voulez-vous vraiment supprimer ce patient ?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setPatientToDelete(null)} disabled={deleting}>Annuler</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
+                                Supprimer
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))

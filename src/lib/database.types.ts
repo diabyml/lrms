@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -86,6 +85,44 @@ export type Database = {
         }
         Relationships: []
       }
+      doctor_fee_config: {
+        Row: {
+          id: string
+          doctor_id: string
+          normal_price_percentage: number
+          insurance_price_percentage: number
+          effective_date: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          doctor_id: string
+          normal_price_percentage: number
+          insurance_price_percentage: number
+          effective_date?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          doctor_id?: string
+          normal_price_percentage?: number
+          insurance_price_percentage?: number
+          effective_date?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_fee_config_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       patient: {
         Row: {
           created_at: string
@@ -127,6 +164,9 @@ export type Database = {
           patient_id: string
           result_date: string
           status: string
+          normal_price: number | null
+          insurance_price: number | null
+          paid_status: string
           updated_at: string
         }
         Insert: {
@@ -136,6 +176,9 @@ export type Database = {
           patient_id: string
           result_date: string
           status?: string
+          normal_price?: number | null
+          insurance_price?: number | null
+          paid_status?: string
           updated_at?: string
         }
         Update: {
@@ -145,6 +188,9 @@ export type Database = {
           patient_id?: string
           result_date?: string
           status?: string
+          normal_price?: number | null
+          insurance_price?: number | null
+          paid_status?: string
           updated_at?: string
         }
         Relationships: [
@@ -161,7 +207,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patient"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       print_header_config: {
@@ -248,7 +294,90 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "test_parameter"
             referencedColumns: ["id"]
+          }
+        ]
+      }
+      ristourne: {
+        Row: {
+          id: string
+          doctor_id: string
+          created_date: string
+          status: string
+          total_fee: number
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          doctor_id: string
+          created_date?: string
+          status?: string
+          total_fee?: number
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          doctor_id?: string
+          created_date?: string
+          status?: string
+          total_fee?: number
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ristourne_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ristourne_patient_result: {
+        Row: {
+          id: string
+          ristourne_id: string
+          patient_result_id: string
+          fee_amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          ristourne_id: string
+          patient_result_id: string
+          fee_amount: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          ristourne_id?: string
+          patient_result_id?: string
+          fee_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ristourne_patient_result_patient_result_id_fkey"
+            columns: ["patient_result_id"]
+            isOneToOne: false
+            referencedRelation: "patient_result"
+            referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ristourne_patient_result_ristourne_id_fkey"
+            columns: ["ristourne_id"]
+            isOneToOne: false
+            referencedRelation: "ristourne"
+            referencedColumns: ["id"]
+          }
         ]
       }
       test_parameter: {
@@ -289,40 +418,29 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "test_type"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       test_type: {
         Row: {
-          category_id: string
           created_at: string
           id: string
           name: string
           updated_at: string
         }
         Insert: {
-          category_id: string
           created_at?: string
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
-          category_id?: string
           created_at?: string
           id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_test_type_category"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "category"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -342,97 +460,8 @@ export type Database = {
 
 type PublicSchema = Database[Extract<keyof Database, "public">]
 
-export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
+export type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
+export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
+export type Enums<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T]
+export type CompositeTypes<T extends keyof Database['public']['CompositeTypes']> = Database['public']['CompositeTypes'][T]

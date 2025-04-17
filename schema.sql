@@ -76,7 +76,6 @@ COMMENT ON COLUMN public.test_parameter.unit IS 'e.g., g/dL, mg/dL';
 COMMENT ON COLUMN public.test_parameter.reference_range IS 'e.g., 13.5-17.5, <200';
 COMMENT ON COLUMN public.test_parameter.description IS 'Optional detailed explanation for the parameter or its range. Can contain plain text, HTML, or Markdown';
 
-
 -- --------------------------------------------------
 -- Table: PatientResult
 -- --------------------------------------------------
@@ -86,6 +85,9 @@ CREATE TABLE public.patient_result (
     doctor_id uuid NOT NULL REFERENCES public.doctor(id) ON DELETE RESTRICT,   -- Prevent deleting doctor if results exist
     result_date timestamp with time zone NOT NULL,
     status text NOT NULL DEFAULT 'pending',
+    normal_price decimal(10,2) NULL,
+    insurance_price decimal(10,2) NULL,
+    paid_status text NOT NULL DEFAULT 'unpaid',
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -98,6 +100,9 @@ CREATE INDEX idx_patient_result_result_date ON public.patient_result(result_date
 -- Add comments for clarity
 COMMENT ON TABLE public.patient_result IS 'Represents a specific instance of testing for a patient, associated with a doctor.';
 COMMENT ON COLUMN public.patient_result.result_date IS 'When the result was finalized/reported';
+COMMENT ON COLUMN public.patient_result.normal_price IS 'Regular price for the test';
+COMMENT ON COLUMN public.patient_result.insurance_price IS 'Insurance coverage price for the test';
+COMMENT ON COLUMN public.patient_result.paid_status IS 'Payment status: paid, unpaid, partial';
 
 -- --------------------------------------------------
 -- Table: ResultValue
@@ -119,6 +124,47 @@ CREATE INDEX idx_result_value_test_parameter_id ON public.result_value(test_para
 COMMENT ON TABLE public.result_value IS 'Stores the actual measured value for a specific parameter within a specific PatientResult.';
 COMMENT ON COLUMN public.result_value.value IS 'Storing as text allows flexibility for numeric/non-numeric results';
 
+-- --------------------------------------------------
+-- Table: Ristourne
+-- --------------------------------------------------
+CREATE TABLE public.ristourne (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doctor_id uuid NOT NULL REFERENCES public.doctor(id) ON DELETE RESTRICT,
+    created_date timestamp with time zone DEFAULT now() NOT NULL,
+    status text NOT NULL DEFAULT 'pending',
+    total_fee decimal(10,2) NOT NULL DEFAULT 0,
+    notes text NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- Add comments for clarity
+COMMENT ON TABLE public.ristourne IS 'Represents a referral fee collection for a doctor';
+COMMENT ON COLUMN public.ristourne.status IS 'Status of the ristourne: pending, approved, paid';
+COMMENT ON COLUMN public.ristourne.total_fee IS 'Total referral fee amount';
+
+-- Create index for faster lookups
+CREATE INDEX idx_ristourne_doctor_id ON public.ristourne(doctor_id);
+
+-- --------------------------------------------------
+-- Table: RistournePatientResult
+-- --------------------------------------------------
+CREATE TABLE public.ristourne_patient_result (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    ristourne_id uuid NOT NULL REFERENCES public.ristourne(id) ON DELETE CASCADE,
+    patient_result_id uuid NOT NULL REFERENCES public.patient_result(id) ON DELETE RESTRICT,
+    fee_amount decimal(10,2) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    UNIQUE(ristourne_id, patient_result_id)
+);
+
+-- Add comments for clarity
+COMMENT ON TABLE public.ristourne_patient_result IS 'Links patient results to ristournes and stores individual fee amounts';
+
+-- Create indexes for faster lookups
+CREATE INDEX idx_ristourne_patient_result_ristourne_id ON public.ristourne_patient_result(ristourne_id);
+CREATE INDEX idx_ristourne_patient_result_patient_result_id ON public.ristourne_patient_result(patient_result_id);
 
 -- --------------------------------------------------
 -- Trigger Function for updated_at
@@ -163,6 +209,15 @@ BEFORE UPDATE ON public.result_value
 FOR EACH ROW
 EXECUTE FUNCTION public.trigger_set_timestamp();
 
+CREATE TRIGGER set_timestamp_ristourne
+BEFORE UPDATE ON public.ristourne
+FOR EACH ROW
+EXECUTE FUNCTION public.trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp_ristourne_patient_result
+BEFORE UPDATE ON public.ristourne_patient_result
+FOR EACH ROW
+EXECUTE FUNCTION public.trigger_set_timestamp();
 
 -- --------------------------------------------------
 -- Row Level Security (RLS) - Basic Policies for MVP
@@ -174,6 +229,8 @@ ALTER TABLE public.test_type ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.test_parameter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.patient_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.result_value ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ristourne ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ristourne_patient_result ENABLE ROW LEVEL SECURITY;
 
 -- Create policies allowing authenticated users full access (MVP assumption: one lab context)
 CREATE POLICY "Allow all access for authenticated users" ON public.doctor FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
@@ -182,6 +239,8 @@ CREATE POLICY "Allow all access for authenticated users" ON public.test_type FOR
 CREATE POLICY "Allow all access for authenticated users" ON public.test_parameter FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Allow all access for authenticated users" ON public.patient_result FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Allow all access for authenticated users" ON public.result_value FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow all access for authenticated users" ON public.ristourne FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow all access for authenticated users" ON public.ristourne_patient_result FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 -- --------------------------------------------------
 -- End of Script

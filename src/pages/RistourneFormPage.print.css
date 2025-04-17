@@ -1,0 +1,45 @@
+/* Print styles for RistourneFormPage */
+
+@media print {
+  .ristourne-print-root .no-print,
+  .ristourne-print-root .btn,
+  .ristourne-print-root button,
+  .ristourne-print-root [class*="Button"] {
+    display: none !important;
+  }
+
+  .ristourne-print-root,
+  .ristourne-print-root .print-area,
+  .ristourne-print-root .main-content,
+  .ristourne-print-root .card,
+  .ristourne-print-root .paper,
+  .ristourne-print-root .content {
+    background: #fff !important;
+    box-shadow: none !important;
+    color: #000 !important;
+  }
+
+  .ristourne-print-root .main-content,
+  .ristourne-print-root .content,
+  .ristourne-print-root .card,
+  .ristourne-print-root .container,
+  .ristourne-print-root .print-area {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .ristourne-print-root table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  .ristourne-print-root th,
+  .ristourne-print-root td {
+    border: 1px solid #000 !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+
+  .ristourne-print-root a[href]:after {
+    content: "" !important;
+  }
+}

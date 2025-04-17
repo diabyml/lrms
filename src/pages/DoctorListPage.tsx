@@ -25,7 +25,19 @@ import {
   AlertCircle,
   DatabaseZap,
   Edit,
+  Trash2,
 } from "lucide-react"; // Icons
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 // Define Type
 type Doctor = Tables<"doctor">;
@@ -36,6 +48,8 @@ const DoctorListPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Debounce search term
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -82,6 +96,29 @@ const DoctorListPage: React.FC = () => {
           doctor.hospital.toLowerCase().includes(lowerCaseSearch)) // Optional: search hospital too
     );
   }, [doctors, debouncedSearchTerm]);
+
+  // Delete Doctor Handler
+  const handleDelete = async () => {
+    if (!doctorToDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const { error: deleteError } = await supabase
+        .from("doctor")
+        .delete()
+        .eq("id", doctorToDelete.id);
+      if (deleteError) throw deleteError;
+      setDoctors((prev) => prev.filter((doc) => doc.id !== doctorToDelete.id));
+      setDoctorToDelete(null);
+    } catch (err: unknown) {
+      setError(
+        (err instanceof Error ? err.message : "") ||
+          "Erreur lors de la suppression du médecin."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // --- Render Logic ---
 
@@ -185,7 +222,35 @@ const DoctorListPage: React.FC = () => {
                           <span className="sm:hidden">Éditer</span>
                         </Button>
                       </Link>
-                      {/* Add Delete button later if needed */}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="ml-2"
+                            title="Supprimer le médecin"
+                            onClick={() => setDoctorToDelete(doctor)}
+                            disabled={loading}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Supprimer</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Supprimer ce médecin ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Cette action est irréversible. Voulez-vous vraiment supprimer ce médecin ?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setDoctorToDelete(null)} disabled={deleting}>Annuler</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
+                              Supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))

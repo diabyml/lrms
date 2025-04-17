@@ -110,6 +110,10 @@ const ResultFormPage: React.FC = () => {
   const [originalResultValues, setOriginalResultValues] = useState<
     ResultValue[]
   >([]);
+  const [normalPrice, setNormalPrice] = useState<number | "" | undefined>("");
+  const [insurancePrice, setInsurancePrice] = useState<number | "" | undefined>(
+    ""
+  );
   // --- End State ---
 
   const debouncedTestTypeSearch = useDebounce(testTypeSearchTerm, 250);
@@ -149,6 +153,8 @@ const ResultFormPage: React.FC = () => {
       ); // Safely parse date
       setCurrentPatientId(resultData.patient_id);
       setOriginalResultValues(valuesRes.data || []);
+      setNormalPrice(resultData.normal_price ?? "");
+      setInsurancePrice(resultData.insurance_price ?? "");
 
       // Handle Patient
       if (resultData.patient_id) {
@@ -256,6 +262,8 @@ const ResultFormPage: React.FC = () => {
       setCurrentPatientId(patientIdFromRoute);
       setDoctors(doctorsRes.data || []);
       setAvailableTestTypes(testTypesRes.data || []);
+      setNormalPrice("");
+      setInsurancePrice("");
     } catch (err: any) {
       /* ... error handling ... */
       console.error("Erreur chargement données pour création:", err);
@@ -428,354 +436,6 @@ const ResultFormPage: React.FC = () => {
   };
 
   // --- Handle Form Submission ---
-  // const handleSubmit = async (event: FormEvent) => {
-  //   event.preventDefault();
-  //   setError(null);
-  //   if (!currentPatientId) {
-  //     setError("Erreur: ID du patient non défini.");
-  //     return;
-  //   }
-  //   if (!selectedDoctorId) {
-  //     setError("Veuillez sélectionner un médecin prescripteur.");
-  //     return;
-  //   }
-  //   if (!resultDate) {
-  //     setError("Veuillez sélectionner la date du résultat.");
-  //     return;
-  //   }
-  //   setLoadingSubmit(true);
-
-  //   try {
-  //     // 1. Upsert PatientResult
-  //     const resultUpsertData = {
-  //       patient_id: currentPatientId,
-  //       doctor_id: selectedDoctorId,
-  //       result_date: format(resultDate, "yyyy-MM-dd'T'HH:mm:ssXXX"),
-  //       // status will default or keep existing if updating; not changing status here
-  //     };
-  //     const { data: savedResult, error: resultSaveError } = await (isEditMode
-  //       ? supabase
-  //           .from("patient_result")
-  //           .update(resultUpsertData)
-  //           .eq("id", resultId!)
-  //           .select("id")
-  //           .single()
-  //       : supabase
-  //           .from("patient_result")
-  //           .insert({ ...resultUpsertData, status: "attente" })
-  //           .select("id")
-  //           .single());
-  //     if (resultSaveError) throw resultSaveError;
-  //     const currentResultId = savedResult?.id;
-  //     if (!currentResultId)
-  //       throw new Error(
-  //         "Erreur lors de l'enregistrement de l'en-tête du résultat."
-  //       );
-
-  //     // 2. Determine ResultValue changes
-  //     const finalValuesToSave = new Map<
-  //       string,
-  //       { value: string; test_parameter_id: string }
-  //     >();
-  //     const finalVisibleParamIds = new Set<string>();
-  //     selectedTestTypes.forEach((tt) => {
-  //       /* ... build finalVisibleParamIds and finalValuesToSave ... */
-  //       tt.parameters.forEach((p) => {
-  //         if (p.isVisible !== false) {
-  //           finalVisibleParamIds.add(p.id);
-  //           if (p.resultValue !== undefined && p.resultValue.trim() !== "") {
-  //             finalValuesToSave.set(p.id, {
-  //               value: p.resultValue.trim(),
-  //               test_parameter_id: p.id,
-  //             });
-  //           }
-  //         }
-  //       });
-  //     });
-
-  //     const originalValueMap = new Map(
-  //       originalResultValues.map((ov) => [ov.test_parameter_id, ov])
-  //     );
-  //     const valuesToDelete: string[] = [];
-  //     const valuesToUpsert: any[] = [];
-
-  //     // Find values to delete
-  //     originalResultValues.forEach((ov) => {
-  //       /* ... logic to add to valuesToDelete ... */
-  //       if (
-  //         !finalVisibleParamIds.has(ov.test_parameter_id) ||
-  //         !finalValuesToSave.has(ov.test_parameter_id)
-  //       ) {
-  //         valuesToDelete.push(ov.id);
-  //       }
-  //     });
-
-  //     // Prepare values to upsert
-  //     finalValuesToSave.forEach((valueData, paramId) => {
-  //       /* ... logic to add to valuesToUpsert ... */
-  //       const original = originalValueMap.get(paramId);
-  //       valuesToUpsert.push({
-  //         id: original?.id,
-  //         patient_result_id: currentResultId,
-  //         test_parameter_id: valueData.test_parameter_id,
-  //         value: valueData.value,
-  //       });
-  //     });
-
-  //     // 3. Perform DB operations
-  //     if (valuesToDelete.length > 0) {
-  //       /* ... delete ... */
-  //       const { error: deleteError } = await supabase
-  //         .from("result_value")
-  //         .delete()
-  //         .in("id", valuesToDelete);
-  //       if (deleteError) throw deleteError;
-  //     }
-  //     if (valuesToUpsert.length > 0) {
-  //       /* ... upsert ... */
-  //       const { error: upsertError } = await supabase
-  //         .from("result_value")
-  //         .upsert(valuesToUpsert, { onConflict: "id" });
-  //       if (upsertError) throw upsertError;
-  //     }
-
-  //     // Success navigation
-  //     navigate(
-  //       isEditMode
-  //         ? `/results/${currentResultId}`
-  //         : `/patients/${currentPatientId}`
-  //     );
-  //   } catch (err: any) {
-  //     /* ... error handling ... */
-  //     console.error(
-  //       `Erreur lors de ${
-  //         isEditMode ? "la mise à jour" : "la création"
-  //       } du résultat:`,
-  //       err
-  //     );
-  //     setError(
-  //       err?.message ||
-  //         `Une erreur est survenue lors de ${
-  //           isEditMode ? "la mise à jour" : "l'enregistrement"
-  //         }.`
-  //     );
-  //   } finally {
-  //     setLoadingSubmit(false);
-  //   }
-  // };
-
-  // src/pages/ResultFormPage.tsx -> (within the ResultFormPage component)
-
-  // --- Handle Form Submission (REVISED for Edit/Create/Delete Logic) ---
-  // const handleSubmit = async (event: FormEvent) => {
-  //   event.preventDefault();
-  //   setError(null);
-
-  //   // Validation
-  //   if (!currentPatientId) {
-  //     setError("Erreur: ID du patient non défini.");
-  //     return;
-  //   } // Check patient ID
-  //   if (!selectedDoctorId) {
-  //     setError("Veuillez sélectionner un médecin prescripteur.");
-  //     return;
-  //   }
-  //   if (!resultDate) {
-  //     setError("Veuillez sélectionner la date du résultat.");
-  //     return;
-  //   }
-  //   // Removed check for 0 test types in edit mode
-  //   if (selectedTestTypes.size === 0 && !isEditMode) {
-  //     setError("Veuillez sélectionner au moins un type de test.");
-  //     return;
-  //   }
-
-  //   setLoadingSubmit(true);
-
-  //   try {
-  //     // 1. Upsert the main PatientResult record
-  //     const resultUpsertData = {
-  //       // id: isEditMode ? resultId : undefined, // Let insert generate ID, update matches on .eq()
-  //       patient_id: currentPatientId,
-  //       doctor_id: selectedDoctorId,
-  //       result_date: format(resultDate, "yyyy-MM-dd'T'HH:mm:ssXXX"), // ISO 8601 format
-  //       // Note: Status is not updated here, only set on create. Status updates happen on the Detail page.
-  //     };
-
-  //     // Perform Insert or Update for patient_result
-  //     const { data: savedResult, error: resultSaveError } = await (isEditMode
-  //       ? supabase
-  //           .from("patient_result")
-  //           .update(resultUpsertData)
-  //           .eq("id", resultId!) // Non-null assertion because isEditMode is true
-  //           .select("id")
-  //           .single()
-  //       : supabase
-  //           .from("patient_result")
-  //           .insert({ ...resultUpsertData, status: "attente" }) // Default status 'attente' on create
-  //           .select("id")
-  //           .single());
-
-  //     if (resultSaveError) throw resultSaveError;
-  //     const currentResultId = savedResult?.id; // Use the ID from upsert/insert response
-  //     if (!currentResultId)
-  //       throw new Error(
-  //         "Erreur lors de l'enregistrement de l'en-tête du résultat (ID manquant)."
-  //       );
-
-  //     // 2. Determine ResultValue changes
-  //     const finalValuesToSave = new Map<
-  //       string,
-  //       { value: string; test_parameter_id: string }
-  //     >(); // Map paramId -> {value, paramId}
-  //     const finalVisibleParamIds = new Set<string>();
-
-  //     // Collect all currently visible parameters and their values
-  //     selectedTestTypes.forEach((tt) => {
-  //       tt.parameters.forEach((p) => {
-  //         if (p.isVisible !== false) {
-  //           finalVisibleParamIds.add(p.id); // Track all visible param IDs
-  //           // Only consider saving if there's a non-empty value
-  //           if (p.resultValue !== undefined && p.resultValue.trim() !== "") {
-  //             finalValuesToSave.set(p.id, {
-  //               value: p.resultValue.trim(),
-  //               test_parameter_id: p.id,
-  //             });
-  //           }
-  //         }
-  //       });
-  //     });
-
-  //     // Map original values by parameter ID for quick lookup
-  //     const originalValueMap = new Map(
-  //       originalResultValues.map((ov) => [ov.test_parameter_id, ov])
-  //     );
-
-  //     const valuesToDelete: string[] = []; // Store IDs (UUIDs) of result_value records to delete
-  //     const valuesToUpsert: any[] = []; // Store objects for upserting result_value records
-
-  //     // --- Determine which original values need deletion ---
-  //     originalResultValues.forEach((ov) => {
-  //       // Condition 1: The parameter associated with this original value is no longer visible (was hidden or test type removed)
-  //       // Condition 2: The parameter IS still visible, BUT its value in the form is now empty (meaning it should be deleted)
-  //       if (
-  //         !finalVisibleParamIds.has(ov.test_parameter_id) ||
-  //         !finalValuesToSave.has(ov.test_parameter_id)
-  //       ) {
-  //         valuesToDelete.push(ov.id);
-  //       }
-  //     });
-
-  //     // --- Prepare values to upsert (these are parameters that are visible AND have a non-empty value) ---
-  //     finalValuesToSave.forEach((valueData, paramId) => {
-  //       const original = originalValueMap.get(paramId);
-
-  //       // *** FIX APPLIED HERE ***
-  //       // Conditionally build the payload object for upsert
-  //       const upsertPayload: {
-  //         id?: string; // ID is optional
-  //         patient_result_id: string;
-  //         test_parameter_id: string;
-  //         value: string;
-  //       } = {
-  //         patient_result_id: currentResultId,
-  //         test_parameter_id: valueData.test_parameter_id,
-  //         value: valueData.value,
-  //       };
-
-  //       // ONLY include the 'id' if we are updating an existing record (original exists)
-  //       if (original?.id) {
-  //         upsertPayload.id = original.id;
-  //       }
-  //       // If original?.id is null/undefined, the id field is omitted,
-  //       // allowing the database to generate a new UUID on INSERT.
-
-  //       valuesToUpsert.push(upsertPayload);
-  //     });
-
-  //     // 3. Perform database operations (Delete first, then Upsert)
-  //     // Wrap in a Promise.all if you want them to run more concurrently,
-  //     // but sequential (delete then upsert) is often safer for logic.
-  //     if (valuesToDelete.length > 0) {
-  //       console.log("Deleting result_value IDs:", valuesToDelete); // Debug log
-  //       const { error: deleteError } = await supabase
-  //         .from("result_value")
-  //         .delete()
-  //         .in("id", valuesToDelete);
-  //       if (deleteError) {
-  //         console.error("Delete error details:", deleteError);
-  //         throw new Error(
-  //           `Erreur lors de la suppression d'anciennes valeurs: ${deleteError.message}`
-  //         );
-  //       }
-  //     }
-
-  //     if (valuesToUpsert.length > 0) {
-  //       console.log("Upserting result_value data:", valuesToUpsert); // Debug log
-  //       const { error: upsertError } = await supabase
-  //         .from("result_value")
-  //         .upsert(valuesToUpsert, {
-  //           onConflict: "id", // Use the primary key for conflict resolution
-  //           // ignoreDuplicates: false // default is false, ensures updates happen
-  //         });
-  //       if (upsertError) {
-  //         console.error("Upsert error details:", upsertError);
-  //         // Provide more specific error if possible
-  //         if (
-  //           upsertError.code === "23502" &&
-  //           upsertError.message.includes('"id"')
-  //         ) {
-  //           throw new Error(
-  //             `Erreur Upsert: Problème avec la génération/utilisation de l'ID pour result_value.`
-  //           );
-  //         }
-  //         throw new Error(
-  //           `Erreur lors de l'enregistrement des valeurs: ${upsertError.message}`
-  //         );
-  //       }
-  //     }
-
-  //     // Success: Navigate to the appropriate page
-  //     console.log("Save successful, navigating...");
-  //     navigate(
-  //       isEditMode
-  //         ? `/results/${currentResultId}`
-  //         : `/patients/${currentPatientId}`
-  //     );
-  //   } catch (err: any) {
-  //     console.error(
-  //       `Erreur lors de ${
-  //         isEditMode ? "la mise à jour" : "la création"
-  //       } du résultat:`,
-  //       err
-  //     );
-  //     // Make error message more specific if it's a constraint violation
-  //     let displayError =
-  //       err?.message ||
-  //       `Une erreur est survenue lors de ${
-  //         isEditMode ? "la mise à jour" : "l'enregistrement"
-  //       }.`;
-  //     if (err?.code === "23505") {
-  //       // Unique constraint (e.g., maybe on patient_result_id + test_parameter_id if you added that)
-  //       displayError =
-  //         "Erreur de base de données : Violation de contrainte d'unicité.";
-  //     } else if (err?.code === "23503") {
-  //       // Foreign key constraint
-  //       displayError =
-  //         "Erreur de base de données : Violation de clé étrangère (données liées manquantes).";
-  //     } else if (err?.code === "23502") {
-  //       // Not-null constraint (should be less likely now)
-  //       displayError = `Erreur de base de données : Violation de contrainte NOT NULL (${err.message}).`;
-  //     }
-  //     setError(displayError);
-  //   } finally {
-  //     setLoadingSubmit(false);
-  //   }
-  // };
-
-  // src/pages/ResultFormPage.tsx -> (within the ResultFormPage component)
-
-  // --- Handle Form Submission (REVISED with Separate Insert/Update) ---
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -797,17 +457,28 @@ const ResultFormPage: React.FC = () => {
       setError("Veuillez sélectionner au moins un type de test.");
       return;
     }
+    // Validate prices
+    if (normalPrice !== "" && isNaN(Number(normalPrice))) {
+      setError("Le prix normal doit être un nombre valide.");
+      return;
+    }
+    if (insurancePrice !== "" && isNaN(Number(insurancePrice))) {
+      setError("Le prix assurance doit être un nombre valide.");
+      return;
+    }
 
     setLoadingSubmit(true);
 
     try {
       // 1. Save the main PatientResult record (Insert or Update)
-      const resultSaveData = {
+      const resultSaveData: any = {
         patient_id: currentPatientId,
         doctor_id: selectedDoctorId,
         result_date: format(resultDate, "yyyy-MM-dd'T'HH:mm:ssXXX"),
         // Status handled on create or via detail page, not here
       };
+      if (normalPrice !== "") resultSaveData.normal_price = Number(normalPrice);
+      if (insurancePrice !== "") resultSaveData.insurance_price = Number(insurancePrice);
 
       const { data: savedResult, error: resultSaveError } = await (isEditMode
         ? supabase
@@ -854,14 +525,9 @@ const ResultFormPage: React.FC = () => {
         originalResultValues.map((ov) => [ov.test_parameter_id, ov])
       );
       const valuesToDelete: string[] = [];
-      // *** SEPARATE ARRAYS ***
-      const valuesToInsert: Omit<
-        Tables<"result_value">,
-        "id" | "created_at" | "updated_at"
-      >[] = [];
-      const valuesToUpdate: Partial<Tables<"result_value">>[] = []; // Use Partial as we only update 'value'
+      const valuesToUpsert: any[] = [];
 
-      // --- Determine Deletions ---
+      // Find values to delete
       originalResultValues.forEach((ov) => {
         if (
           !finalVisibleParamIds.has(ov.test_parameter_id) ||
@@ -871,25 +537,19 @@ const ResultFormPage: React.FC = () => {
         }
       });
 
-      // --- Prepare Inserts and Updates ---
+      // Prepare values to upsert
       finalValuesToSave.forEach((valueData, paramId) => {
         const original = originalValueMap.get(paramId);
 
         if (original?.id) {
-          // --- Prepare for UPDATE ---
-          // Check if value actually changed to avoid unnecessary updates
-          if (original.value !== valueData.value) {
-            valuesToUpdate.push({
-              id: original.id,
-              value: valueData.value,
-              // You could add patient_result_id and test_parameter_id here too,
-              // but they shouldn't change for an update based on 'id'
-            });
-          }
+          valuesToUpsert.push({
+            id: original.id,
+            patient_result_id: currentResultId,
+            test_parameter_id: valueData.test_parameter_id,
+            value: valueData.value,
+          });
         } else {
-          // --- Prepare for INSERT ---
-          valuesToInsert.push({
-            // id is omitted - let database generate it
+          valuesToUpsert.push({
             patient_result_id: currentResultId,
             test_parameter_id: valueData.test_parameter_id,
             value: valueData.value,
@@ -897,107 +557,45 @@ const ResultFormPage: React.FC = () => {
         }
       });
 
-      // 3. Perform database operations sequentially: DELETE -> INSERT -> UPDATE
-      //    (Could potentially run INSERT and UPDATE in parallel after DELETE)
-
-      // --- DELETE ---
+      // 3. Perform DB operations
       if (valuesToDelete.length > 0) {
-        console.log("Deleting result_value IDs:", valuesToDelete);
         const { error: deleteError } = await supabase
           .from("result_value")
           .delete()
           .in("id", valuesToDelete);
-        if (deleteError) {
-          console.error("Delete error details:", deleteError);
-          throw new Error(
-            `Erreur lors de la suppression d'anciennes valeurs: ${deleteError.message}`
-          );
-        }
+        if (deleteError) throw deleteError;
       }
-
-      // --- INSERT ---
-      if (valuesToInsert.length > 0) {
-        console.log("Inserting result_value data:", valuesToInsert);
-        const { error: insertError } = await supabase
+      if (valuesToUpsert.length > 0) {
+        const { error: upsertError } = await supabase
           .from("result_value")
-          .insert(valuesToInsert); // Use standard insert
-        if (insertError) {
-          console.error("Insert error details:", insertError);
-          throw new Error(
-            `Erreur lors de l'insertion de nouvelles valeurs: ${insertError.message}`
-          );
-        }
+          .upsert(valuesToUpsert, { onConflict: "id" });
+        if (upsertError) throw upsertError;
       }
 
-      // --- UPDATE ---
-      // Need to run updates individually or batch them if Supabase client supports batch updates well
-      // For simplicity, let's run them sequentially (can be slow for many updates)
-      // A more advanced approach would use Promise.all for parallel updates
-      if (valuesToUpdate.length > 0) {
-        console.log("Updating result_value data:", valuesToUpdate);
-        // Example using Promise.all for potentially faster updates
-        const updatePromises = valuesToUpdate.map(
-          (updateData) =>
-            supabase
-              .from("result_value")
-              .update({ value: updateData.value }) // Only update the value
-              .eq("id", updateData.id!) // Match by ID
-        );
-        const updateResults = await Promise.all(updatePromises);
-
-        // Check for errors in any of the update promises
-        const firstUpdateError = updateResults.find((res) => res.error);
-        if (firstUpdateError?.error) {
-          console.error("Update error details:", firstUpdateError.error);
-          throw new Error(
-            `Erreur lors de la mise à jour des valeurs: ${firstUpdateError.error.message}`
-          );
-        }
-
-        /* // Sequential alternative (simpler but slower):
-                 for (const updateData of valuesToUpdate) {
-                     const { error: updateError } = await supabase
-                        .from('result_value')
-                        .update({ value: updateData.value }) // Only update the value
-                        .eq('id', updateData.id!);
-                     if (updateError) {
-                         console.error("Update error details:", updateError);
-                         throw new Error(`Erreur lors de la mise à jour de la valeur (ID: ${updateData.id}): ${updateError.message}`);
-                     }
-                 }
-                 */
-      }
-
-      // --- Success ---
-      console.log("Save successful, navigating...");
+      // Success navigation
       navigate(
         isEditMode
           ? `/results/${currentResultId}`
           : `/patients/${currentPatientId}`
       );
     } catch (err: any) {
-      /* ... (existing error handling and display) ... */
+      /* ... error handling ... */
       console.error(
         `Erreur lors de ${
           isEditMode ? "la mise à jour" : "la création"
         } du résultat:`,
         err
       );
-      let displayError =
+      setError(
         err?.message ||
-        `Une erreur est survenue lors de ${
-          isEditMode ? "la mise à jour" : "l'enregistrement"
-        }.`;
-      // ... (specific error code checks remain useful) ...
-      setError(displayError);
+          `Une erreur est survenue lors de ${
+            isEditMode ? "la mise à jour" : "l'enregistrement"
+          }.`
+      );
     } finally {
       setLoadingSubmit(false);
     }
   };
-  // --- End Handle Form Submission ---
-  // --- End Handle Form Submission ---
-
-  // --- End Form Submission ---
 
   // --- Render Logic ---
   if (loadingInitialData) {
@@ -1149,6 +747,41 @@ const ResultFormPage: React.FC = () => {
                     />
                   </PopoverContent>
                 </Popover>
+              </div>
+            </div>
+            {/* Price Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="normal_price" className="font-semibold">
+                  Prix Normal
+                </Label>
+                <Input
+                  id="normal_price"
+                  name="normal_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Prix normal du test (ex: 1000)"
+                  value={normalPrice}
+                  onChange={(e) => setNormalPrice(e.target.value)}
+                  disabled={loadingSubmit}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="insurance_price" className="font-semibold">
+                  Prix Assurance
+                </Label>
+                <Input
+                  id="insurance_price"
+                  name="insurance_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Prix avec assurance (ex: 800)"
+                  value={insurancePrice}
+                  onChange={(e) => setInsurancePrice(e.target.value)}
+                  disabled={loadingSubmit}
+                />
               </div>
             </div>
 

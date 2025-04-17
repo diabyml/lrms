@@ -24,6 +24,8 @@ import TestTypeFormPage from "./pages/TestTypeFormPage";
 import DoctorFormPage from "./pages/DoctorFormPage";
 import CategoryListPage from "./pages/CategoryListPage";
 import PrintHeaderDesignPage from "./pages/PrintHeaderDesignPage";
+import RistourneListPage from "./pages/RistourneListPage";
+import RistourneFormPage from "./pages/RistourneFormPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -87,6 +89,10 @@ function App() {
             />
             {/* categories */}
             <Route path="/categories" element={<CategoryListPage />} />{" "}
+            {/* ristournes */}
+            <Route path="/ristournes" element={<RistourneListPage />} />
+            <Route path="/ristournes/new" element={<RistourneFormPage />} />
+            <Route path="/ristournes/:ristourneId" element={<RistourneFormPage />} />
             <Route
               path="/settings/print-header"
               element={<PrintHeaderDesignPage />}
