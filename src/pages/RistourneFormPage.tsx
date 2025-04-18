@@ -475,6 +475,23 @@ const RistourneFormPage: React.FC = () => {
     }
   }, [isEditMode, patientResults.length]);
 
+  // --- Select All State ---
+  const allSelected = patientResults.length > 0 && patientResults.every(r => r.isSelected);
+  const someSelected = patientResults.some(r => r.isSelected);
+
+  const handleSelectAllChange = (checked: boolean) => {
+    setPatientResults(current =>
+      current.map(result => ({ ...result, isSelected: checked }))
+    );
+    if (doctorFeeConfig) {
+      const total = patientResults
+        .map(r => ({ ...r, isSelected: checked }))
+        .filter(r => r.isSelected)
+        .reduce((sum, r) => sum + r.calculatedFee, 0);
+      setTotalFee(total);
+    }
+  };
+
   // --- Loading State ---
   if (loading) {
     return (
@@ -662,7 +679,16 @@ const RistourneFormPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12"></TableHead>
+                      <TableHead className="w-12">
+                        {/* Select All Checkbox */}
+                        <Checkbox
+                          checked={allSelected}
+                          indeterminate={someSelected && !allSelected}
+                          onCheckedChange={(checked) => handleSelectAllChange(!!checked)}
+                          disabled={submitting || patientResults.length === 0}
+                          aria-label="Tout sélectionner"
+                        />
+                      </TableHead>
                       <TableHead>Patient</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Prix Normal</TableHead>
