@@ -43,6 +43,8 @@ import Template1 from "@/components/print_header/Template1"; // Adjust path
 import Template2 from "@/components/print_header/Template2"; // Adjust path
 import Template3 from "@/components/print_header/Template3";
 import Template4 from "@/components/print_header/Template4";
+import Template5 from "@/components/print_header/Template5";
+
 import HeaderTemplateSelector, {
   HeaderTemplateOption,
 } from "@/components/settings/HeaderTemplateSelector"; // Adjust path
@@ -66,6 +68,7 @@ const availableHeaderTemplates: HeaderTemplateOption[] = [
   { id: "template2", name: "Centré (Logo au Dessus)", component: Template2 },
   { id: "template3", name: "Centré (Avec Séparateur)", component: Template3 }, // Add Template 3
   { id: "template4", name: "Moderne (Divisé)", component: Template4 }, // Add Template 4
+  // { id: "template5", name: "Moderne shadow encercle", component: Template5 }, // Add Template 5
   // Add more template definitions here
   // { id: 'template3', name: 'Modèle 3', component: Template3 },
 ];

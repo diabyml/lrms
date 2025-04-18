@@ -1430,7 +1430,7 @@ const ResultDetailPage: React.FC = () => {
         </div>
         {/* Controlled margin top for signature block */}
         <div
-          className="text-sm text-muted-foreground print:block print:mt-4"
+          className="text-sm text-black print:block print:mt-4"
           style={{ marginTop: `${marginTop * 0.25}rem` }}
         >
           <div className="font-bold" dangerouslySetInnerHTML={{ __html: description }} />

@@ -20,7 +20,7 @@ interface TemplateProps {
   isPreview?: boolean; // Flag for potential minor style adjustments in preview mode
 }
 
-const Template2: React.FC<TemplateProps> = ({ data, isPreview }) => {
+const Template5: React.FC<TemplateProps> = ({ data, isPreview }) => {
   const {
     logoUrl,
     labName,
@@ -34,7 +34,7 @@ const Template2: React.FC<TemplateProps> = ({ data, isPreview }) => {
 
   return (
     <div
-      className={`flex flex-col items-center text-center gap-2 ${
+      className={`flex flex-col items-center text-center gap-2 border ${
         isPreview ? "p-4 border rounded-md bg-white min-h-[100px]" : ""
       }`}
     >
@@ -69,4 +69,4 @@ const Template2: React.FC<TemplateProps> = ({ data, isPreview }) => {
   );
 };
 
-export default Template2;
+export default Template5;
