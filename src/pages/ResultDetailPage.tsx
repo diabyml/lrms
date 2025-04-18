@@ -204,6 +204,32 @@ const ResultDetailPage: React.FC = () => {
   // Add state for margin top control
   const [marginTop, setMarginTop] = useState(20); // default to 20
 
+  // Add state for column widths
+  const [paramWidth, setParamWidth] = useState(40);
+  const [valueWidth, setValueWidth] = useState(15);
+  const [unitWidth, setUnitWidth] = useState(10);
+  const [refWidth, setRefWidth] = useState(35);
+
+  // Load column widths from Supabase on mount
+  useEffect(() => {
+    async function fetchColumnWidths() {
+      const { data, error } = await supabase
+        .from('result_column_widths')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (data) {
+        setParamWidth(data.param_width);
+        setValueWidth(data.value_width);
+        setUnitWidth(data.unit_width);
+        setRefWidth(data.ref_width);
+      }
+      // If not found or error, keep defaults
+    }
+    fetchColumnWidths();
+  }, []);
+
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
     const templateId = headerConfig?.selected_template || defaultTemplateId;
@@ -992,7 +1018,7 @@ const ResultDetailPage: React.FC = () => {
                 ? format(parseISO(patientData.date_of_birth), "P", { locale: fr })
                 : null
             )}
-            <div className="hidden print:block">
+            {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
                 "Date Résultat",
@@ -1000,7 +1026,7 @@ const ResultDetailPage: React.FC = () => {
                   ? format(parseISO(resultData.result_date), "Pp", { locale: fr })
                   : null
               )}
-            </div>
+            </div> */}
           </div>
 
           {/* Doctor Info */}
@@ -1045,6 +1071,58 @@ const ResultDetailPage: React.FC = () => {
           </div>
         )}
         {/* --- End Category Reorder Buttons --- */}
+
+        {/* Column width controls (screen only, visible ONCE for all groups) */}
+        <div className="flex gap-4 mb-2 print:hidden items-end">
+          <div className="flex flex-col text-xs">
+            <label htmlFor="paramWidth">Paramètre (%)</label>
+            <input
+              id="paramWidth"
+              type="number"
+              min={5}
+              max={80}
+              value={paramWidth}
+              onChange={(e) => setParamWidth(Number(e.target.value))}
+              className="border px-2 py-1 w-16 rounded"
+            />
+          </div>
+          <div className="flex flex-col text-xs">
+            <label htmlFor="valueWidth">Valeur (%)</label>
+            <input
+              id="valueWidth"
+              type="number"
+              min={5}
+              max={80}
+              value={valueWidth}
+              onChange={(e) => setValueWidth(Number(e.target.value))}
+              className="border px-2 py-1 w-16 rounded"
+            />
+          </div>
+          <div className="flex flex-col text-xs">
+            <label htmlFor="unitWidth">Unité (%)</label>
+            <input
+              id="unitWidth"
+              type="number"
+              min={5}
+              max={80}
+              value={unitWidth}
+              onChange={(e) => setUnitWidth(Number(e.target.value))}
+              className="border px-2 py-1 w-16 rounded"
+            />
+          </div>
+          <div className="flex flex-col text-xs">
+            <label htmlFor="refWidth">Réf. (%)</label>
+            <input
+              id="refWidth"
+              type="number"
+              min={5}
+              max={80}
+              value={refWidth}
+              onChange={(e) => setRefWidth(Number(e.target.value))}
+              className="border px-2 py-1 w-16 rounded"
+            />
+          </div>
+        </div>
 
         {/* --- 3. Grouped Results Section (Single Table per Category + Page Break Toggle) --- */}
         <div className="space-y-8 print:space-y-4">
@@ -1113,16 +1191,16 @@ const ResultDetailPage: React.FC = () => {
                   {/* == Table Header (Rendered ONCE per category) == */}
                   <TableHeader className="bg-muted/10 print:bg-gray-100">
                     <TableRow>
-                      <TableHead className="w-[40%] pl-4 print:pl-1">
+                      <TableHead style={{ width: `${paramWidth}%` }} className="pl-4 print:pl-1">
                         Paramètre
                       </TableHead>
-                      <TableHead className="w-[15%] pl-2 print:pl-1">
+                      <TableHead style={{ width: `${valueWidth}%` }} className="pl-2 print:pl-1">
                         Valeur
                       </TableHead>
-                      <TableHead className="w-[10%] pl-2 print:pl-1">
+                      <TableHead style={{ width: `${unitWidth}%` }} className="pl-2 print:pl-1">
                         Unité
                       </TableHead>
-                      <TableHead className="w-[35%] pr-4 print:pr-1">
+                      <TableHead style={{ width: `${refWidth}%` }} className="pr-4 print:pr-1">
                         Réf.
                       </TableHead>
                     </TableRow>
@@ -1210,14 +1288,16 @@ const ResultDetailPage: React.FC = () => {
                                   )}
                                 >
                                   <TableCell
-                                    className="font-medium pl-6 print:pl-2 w-[40%]"
+                                    style={{ width: `${paramWidth}%` }}
+                                    className="font-medium pl-6 print:pl-2"
                                     dangerouslySetInnerHTML={{
                                       __html: param.name,
                                     }}
                                   ></TableCell>
                                   <TableCell
+                                    style={{ width: `${valueWidth}%` }}
                                     className={cn(
-                                      "pl-2 print:pl-1 w-[15%] cursor-pointer hover:bg-muted/50",
+                                      "pl-2 print:pl-1 cursor-pointer hover:bg-muted/50",
                                       isClickable &&
                                       "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
                                       valueClasses, // Apply text styles
@@ -1237,17 +1317,20 @@ const ResultDetailPage: React.FC = () => {
                                     {param.resultValue}
                                   </TableCell>
                                   <TableCell
-                                    className="pl-2 print:pl-1 w-[10%]"
+                                    style={{ width: `${unitWidth}%` }}
+                                    className="pl-2 print:pl-1"
                                     dangerouslySetInnerHTML={{
                                       __html: param.unit || "-",
                                     }}
                                   >
                                     {/* {param.unit || "-"} */}
                                   </TableCell>
-                                  <TableCell className="text-muted-foreground pr-4 print:pr-1 w-[35%] !whitespace-pre-line">
+                                  <TableCell
+                                    style={{ width: `${refWidth}%` }}
+                                    className="text-muted-foreground pr-4 print:pr-1 !whitespace-pre-line"
+                                  >
                                     {!param.reference_range && "-"}
                                     {param.reference_range === "NEGATIF" && "-"}
-
                                     {param.reference_range?.includes("style") && (
                                       <div
                                         dangerouslySetInnerHTML={{
@@ -1255,7 +1338,6 @@ const ResultDetailPage: React.FC = () => {
                                         }}
                                       ></div>
                                     )}
-
                                     {param.reference_range !== "NEGATIF" &&
                                       !param.reference_range?.includes("style") &&
                                       param.reference_range &&

@@ -172,18 +172,20 @@ const RistourneListPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  // Filter ristournes based on search term
+  // Filter and sort ristournes based on search term (newest at top)
   const filteredRistournes = useMemo(() => {
-    if (!debouncedSearchTerm) {
-      return ristournes;
+    let filtered = ristournes;
+    if (debouncedSearchTerm) {
+      const lowerCaseSearch = debouncedSearchTerm.toLowerCase();
+      filtered = ristournes.filter(
+        (ristourne) =>
+          ristourne.doctor?.full_name.toLowerCase().includes(lowerCaseSearch) ||
+          (ristourne.doctor?.hospital &&
+            ristourne.doctor.hospital.toLowerCase().includes(lowerCaseSearch))
+      );
     }
-    const lowerCaseSearch = debouncedSearchTerm.toLowerCase();
-    return ristournes.filter(
-      (ristourne) =>
-        ristourne.doctor?.full_name.toLowerCase().includes(lowerCaseSearch) ||
-        (ristourne.doctor?.hospital &&
-          ristourne.doctor.hospital.toLowerCase().includes(lowerCaseSearch))
-    );
+    // Sort by created_date descending (newest first)
+    return filtered.slice().sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime());
   }, [ristournes, debouncedSearchTerm]);
 
   // Pagination calculations
@@ -333,7 +335,7 @@ const RistourneListPage: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredRistournes.length > 0 ? (
-                    filteredRistournes.slice().reverse().map((ristourne) => (
+                    filteredRistournes.map((ristourne) => (
                       <TableRow key={ristourne.id}>
                         <TableCell>
                           {formatDate(ristourne.created_date)}

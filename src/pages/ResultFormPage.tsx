@@ -525,7 +525,8 @@ const ResultFormPage: React.FC = () => {
         originalResultValues.map((ov) => [ov.test_parameter_id, ov])
       );
       const valuesToDelete: string[] = [];
-      const valuesToUpsert: any[] = [];
+      const valuesToUpdate: any[] = [];
+      const valuesToInsert: any[] = [];
 
       // Find values to delete
       originalResultValues.forEach((ov) => {
@@ -542,14 +543,14 @@ const ResultFormPage: React.FC = () => {
         const original = originalValueMap.get(paramId);
 
         if (original?.id) {
-          valuesToUpsert.push({
+          valuesToUpdate.push({
             id: original.id,
             patient_result_id: currentResultId,
             test_parameter_id: valueData.test_parameter_id,
             value: valueData.value,
           });
         } else {
-          valuesToUpsert.push({
+          valuesToInsert.push({
             patient_result_id: currentResultId,
             test_parameter_id: valueData.test_parameter_id,
             value: valueData.value,
@@ -565,11 +566,24 @@ const ResultFormPage: React.FC = () => {
           .in("id", valuesToDelete);
         if (deleteError) throw deleteError;
       }
-      if (valuesToUpsert.length > 0) {
-        const { error: upsertError } = await supabase
+      // Update existing values one by one (or in batch if supported)
+      for (const updateVal of valuesToUpdate) {
+        const { error: updateError } = await supabase
           .from("result_value")
-          .upsert(valuesToUpsert, { onConflict: "id" });
-        if (upsertError) throw upsertError;
+          .update({
+            value: updateVal.value,
+            test_parameter_id: updateVal.test_parameter_id,
+            patient_result_id: updateVal.patient_result_id,
+          })
+          .eq("id", updateVal.id);
+        if (updateError) throw updateError;
+      }
+      // Insert new values (batch)
+      if (valuesToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("result_value")
+          .insert(valuesToInsert);
+        if (insertError) throw insertError;
       }
 
       // Success navigation
