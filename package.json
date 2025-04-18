@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:skip-typecheck": "VITE_SKIP_TYPECHECK=1 vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
