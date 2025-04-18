@@ -9,3 +9,12 @@ create account
 
 
 add ristourne-access-code
+
+
+
+in admin mode pwershell
+    - Set-ExecutionPolicy RemoteSigned
+
+
+
+npm install --legacy-peer-deps
