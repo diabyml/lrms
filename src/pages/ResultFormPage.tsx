@@ -67,6 +67,11 @@ type TestParameter = Tables<"test_parameter">;
 type ResultValue = Tables<"result_value">;
 type PatientResult = Tables<"patient_result">; // Added PatientResult type
 
+type Category = {
+  id: string;
+  name: string;
+};
+
 interface TestParameterWithResult extends TestParameter {
   resultValue?: string;
   isVisible?: boolean;
@@ -95,6 +100,8 @@ const ResultFormPage: React.FC = () => {
   );
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [availableTestTypes, setAvailableTestTypes] = useState<TestType[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | undefined>(
     undefined
   );
@@ -138,7 +145,7 @@ const ResultFormPage: React.FC = () => {
             )
             .eq("patient_result_id", resultId), // Fetch FKs needed for grouping
           supabase.from("doctor").select("id, full_name").order("full_name"),
-          supabase.from("test_type").select("id, name").order("name"),
+          supabase.from("test_type").select("id, name, category_id").order("name"),
         ]);
 
       // Handle Main Result
@@ -251,7 +258,7 @@ const ResultFormPage: React.FC = () => {
           .eq("id", patientIdFromRoute)
           .single(),
         supabase.from("doctor").select("id, full_name").order("full_name"),
-        supabase.from("test_type").select("id, name").order("name"),
+        supabase.from("test_type").select("id, name, category_id").order("name"),
       ]);
       if (patientRes.error) throw patientRes.error;
       if (!patientRes.data)
@@ -276,6 +283,21 @@ const ResultFormPage: React.FC = () => {
   }, [patientIdFromRoute]);
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from("category")
+        .select("id, name")
+        .order("name");
+      if (error) {
+        setError("Erreur lors du chargement des catégories");
+        return;
+      }
+      setCategories(data || []);
+    };
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
     if (isEditMode) {
       fetchEditData();
     } else {
@@ -285,13 +307,19 @@ const ResultFormPage: React.FC = () => {
   // --- End Data Fetching ---
 
   // Filter available test types based on search term
-  const filteredAvailableTestTypes = useMemo(() => {
-    if (!debouncedTestTypeSearch) return availableTestTypes;
-    const lowerCaseSearch = debouncedTestTypeSearch.toLowerCase();
-    return availableTestTypes.filter((tt) =>
-      tt.name.toLowerCase().includes(lowerCaseSearch)
-    );
-  }, [availableTestTypes, debouncedTestTypeSearch]);
+  const filteredTestTypes = useMemo(() => {
+    if (!selectedCategoryId) {
+      if (!debouncedTestTypeSearch) return availableTestTypes;
+      const lowerCaseSearch = debouncedTestTypeSearch.toLowerCase();
+      return availableTestTypes.filter((tt) =>
+        tt.name.toLowerCase().includes(lowerCaseSearch)
+      );
+    } else {
+      return availableTestTypes.filter(
+        (tt) => tt.category_id === selectedCategoryId
+      );
+    }
+  }, [availableTestTypes, debouncedTestTypeSearch, selectedCategoryId]);
 
   // --- handleTestTypeToggle ---
   const handleTestTypeToggle = useCallback(
@@ -799,6 +827,25 @@ const ResultFormPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Category Filter */}
+            <div style={{ marginBottom: 16 }}>
+              <Label htmlFor="category-filter">Catégorie</Label>
+              <Select
+                value={selectedCategoryId ?? "all"}
+                onValueChange={(val) => setSelectedCategoryId(val === "all" ? undefined : val)}
+              >
+                <SelectTrigger id="category-filter">
+                  <SelectValue placeholder="Filtrer par catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les catégories</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Test Type Selection with Search */}
             <div className="space-y-4">
               <Label className="font-semibold text-base">
@@ -817,8 +864,8 @@ const ResultFormPage: React.FC = () => {
               </div>
               {availableTestTypes.length > 0 ? (
                 <div className="grid grid-cols-2 _sm:grid-cols-3 _md:grid-cols-4 gap-x-4 gap-y-3 rounded-md border p-4 max-h-80 overflow-y-auto">
-                  {filteredAvailableTestTypes.length > 0 ? (
-                    filteredAvailableTestTypes.map((tt) => (
+                  {filteredTestTypes.length > 0 ? (
+                    filteredTestTypes.map((tt) => (
                       <div key={tt.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`test-type-${tt.id}`}
