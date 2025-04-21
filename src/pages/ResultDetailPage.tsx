@@ -857,7 +857,7 @@ const ResultDetailPage: React.FC = () => {
             <CardContent className="space-y-1 pt-1 print:space-y-0.5 print:pt-0.5">
               {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
               {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
-              {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
+              {renderInfoItem(Info, "Provenance", doctorData?.hospital)}
             </CardContent>
           </Card>
           {/* Result Info Card */}
