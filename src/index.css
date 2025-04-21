@@ -242,7 +242,11 @@ body {
       }
       th, td {
           padding: 4px 6px; /* Reduce padding */
-          border: 1px solid #e5e7eb; /* Add simple borders */
+          /* Add simple borders */
+          border: 1px solid #e5e7eb;  
+          border: 1px solid oklch(86.9% 0.022 252.894);
+          border: 1px solid oklch(70.4% 0.04 256.788);
+
           text-align: left;
       }
       /* Prevent page breaks inside table rows and specific cards/sections */

@@ -169,7 +169,7 @@ const MainLayout: React.FC = () => {
         {/* Page Content - Outlet renders the matched child route */}
         {/* Added TooltipProvider required by shadcn Tooltip */}
         <TooltipProvider>
-          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 bg-white">
             <Outlet />
           </main>
         </TooltipProvider>

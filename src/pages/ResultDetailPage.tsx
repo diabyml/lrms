@@ -51,7 +51,7 @@ import {
   Printer,
   Stethoscope,
   User,
-  Workflow
+  Workflow,
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -71,10 +71,7 @@ const availableHeaderTemplates = [
 const defaultTemplateId = "template1"; // Match default in DB/settings page
 
 // draggable-categories
-import {
-  checkValueRangeStatus,
-  RangeCheckStatus
-} from "@/lib/rangeChecker";
+import { checkValueRangeStatus, RangeCheckStatus } from "@/lib/rangeChecker";
 import {
   closestCenter,
   DndContext,
@@ -202,7 +199,7 @@ const ResultDetailPage: React.FC = () => {
   const [pricesError, setPricesError] = useState<string | null>(null);
 
   // Add state for margin top control
-  const [marginTop, setMarginTop] = useState(20); // default to 20
+  const [marginTop, setMarginTop] = useState(5); // default to 20
 
   // Add state for column widths
   const [paramWidth, setParamWidth] = useState(40);
@@ -214,9 +211,9 @@ const ResultDetailPage: React.FC = () => {
   useEffect(() => {
     async function fetchColumnWidths() {
       const { data, error } = await supabase
-        .from('result_column_widths')
-        .select('*')
-        .order('updated_at', { ascending: false })
+        .from("result_column_widths")
+        .select("*")
+        .order("updated_at", { ascending: false })
         .limit(1)
         .single();
       if (data) {
@@ -337,8 +334,8 @@ const ResultDetailPage: React.FC = () => {
         // Type assertion might be needed based on Supabase client version/typing
         const param = rv.test_parameter as
           | (TestParameter & {
-            test_type: (TestType & { category: Category | null }) | null;
-          })
+              test_type: (TestType & { category: Category | null }) | null;
+            })
           | null;
 
         if (param && param.test_type && param.test_type.category) {
@@ -434,28 +431,37 @@ const ResultDetailPage: React.FC = () => {
   }, [resultData]);
 
   useEffect(() => {
-    setNormalPrice(resultData?.normal_price != null ? String(resultData.normal_price) : "");
-    setInsurancePrice(resultData?.insurance_price != null ? String(resultData.insurance_price) : "");
+    setNormalPrice(
+      resultData?.normal_price != null ? String(resultData.normal_price) : ""
+    );
+    setInsurancePrice(
+      resultData?.insurance_price != null
+        ? String(resultData.insurance_price)
+        : ""
+    );
   }, [resultData]);
 
   // Save description with debounce
-  const saveDescription = useCallback(async (newDescription: string) => {
-    if (!resultId) return;
-    setSavingDescription(true);
+  const saveDescription = useCallback(
+    async (newDescription: string) => {
+      if (!resultId) return;
+      setSavingDescription(true);
 
-    try {
-      const { error } = await supabase
-        .from("patient_result")
-        .update({ description: newDescription })
-        .eq("id", resultId);
+      try {
+        const { error } = await supabase
+          .from("patient_result")
+          .update({ description: newDescription })
+          .eq("id", resultId);
 
-      if (error) throw error;
-    } catch (err: any) {
-      console.error("Error saving description:", err);
-    } finally {
-      setSavingDescription(false);
-    }
-  }, [resultId]);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error("Error saving description:", err);
+      } finally {
+        setSavingDescription(false);
+      }
+    },
+    [resultId]
+  );
 
   // Debounced save
   useEffect(() => {
@@ -475,7 +481,10 @@ const ResultDetailPage: React.FC = () => {
     try {
       const normal = normalPrice !== "" ? Number(normalPrice) : null;
       const insurance = insurancePrice !== "" ? Number(insurancePrice) : null;
-      if ((normalPrice !== "" && isNaN(normal)) || (insurancePrice !== "" && isNaN(insurance))) {
+      if (
+        (normalPrice !== "" && isNaN(normal)) ||
+        (insurancePrice !== "" && isNaN(insurance))
+      ) {
         setPricesError("Les prix doivent être des nombres valides.");
         setSavingPrices(false);
         return;
@@ -487,7 +496,11 @@ const ResultDetailPage: React.FC = () => {
         .select()
         .single();
       if (error) throw error;
-      setResultData((prev) => (prev ? { ...prev, normal_price: normal, insurance_price: insurance } : prev));
+      setResultData((prev) =>
+        prev
+          ? { ...prev, normal_price: normal, insurance_price: insurance }
+          : prev
+      );
       setEditingPrices(false);
     } catch (err: any) {
       setPricesError(err.message || "Erreur lors de la sauvegarde des prix.");
@@ -815,8 +828,8 @@ const ResultDetailPage: React.FC = () => {
                 "Date Naissance",
                 patientData?.date_of_birth
                   ? format(parseISO(patientData.date_of_birth), "P", {
-                    locale: fr,
-                  })
+                      locale: fr,
+                    })
                   : null
               )}
               <div className="hidden print:block">
@@ -825,8 +838,8 @@ const ResultDetailPage: React.FC = () => {
                   "Date Résultat",
                   resultData.result_date
                     ? format(parseISO(resultData.result_date), "Pp", {
-                      locale: fr,
-                    })
+                        locale: fr,
+                      })
                     : null
                 )}
               </div>
@@ -861,8 +874,8 @@ const ResultDetailPage: React.FC = () => {
                 "Date Résultat",
                 resultData.result_date
                   ? format(parseISO(resultData.result_date), "Pp", {
-                    locale: fr,
-                  })
+                      locale: fr,
+                    })
                   : null
               )}
               {/* --- Price Fields (Screen Only, Not Print) --- */}
@@ -894,7 +907,10 @@ const ResultDetailPage: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="insurance_price" className="text-xs font-medium">
+                  <Label
+                    htmlFor="insurance_price"
+                    className="text-xs font-medium"
+                  >
                     Prix Assurance
                   </Label>
                   {editingPrices ? (
@@ -923,21 +939,39 @@ const ResultDetailPage: React.FC = () => {
                 <div className="flex gap-2 mt-1">
                   {editingPrices ? (
                     <>
-                      <Button size="xs" variant="secondary" onClick={savePrices} disabled={savingPrices}>
-                        {savingPrices ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        onClick={savePrices}
+                        disabled={savingPrices}
+                      >
+                        {savingPrices ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : null}
                         Sauvegarder
                       </Button>
-                      <Button size="xs" variant="outline" onClick={() => setEditingPrices(false)} disabled={savingPrices}>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => setEditingPrices(false)}
+                        disabled={savingPrices}
+                      >
                         Annuler
                       </Button>
                     </>
                   ) : (
-                    <Button size="xs" variant="outline" onClick={() => setEditingPrices(true)}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => setEditingPrices(true)}
+                    >
                       Modifier Prix
                     </Button>
                   )}
                 </div>
-                {pricesError && <p className="text-xs text-destructive mt-1">{pricesError}</p>}
+                {pricesError && (
+                  <p className="text-xs text-destructive mt-1">{pricesError}</p>
+                )}
               </div>
               {/* --- End Price Fields --- */}
               {/* Status Display */}
@@ -1002,10 +1036,10 @@ const ResultDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-        {/* print info grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 hidden print:grid">
+        {/* print info grid for print only*/}
+        <div className="grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 hidden print:grid">
           {/* Patient Info */}
-          <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
+          <div className="flex flex-col gap-1 rounded-lg border border-slate-600 print:shadow-lg bg-white/90 p-3 print:border  print:bg-white print:rounded-md print:p-2 text-xs">
             <div className="flex items-center gap-2 font-semibold mb-1">
               <User className="h-4 w-4" /> Patient
             </div>
@@ -1015,7 +1049,9 @@ const ResultDetailPage: React.FC = () => {
               CalendarDays,
               "Naissance",
               patientData?.date_of_birth
-                ? format(parseISO(patientData.date_of_birth), "P", { locale: fr })
+                ? format(parseISO(patientData.date_of_birth), "P", {
+                    locale: fr,
+                  })
                 : null
             )}
             {/* <div className="hidden print:block">
@@ -1030,7 +1066,7 @@ const ResultDetailPage: React.FC = () => {
           </div>
 
           {/* Doctor Info */}
-          <div className="flex flex-col gap-1 rounded-lg border border-muted-foreground/10 shadow-md bg-white/90 p-3 print:border print:shadow print:bg-white print:rounded-md print:p-2 text-xs">
+          <div className="flex flex-col gap-1 rounded-lg border border-slate-600  bg-white/90 p-3 print:border print:shadow-lg print:bg-white print:rounded-md print:p-2 text-xs">
             <div className="flex items-center gap-2 font-semibold mb-1">
               <Stethoscope className="h-4 w-4" /> Médecin
             </div>
@@ -1191,16 +1227,28 @@ const ResultDetailPage: React.FC = () => {
                   {/* == Table Header (Rendered ONCE per category) == */}
                   <TableHeader className="bg-muted/10 print:bg-gray-100">
                     <TableRow>
-                      <TableHead style={{ width: `${paramWidth}%` }} className="pl-4 print:pl-1">
+                      <TableHead
+                        style={{ width: `${paramWidth}%` }}
+                        className="pl-4 print:pl-1"
+                      >
                         Paramètre
                       </TableHead>
-                      <TableHead style={{ width: `${valueWidth}%` }} className="pl-2 print:pl-1">
+                      <TableHead
+                        style={{ width: `${valueWidth}%` }}
+                        className="pl-2 print:pl-1"
+                      >
                         Valeur
                       </TableHead>
-                      <TableHead style={{ width: `${unitWidth}%` }} className="pl-2 print:pl-1">
+                      <TableHead
+                        style={{ width: `${unitWidth}%` }}
+                        className="pl-2 print:pl-1"
+                      >
                         Unité
                       </TableHead>
-                      <TableHead style={{ width: `${refWidth}%` }} className="pr-4 print:pr-1">
+                      <TableHead
+                        style={{ width: `${refWidth}%` }}
+                        className="pr-4 print:pr-1"
+                      >
                         Réf.
                       </TableHead>
                     </TableRow>
@@ -1245,7 +1293,8 @@ const ResultDetailPage: React.FC = () => {
                                   param.reference_range
                                 );
                               // 2. Check override state
-                              const overrideState = highlightOverrides[param.id];
+                              const overrideState =
+                                highlightOverrides[param.id];
 
                               // 3. Determine final highlight class
                               let highlightClass = "";
@@ -1299,7 +1348,7 @@ const ResultDetailPage: React.FC = () => {
                                     className={cn(
                                       "pl-2 print:pl-1 cursor-pointer hover:bg-muted/50",
                                       isClickable &&
-                                      "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
+                                        "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
                                       valueClasses, // Apply text styles
                                       highlightClass
                                     )}
@@ -1331,7 +1380,9 @@ const ResultDetailPage: React.FC = () => {
                                   >
                                     {!param.reference_range && "-"}
                                     {param.reference_range === "NEGATIF" && "-"}
-                                    {param.reference_range?.includes("style") && (
+                                    {param.reference_range?.includes(
+                                      "style"
+                                    ) && (
                                       <div
                                         dangerouslySetInnerHTML={{
                                           __html: param.reference_range,
@@ -1339,7 +1390,9 @@ const ResultDetailPage: React.FC = () => {
                                       ></div>
                                     )}
                                     {param.reference_range !== "NEGATIF" &&
-                                      !param.reference_range?.includes("style") &&
+                                      !param.reference_range?.includes(
+                                        "style"
+                                      ) &&
                                       param.reference_range &&
                                       param.reference_range
                                         .split(";")
@@ -1353,10 +1406,14 @@ const ResultDetailPage: React.FC = () => {
                             {/* Add test type description if it exists */}
                             {testTypeGroup.testType.description && (
                               <TableRow>
-                                <TableCell colSpan={4} className="py-2 px-6 print:px-2 text-sm print:text-xs text-muted-foreground">
+                                <TableCell
+                                  colSpan={4}
+                                  className="py-2 px-6 print:px-2 text-sm print:text-xs text-muted-foreground"
+                                >
                                   <div
                                     dangerouslySetInnerHTML={{
-                                      __html: testTypeGroup.testType.description
+                                      __html:
+                                        testTypeGroup.testType.description,
                                     }}
                                   />
                                 </TableCell>
@@ -1417,14 +1474,16 @@ const ResultDetailPage: React.FC = () => {
         </Card>
         {/* Padding control (screen only, not print) */}
         <div className="flex items-center gap-2 mb-2 print:hidden">
-          <label htmlFor="marginTopControl" className="text-xs">Décalage vertical (mt):</label>
+          <label htmlFor="marginTopControl" className="text-xs">
+            Décalage vertical (mt):
+          </label>
           <input
             id="marginTopControl"
             type="number"
             min={0}
             max={20}
             value={marginTop}
-            onChange={e => setMarginTop(Number(e.target.value))}
+            onChange={(e) => setMarginTop(Number(e.target.value))}
             className="border px-2 py-1 text-xs w-16 rounded"
           />
         </div>
@@ -1433,14 +1492,18 @@ const ResultDetailPage: React.FC = () => {
           className="text-sm text-black print:block print:mt-4"
           style={{ marginTop: `${marginTop * 0.25}rem` }}
         >
-          <div className="font-bold" dangerouslySetInnerHTML={{ __html: description }} />
+          <div
+            className="font-bold"
+            dangerouslySetInnerHTML={{ __html: description }}
+          />
           <div className="flex items-center justify-between mt-4 font-bold">
             <p>
-              Bamako, le {resultData.result_date ? format(new Date(resultData.result_date), 'dd/MM/yyyy') : ''}
+              Bamako, le{" "}
+              {resultData.result_date
+                ? format(new Date(resultData.result_date), "dd/MM/yyyy")
+                : ""}
             </p>
-            <p>
-              Signature
-            </p>
+            <p>Signature</p>
           </div>
         </div>
       </div>{" "}
