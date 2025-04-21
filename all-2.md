@@ -21,7 +21,7 @@ npm install --legacy-peer-deps
 
 
 
-
+cd into directory: match yours
 
 @echo off
 echo Starting Docker Desktop...
