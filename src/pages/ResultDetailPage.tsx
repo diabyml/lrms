@@ -4,7 +4,7 @@
 
 import { cn } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
 
 // Shadcn/ui Imports
@@ -154,6 +154,7 @@ const displayStatus = (status: ResultStatus | string | null): string => {
 // --- Component ---
 const ResultDetailPage: React.FC = () => {
   const { resultId } = useParams<{ resultId: string }>();
+  const navigate = useNavigate();
   const [resultData, setResultData] = useState<PatientResult | null>(null);
   const [patientData, setPatientData] = useState<Patient | null>(null);
   const [doctorData, setDoctorData] = useState<Doctor | null>(null);
@@ -197,6 +198,20 @@ const ResultDetailPage: React.FC = () => {
   const [insurancePrice, setInsurancePrice] = useState<string>("");
   const [savingPrices, setSavingPrices] = useState(false);
   const [pricesError, setPricesError] = useState<string | null>(null);
+
+  // Add state for skip range check values
+  const [skipRangeCheckValues, setSkipRangeCheckValues] = useState<{ value: string; type: string }[]>([]);
+
+  useEffect(() => {
+    // Fetch skip_range_check values from Supabase
+    const fetchSkipRangeCheck = async () => {
+      const { data, error } = await supabase.from("skip_range_check").select("value, type");
+      if (!error && data) {
+        setSkipRangeCheckValues(data);
+      }
+    };
+    fetchSkipRangeCheck();
+  }, []);
 
   // Add state for margin top control
   const [marginTop, setMarginTop] = useState(5); // default to 20
@@ -590,7 +605,10 @@ const ResultDetailPage: React.FC = () => {
           if (param) {
             autoStatus = checkValueRangeStatus(
               param.resultValue,
-              param.reference_range
+              param.reference_range,
+              category.category.name,
+              testType.testType.name,
+              skipRangeCheckValues.map( ({value}) =>  value )
             );
             break;
           }
@@ -1047,7 +1065,7 @@ const ResultDetailPage: React.FC = () => {
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
             {renderInfoItem(
               CalendarDays,
-              "Naissance",
+              "Date de Naissance",
               patientData?.date_of_birth
                 ? format(parseISO(patientData.date_of_birth), "P", {
                     locale: fr,
@@ -1290,7 +1308,10 @@ const ResultDetailPage: React.FC = () => {
                               const autoStatus: RangeCheckStatus =
                                 checkValueRangeStatus(
                                   param.resultValue,
-                                  param.reference_range
+                                  param.reference_range,
+                                  categoryGroup.category.name,
+                                  testTypeGroup.testType.name,
+                                  skipRangeCheckValues.map( ({value}) =>  value )
                                 );
                               // 2. Check override state
                               const overrideState =
@@ -1487,6 +1508,7 @@ const ResultDetailPage: React.FC = () => {
             className="border px-2 py-1 text-xs w-16 rounded"
           />
         </div>
+       
         {/* Controlled margin top for signature block */}
         <div
           className="text-sm text-black print:block print:mt-4"
@@ -1494,8 +1516,17 @@ const ResultDetailPage: React.FC = () => {
         >
           <div
             className="font-bold"
-            dangerouslySetInnerHTML={{ __html: description }}
-          />
+            // dangerouslySetInnerHTML={{ __html: description }}
+          >
+
+              {
+                description.split("\n").map((line, index) => (
+                  <div key={index}>{line}</div>
+                ))
+              }
+
+
+          </div>
           <div className="flex items-center justify-between mt-4 font-bold">
             <p>
               Bamako, le{" "}
@@ -1503,8 +1534,18 @@ const ResultDetailPage: React.FC = () => {
                 ? format(new Date(resultData.result_date), "dd/MM/yyyy")
                 : ""}
             </p>
-            <p>Signature</p>
+            <p>Le Biologiste</p>
           </div>
+
+
+          <div className="mt-[200px] flex flex-row items-center space-x-2 print:hidden">
+              <div className="">
+                <Button onClick={() => navigate(`/protidogramme/${resultId}`)}>Protidogramme</Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={() => navigate(`/atb/${resultId}`)}>ATB</Button>
+              </div>
+        </div>
         </div>
       </div>{" "}
       {/* End Report Content Wrapper */}

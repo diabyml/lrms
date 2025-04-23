@@ -819,3 +819,21 @@ create table result_column_widths (
   ref_width int not null,
   updated_at timestamp default now()
 );
+
+
+
+
+
+
+-- v2
+CREATE TABLE skip_range_check (
+    id SERIAL PRIMARY KEY,
+    value TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('category', 'test_type'))
+);
+
+-- Example inserts:
+INSERT INTO skip_range_check (value, type) VALUES
+('ELECTROPHORESE DE L’HEMOGLOBINE', 'category'),
+('EXAMEN CYTOBACTERIOLOGIQUE DES URINES', 'category'),
+('Groupe/RH', 'test_type');

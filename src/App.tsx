@@ -26,6 +26,9 @@ import CategoryListPage from "./pages/CategoryListPage";
 import PrintHeaderDesignPage from "./pages/PrintHeaderDesignPage";
 import RistourneListPage from "./pages/RistourneListPage";
 import RistourneFormPage from "./pages/RistourneFormPage";
+import SkipRangeManagementPage from "./pages/SkipRangeManagementPage";
+import ProtidogrammePage from "./pages/ProtidogrammePage";
+import ATBPage from "./pages/ATBPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -97,6 +100,9 @@ function App() {
               path="/settings/print-header"
               element={<PrintHeaderDesignPage />}
             />
+            <Route path="/protidogramme/:resultId" element={<ProtidogrammePage />} />
+            <Route path="/skip-range-management" element={<SkipRangeManagementPage />} />
+            <Route path="/atb/:resultId" element={<ATBPage />} />
           </Route>
         </Route>
 

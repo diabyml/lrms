@@ -58,6 +58,11 @@ const MainLayout: React.FC = () => {
       label: "En-tête Impression",
       icon: FileText,
     },
+    {
+      to: "/skip-range-management",
+      label: "Parametres Validations",
+      icon: Settings,
+    },
     // Add other main navigation items here
   ];
 

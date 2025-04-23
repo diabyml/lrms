@@ -197,7 +197,7 @@ const ResultFormPage: React.FC = () => {
       // Fetch ALL parameters for involved types
       const { data: allParamsData, error: paramsError } = await supabase
         .from("test_parameter")
-        .select(`*, test_type:test_type_id(id, name)`)
+        .select(`*, test_type:test_type_id(id, name), order`) // Ensure 'order' is fetched
         .in("test_type_id", involvedTestTypeIds);
       if (paramsError) throw paramsError;
 
@@ -346,9 +346,9 @@ const ResultFormPage: React.FC = () => {
           /* ... fetch params ... */
           const { data, error } = await supabase
             .from("test_parameter")
-            .select("*")
+            .select(`*, test_type:test_type_id(id, name), order`) // Ensure 'order' is fetched
             .eq("test_type_id", testTypeId)
-            .order("name");
+            .order("order"); // Order by 'order'
           if (error) throw error;
           setSelectedTestTypes((currentMap) => {
             /* ... update with fetched params, merge values ... */
@@ -942,6 +942,7 @@ const ResultFormPage: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 pl-7">
                     {selectedType.parameters
                       .filter((param) => param.isVisible !== false) // Filter visible
+                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) // Sort by order
                       .map((param) => (
                         <div key={param.id} className="space-y-1.5">
                           <div className="flex justify-between items-center">

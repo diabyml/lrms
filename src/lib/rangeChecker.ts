@@ -140,7 +140,7 @@ export type RangeCheckStatus = "in-range" | "out-of-range" | "indeterminate";
 // ==================================================
 function checkSingleRangeLine(
   valueNum: number,
-  rangeLine: string
+  rangeLine: string,
 ): RangeCheckStatus {
   const cleanedRange = rangeLine.trim();
   try {
@@ -214,8 +214,30 @@ function checkSingleRangeLine(
  */
 export function checkValueRangeStatus(
   valueStr: string | null | undefined,
-  rangeStr: string | null | undefined
+  rangeStr: string | null | undefined,
+  CategoryName: string,
+  testTypeName: string,
+  skipRangeCheckValues: string[]
 ): RangeCheckStatus {
+
+
+
+  // do not check, return true
+  const values = [
+    'ELECTROPHORESE DE L’HEMOGLOBINE',
+    'EXAMEN CYTOBACTERIOLOGIQUE DES URINES',
+    'Groupe/RH'
+  ];
+
+  if(skipRangeCheckValues.includes(CategoryName) || skipRangeCheckValues.includes(testTypeName)) {
+    return 'in-range';
+  }
+
+
+
+
+
+
   if (
     valueStr === null ||
     valueStr === undefined ||

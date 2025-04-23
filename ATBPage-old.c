@@ -1,0 +1,1087 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+// no typescript check
+
+import { cn } from "@/lib/utils"; // Adjust path if needed
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
+
+// Shadcn/ui Imports
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Adjust path if needed
+import { Button } from "@/components/ui/button"; // Adjust path if needed
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Adjust path if needed
+import { Label } from "@/components/ui/label"; // Added Label
+import { Separator } from "@/components/ui/separator"; // Adjust path if needed
+import { Skeleton } from "@/components/ui/skeleton"; // Adjust path if needed
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+// Icons & Date Handling
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle,
+  Edit,
+  FileText,
+  Hourglass,
+  Info,
+  ListChecks,
+  Loader2,
+  Phone,
+  Printer,
+  Save,
+  Stethoscope,
+  User,
+  X
+} from "lucide-react";
+
+import { useRef } from "react"; // Impo
+
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+// 1. Restore print header template imports
+import Template1 from "@/components/print_header/Template1";
+import Template2 from "@/components/print_header/Template2";
+import Template3 from "@/components/print_header/Template3";
+import Template4 from "@/components/print_header/Template4";
+
+// --- Types ---
+type PatientResult = Tables<"patient_result">;
+type Patient = Tables<"patient">;
+type Doctor = Tables<"doctor">;
+
+// --- End Types ---
+
+// --- Helper Functions ---
+const getStatusBadgeVariant = (
+  status: string | null
+): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status?.toLowerCase()) {
+    case "fini":
+      return "default";
+    case "en cours":
+      return "secondary";
+    case "attente":
+      return "outline";
+    default:
+      return "secondary";
+  }
+};
+const displayStatus = (status: string | null): string => {
+  switch (status?.toLowerCase()) {
+    case "fini":
+      return "Fini";
+    case "en cours":
+      return "En cours";
+    case "attente":
+      return "En attente";
+    default:
+      return status || "Inconnu";
+  }
+};
+// --- End Helper Functions ---
+
+// --- Component ---
+const ATBPage: React.FC = () => {
+  const { resultId } = useParams<{ resultId: string }>();
+  const navigate = useNavigate();
+  const [resultData, setResultData] = useState<PatientResult | null>(null);
+  const [patientData, setPatientData] = useState<Patient | null>(null);
+  const [doctorData, setDoctorData] = useState<Doctor | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingStatusUpdate, setLoadingStatusUpdate] =
+    useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statusUpdateError, setStatusUpdateError] = useState<string | null>(
+    null
+  );
+
+  const [description, setDescription] = useState<string>("");
+
+  const [editingPrices, setEditingPrices] = useState(false);
+  const [normalPrice, setNormalPrice] = useState<string>("");
+  const [insurancePrice, setInsurancePrice] = useState<string>("");
+  const [savingPrices, setSavingPrices] = useState(false);
+  const [pricesError, setPricesError] = useState<string | null>(null);
+
+  // 2. Add availableHeaderTemplates and defaultTemplateId
+  const availableHeaderTemplates = [
+    { id: "template1", component: Template1 },
+    { id: "template2", component: Template2 },
+    { id: "template3", component: Template3 },
+    { id: "template4", component: Template4 },
+  ];
+  const defaultTemplateId = "template1";
+
+  // 3. Add header config state
+  const [headerConfig, setHeaderConfig] = useState<any>(null);
+  const [loadingHeader, setLoadingHeader] = useState<boolean>(true);
+
+  // Define fetchResultDetails at the top-level of the component
+  const fetchResultDetails = async () => {
+    if (!resultId) {
+      setError("ID du résultat manquant.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setStatusUpdateError(null);
+    setResultData(null);
+    setPatientData(null);
+    setDoctorData(null);
+    setLoadingHeader(true);
+    setHeaderConfig(null);
+
+    try {
+      // 1. Fetch the main result record
+      const { data: result, error: resultError } = await supabase
+        .from("patient_result")
+        .select("*")
+        .eq("id", resultId)
+        .single();
+
+      if (resultError) throw resultError;
+      if (!result) throw new Error("Résultat non trouvé.");
+      setResultData(result);
+
+      // 2. Fetch related Patient and Doctor data concurrently
+      const [patientRes, doctorRes, headerRes] = await Promise.all([
+        supabase
+          .from("patient")
+          .select("*")
+          .eq("id", result.patient_id)
+          .single(),
+        supabase
+          .from("doctor")
+          .select("*")
+          .eq("id", result.doctor_id)
+          .single(),
+        supabase
+          .from("print_header_config")
+          .select("*")
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      if (patientRes.error)
+        console.warn("Erreur chargement patient:", patientRes.error.message);
+
+      if (doctorRes.error)
+        console.warn("Erreur chargement médecin:", doctorRes.error.message);
+
+      setPatientData(patientRes.data);
+      setDoctorData(doctorRes.data);
+      setHeaderConfig(headerRes.data);
+      setLoadingHeader(false);
+    } catch (err: any) {
+      console.error("Erreur chargement détails du résultat:", err);
+      setError(
+        err.message || "Une erreur est survenue lors du chargement du résultat."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResultDetails();
+  }, [resultId]);
+
+  useEffect(() => {
+    setNormalPrice(
+      resultData?.normal_price != null ? String(resultData.normal_price) : ""
+    );
+    setInsurancePrice(
+      resultData?.insurance_price != null
+        ? String(resultData.insurance_price)
+        : ""
+    );
+  }, [resultData]);
+
+  // Save description with debounce
+  const saveDescription = useCallback(
+    async (newDescription: string) => {
+      if (!resultId) return;
+      try {
+        const { error } = await supabase
+          .from("patient_result")
+          .update({ description: newDescription })
+          .eq("id", resultId);
+
+        if (error) throw error;
+      } catch (err: any) {
+        console.error("Error saving description:", err);
+      }
+    },
+    [resultId]
+  );
+
+  // Debounced save
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (description !== resultData?.description) {
+        saveDescription(description);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [description, resultData?.description, saveDescription]);
+
+  // Save prices
+  const savePrices = useCallback(async () => {
+    setSavingPrices(true);
+    setPricesError(null);
+    try {
+      const normal = normalPrice !== "" ? Number(normalPrice) : null;
+      const insurance = insurancePrice !== "" ? Number(insurancePrice) : null;
+      if (
+        (normalPrice !== "" && isNaN(normal)) ||
+        (insurancePrice !== "" && isNaN(insurance))
+      ) {
+        setPricesError("Les prix doivent être des nombres valides.");
+        setSavingPrices(false);
+        return;
+      }
+      const { error, data } = await supabase
+        .from("patient_result")
+        .update({ normal_price: normal, insurance_price: insurance })
+        .eq("id", resultData.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setResultData((prev) =>
+        prev
+          ? { ...prev, normal_price: normal, insurance_price: insurance }
+          : prev
+      );
+      setEditingPrices(false);
+    } catch (err: any) {
+      setPricesError(err.message || "Erreur lors de la sauvegarde des prix.");
+    } finally {
+      setSavingPrices(false);
+    }
+  }, [resultData, normalPrice, insurancePrice]);
+
+  // --- Handle Status Change ---
+  const handleStatusChange = async (newStatus: string) => {
+    if (!resultData || newStatus === resultData.status) return;
+
+    setLoadingStatusUpdate(true);
+    setStatusUpdateError(null);
+
+    try {
+      const { data, error: updateError } = await supabase
+        .from("patient_result")
+        .update({ status: newStatus })
+        .eq("id", resultData.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      if (data) {
+        setResultData(data);
+      } else {
+        setResultData((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
+      // Optionally show success toast here
+    } catch (err: any) {
+      console.error("Erreur mise à jour statut:", err);
+      setStatusUpdateError(
+        err.message || "Impossible de mettre à jour le statut."
+      );
+    } finally {
+      setLoadingStatusUpdate(false);
+    }
+  };
+
+  // --- Print Handler ---
+  const handlePrint = () => {
+    // Optional: Could add checks here, like if data is loaded
+    window.print();
+  };
+
+  // --- Render Logic ---
+  const renderInfoItem = (
+    icon: React.ElementType,
+    label: string,
+    value: string | null | undefined,
+    className?: string
+  ) => {
+    const Icon = icon;
+    return (
+      <div className={cn("flex items-start space-x-3", className)}>
+        <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0 print:h-4 print:w-4" />
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            {label}
+          </p>
+          <p className="text-sm font-bold print:text-xs">
+            {value || (
+              <span className="text-muted-foreground italic font-normal">
+                Non spécifié
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  // 5. Select header component
+  const SelectedHeaderComponent = useMemo(() => {
+    const templateId = headerConfig?.selected_template || defaultTemplateId;
+    return (
+      availableHeaderTemplates.find((t) => t.id === templateId)?.component ||
+      Template1
+    );
+  }, [headerConfig]);
+
+  // 6. Prepare props for header
+  const headerDataProps = useMemo(
+    () => ({
+      logoUrl: headerConfig?.logo_url || null,
+      labName: headerConfig?.lab_name,
+      addressLine1: headerConfig?.address_line1,
+      addressLine2: headerConfig?.address_line2,
+      cityPostalCode: headerConfig?.city_postal_code,
+      phone: headerConfig?.phone,
+      email: headerConfig?.email,
+      website: headerConfig?.website,
+    }),
+    [headerConfig]
+  );
+
+  // --- ATB Table Section ---
+  const ATBTable: React.FC<{ resultId: string; onMetaSaved?: () => void }> = ({
+    resultId,
+    onMetaSaved,
+  }) => {
+    const [atbs, setAtbs] = useState<any[]>([]); // All master ATBs
+    const [resultATBs, setResultATBs] = useState<any[]>([]); // atbs_result_atb rows joined with atbs
+    const [loading, setLoading] = useState(true);
+    const [adding, setAdding] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [atbsResultId, setAtbsResultId] = useState<string | null>(null);
+    const [naturePrelement, setNaturePrelement] = useState<string>("Suppuration pariétal");
+    const [souche, setSouche] = useState<string>("Pseudomonas aeruginosa");
+    const [draftATBs, setDraftATBs] = useState<any[]>([]); // local edits for S/I/R
+    const [saving, setSaving] = useState(false);
+
+    // Fetch all ATBs and result ATBs, initialize if needed
+    const fetchData = useCallback(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch meta fields and ATB table
+        let atbsResultRowId = atbsResultId;
+        let metaNature = naturePrelement;
+        let metaSouche = souche;
+        // 1. Get atbs_result for this result
+        let { data: atbsResultRows, error: atbsResultError } = await supabase
+          .from('atbs_result')
+          .select('*')
+          .eq('result_id', resultId)
+          .limit(1);
+        if (atbsResultError) throw atbsResultError;
+        let atbsResultRow;
+        if (atbsResultRows && atbsResultRows.length > 0) {
+          atbsResultRow = atbsResultRows[0];
+        } else {
+          // Insert new atbs_result and get its id
+          const { data: newAtbsResult, error: insertAtbsResultErr } = await supabase
+            .from('atbs_result')
+            .insert({ result_id: resultId, nature_prelement: metaNature, souche: metaSouche })
+            .select('*')
+            .single();
+          if (insertAtbsResultErr) throw insertAtbsResultErr;
+          atbsResultRow = newAtbsResult;
+        }
+        atbsResultRowId = atbsResultRow.id;
+        metaNature = atbsResultRow.nature_prelement || "Suppuration pariétal";
+        metaSouche = atbsResultRow.souche || "Pseudomonas aeruginosa";
+        setAtbsResultId(atbsResultRowId);
+        setNaturePrelement(metaNature);
+        setSouche(metaSouche);
+        // 2. Get result ATBs
+        let { data: resultAtbs, error: resultAtbsError } = await supabase
+          .from('atbs_result_atb')
+          .select('*, atbs(*)')
+          .eq('atbs_result_id', atbsResultRowId);
+        if (resultAtbsError) throw resultAtbsError;
+        // 3. Get all ATBs
+        let { data: allAtbs, error: allAtbsError } = await supabase
+          .from('atbs')
+          .select('*');
+        if (allAtbsError) throw allAtbsError;
+        // ... rest of logic unchanged
+        const sortedResultAtbs = [...resultAtbs].sort((a, b) => (a.atbs?.name || '').localeCompare(b.atbs?.name || ''));
+        setResultATBs(sortedResultAtbs);
+        setDraftATBs(sortedResultAtbs.map(r => ({ ...r })));
+        // If no result ATBs, initialize
+        if (resultAtbs.length === 0 && allAtbs.length > 0) {
+          setAdding(true);
+          const newResultAtbs = allAtbs.map((atb) => ({
+            atbs_result_id: atbsResultRowId,
+            atb_id: atb.id,
+            sensible: false,
+            intermediaire: false,
+            resistant: false,
+          }));
+          await supabase.from('atbs_result_atb').insert(newResultAtbs);
+          const { data: newResultAtbsData } = await supabase
+            .from('atbs_result_atb')
+            .select('*, atbs(*)')
+            .eq('atbs_result_id', atbsResultRowId);
+          const sortedNewResultAtbs = [...(newResultAtbsData || [])].sort((a, b) => (a.atbs?.name || '').localeCompare(b.atbs?.name || ''));
+          setResultATBs(sortedNewResultAtbs);
+          setDraftATBs(sortedNewResultAtbs.map(r => ({ ...r })));
+          setAdding(false);
+        }
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }, [resultId]);
+
+    useEffect(() => {
+      fetchData();
+      // eslint-disable-next-line
+    }, [resultId]);
+
+    // Save all changes (meta + S/I/R)
+    const handleSaveAll = async () => {
+      setSaving(true);
+      // Save meta fields
+      if (atbsResultId) {
+        await supabase
+          .from('atbs_result')
+          .update({
+            nature_prelement: naturePrelement,
+            souche: souche,
+          })
+          .eq('id', atbsResultId);
+      }
+      // Save S/I/R table changes
+      const updates = draftATBs.filter((row, i) => {
+        const orig = resultATBs.find(r => r.id === row.id);
+        return orig && (row.sensible !== orig.sensible || row.intermediaire !== orig.intermediaire || row.resistant !== orig.resistant);
+      });
+      for (const row of updates) {
+        await supabase.from("atbs_result_atb").update({
+          sensible: row.sensible,
+          intermediaire: row.intermediaire,
+          resistant: row.resistant
+        }).eq("id", row.id);
+      }
+      setSaving(false);
+      // Refetch everything to sync state
+      fetchData();
+      // Notify parent to refresh if callback provided
+      if (onMetaSaved) onMetaSaved();
+    };
+
+    // Toggle S/I/R (local only)
+    const handleDraftToggle = (rowId: string, field: "sensible" | "intermediaire" | "resistant", value: boolean) => {
+      setDraftATBs(prev => prev.map(row => row.id === rowId ? { ...row, [field]: value } : row));
+    };
+
+    // Remove ATB from result
+    const handleRemove = async (rowId: string) => {
+      const { error } = await supabase
+        .from("atbs_result_atb")
+        .delete()
+        .eq("id", rowId);
+      if (!error) fetchData();
+    };
+
+    // Add ATB to result
+    const handleAdd = async (atbId: string) => {
+      if (!atbsResultId) return;
+      setAdding(true);
+      const { error } = await supabase
+        .from("atbs_result_atb")
+        .insert({
+          atbs_result_id: atbsResultId,
+          atb_id: atbId,
+          sensible: false,
+          intermediaire: false,
+          resistant: false,
+        });
+      setAdding(false);
+      if (!error) fetchData();
+    };
+
+    // Get available ATBs to add
+    const usedAtbIds = new Set(resultATBs.map((r) => r.atb_id));
+    const availableAtbs = atbs.filter((a) => !usedAtbIds.has(a.id));
+
+    if (loading) return <Skeleton className="h-40 w-full mb-4" />;
+    if (error) return <Alert variant="destructive">{error}</Alert>;
+
+    return (
+      <div>
+        {/* Print Button (screen only) */}
+        <div className="mb-4 flex gap-2 print:hidden">
+          <button
+            className="px-3 py-1 rounded bg-gray-700 text-white hover:bg-gray-900"
+            onClick={handlePrint}
+            type="button"
+          >
+            Imprimer
+          </button>
+        </div>
+        {/* Meta fields */}
+        <div className="mb-2 print:hidden">
+          <div className="flex-1">
+            <p className="block  font-semibold mb-1  print:font-bold">Nature du prélèvement</p>
+            <input
+              type="text"
+              className="border rounded px-2 py-1 w-full print:border-none print:bg-transparent print:p-0 print:text-base print:font-semibold"
+              value={naturePrelement}
+              onChange={e => setNaturePrelement(e.target.value)}
+              disabled={saving}
+              readOnly={typeof window !== 'undefined' && window.matchMedia && window.matchMedia('print').matches}
+            />
+          </div>
+          <div className="flex-1">
+            <p className="block    font-semibold mb-1  print:font-bold">Souche étudiée</p>
+            <input
+              type="text"
+              className="border rounded px-2 py-1 w-full print:border-none print:bg-transparent print:p-0 print:text-base print:font-semibold"
+              value={souche}
+              onChange={e => setSouche(e.target.value)}
+              disabled={saving}
+              readOnly={typeof window !== 'undefined' && window.matchMedia && window.matchMedia('print').matches}
+            />
+          </div>
+        </div>
+        <div className="hidden mb-4 print:block">
+          <p>Nature du prélèvement: {naturePrelement} </p>
+          <p>Souche étudiée: {souche}</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border print:w-full print:text-xs print:leading-tight print:border-black print:table-fixed" style={{ pageBreakInside: 'avoid' }}>
+            <thead>
+              <tr className="bg-gray-200 print:bg-white">
+                <th className="border px-1 py-0.5 print:border-black print:font-bold print:px-1 print:py-0.5 whitespace-nowrap">Dénomination</th>
+                <th className="border px-1 py-0.5 print:border-black print:font-bold print:px-1 print:py-0.5 w-8">S</th>
+                <th className="border px-1 py-0.5 print:border-black print:font-bold print:px-1 print:py-0.5 w-8">I</th>
+                <th className="border px-1 py-0.5 print:border-black print:font-bold print:px-1 print:py-0.5 w-8">R</th>
+                <th className="border px-1 py-0.5 print:hidden"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {draftATBs.map((row) => (
+                <tr key={row.id} className="odd:bg-gray-100 print:bg-white">
+                  <td className="border px-1 py-0.5 font-medium print:border-black print:px-1 print:py-0.5 whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 120 }}>{row.atbs?.name || ""}</td>
+                  <td className="border px-1 py-0.5 text-center print:border-black print:px-1 print:py-0.5 w-8">
+                    <span className="hidden print:inline">{row.sensible ? "X" : ""}</span>
+                    <input type="checkbox" checked={row.sensible} onChange={(e) => handleDraftToggle(row.id, "sensible", e.target.checked)} className="print:hidden" />
+                  </td>
+                  <td className="border px-1 py-0.5 text-center print:border-black print:px-1 print:py-0.5 w-8">
+                    <span className="hidden print:inline">{row.intermediaire ? "X" : ""}</span>
+                    <input type="checkbox" checked={row.intermediaire} onChange={(e) => handleDraftToggle(row.id, "intermediaire", e.target.checked)} className="print:hidden" />
+                  </td>
+                  <td className="border px-1 py-0.5 text-center print:border-black print:px-1 print:py-0.5 w-8">
+                    <span className="hidden print:inline">{row.resistant ? "X" : ""}</span>
+                    <input type="checkbox" checked={row.resistant} onChange={(e) => handleDraftToggle(row.id, "resistant", e.target.checked)} className="print:hidden" />
+                  </td>
+                  <td className="border px-1 py-0.5 text-center print:hidden">
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => handleRemove(row.id)}
+                    >
+                      -
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Save All Button and Add ATB (screen only) */}
+          <div className="mt-2 flex items-center gap-2 print:hidden">
+            <button
+              className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
+              disabled={saving}
+              onClick={handleSaveAll}
+            >
+              {saving ? "Enregistrement..." : "Enregistrer les modifications"}
+            </button>
+            <select
+              className="border rounded px-2 py-1"
+              disabled={adding}
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) handleAdd(e.target.value);
+              }}
+            >
+              <option value="">Ajouter un ATB...</option>
+              {availableAtbs.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-2 text-xs font-semibold print:text-xs print:font-bold">
+            S = sensible &nbsp; I = intermédiaire &nbsp; R = résistant
+          </div>
+          <div className="flex items-center justify-between mt-4 font-bold">
+            <p>
+              Bamako, le{" "}
+              {format(new Date(), "dd/MM/yyyy")}
+            </p>
+            <p>Le Biologiste</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- END ATB Table Section ---
+
+  // Callback to refresh parent data after ATBTable saves
+  const handleMetaSaved = useCallback(() => {
+    fetchResultDetails();
+  }, [resultId]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-32" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-32 mt-1" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-32 mt-1" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-32 mt-1" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-1/3" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-20 w-full" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-1/3" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-20 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="mb-4">
+          <Link
+            to={
+              resultData?.patient_id
+                ? `/patients/${resultData.patient_id}`
+                : "/patients"
+            }
+          >
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour
+            </Button>
+          </Link>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erreur</AlertTitle>
+          <AlertDescription>
+            {error}{" "}
+            <Button
+              variant="link"
+              onClick={fetchResultDetails}
+              className="p-0 h-auto text-destructive-foreground underline"
+            >
+              Réessayer
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  if (!resultData) return <div>Résultat non trouvé.</div>;
+
+  // --- Main Render ---
+  return (
+    <div className="space-y-6">
+      {/* Header Row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 print:hidden">
+        <div>
+          <Link to={patientData ? `/patients/${patientData.id}` : "/patients"}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour {patientData ? `à ${patientData.full_name}` : "à la liste"}
+            </Button>
+          </Link>
+        </div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2 order-first sm:order-none">
+          <FileText className="h-6 w-6 text-primary" />
+          Détails du Résultat
+        </h1>
+      </div>
+      {/* --- Report Content Wrapper (for Print/PDF) --- */}
+      <div className="report-content bg-white  p-4 sm:p-6 border border-transparent print:border-none print:p-0 print:shadow-none">
+        {/* 7. Render header above report content */}
+        {headerConfig ? (
+          <div className="mb-2 print:mb-0">
+            <SelectedHeaderComponent
+              data={headerDataProps}
+              isPreview={false}
+              reportTitle="RAPPORT DE RÉSULTATS"
+            />
+          </div>
+        ) : (
+          <Alert variant="default" className="mb-2 print:mb-0 print:hidden">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>En-tête Manquant</AlertTitle>
+            <AlertDescription>
+              La configuration de l'en-tête d'impression n'a pas été trouvée.{' '}
+              <Link to="/settings/print-header" className="underline">
+                Configurer maintenant
+              </Link>
+              .
+            </AlertDescription>
+          </Alert>
+        )}
+        <Separator className="my-2 print:my-0 print:border-none" />
+        {/* 2. Info Grid (Patient, Doctor, Result Meta) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 print:hidden">
+          {/* Patient Card */}
+          <Card className="overflow-hidden print:shadow-none">
+            <CardHeader className="pb-2 print:pb-1">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 print:text-xs">
+                <User className="h-4 w-4" />
+                Patient
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 pt-1 print:space-y-0.5 print:pt-0.5">
+              {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
+              {renderInfoItem(
+                Info,
+                "IDENTIFIANT Unique",
+                patientData?.patient_unique_id
+              )}
+              {renderInfoItem(
+                CalendarDays,
+                "Date Naissance",
+                patientData?.date_of_birth
+                  ? format(parseISO(patientData.date_of_birth), "P", {
+                      locale: fr,
+                    })
+                  : null
+              )}
+              <div className="hidden print:block">
+                {renderInfoItem(
+                  CalendarDays,
+                  "Date Résultat",
+                  resultData.result_date
+                    ? format(parseISO(resultData.result_date), "Pp", {
+                        locale: fr,
+                      })
+                    : null
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Doctor Card */}
+          <Card className="overflow-hidden print:shadow-none _print:border-none">
+            <CardHeader className="pb-2 print:pb-1">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 print:text-xs">
+                <Stethoscope className="h-4 w-4" />
+                Médecin
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 pt-1 print:space-y-0.5 print:pt-0.5">
+              {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
+              {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
+              {renderInfoItem(Info, "Provenance", doctorData?.hospital)}
+            </CardContent>
+          </Card>
+          {/* Result Info Card */}
+          <Card className="overflow-hidden print:shadow-none _print:border-none  print:hidden">
+            <CardHeader className="pb-2 print:pb-1">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 print:text-xs">
+                <ListChecks className="h-4 w-4" />
+                Résultat Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 pt-1 print:space-y-0.5 print:pt-0.5">
+              {renderInfoItem(
+                CalendarDays,
+                "Date Résultat",
+                resultData.result_date
+                  ? format(parseISO(resultData.result_date), "Pp", {
+                      locale: fr,
+                    })
+                  : null
+              )}
+              {/* --- Price Fields (Screen Only, Not Print) --- */}
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="normal_price" className="text-xs font-medium">
+                    Prix Normal
+                  </Label>
+                  {editingPrices ? (
+                    <input
+                      id="normal_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="border rounded px-2 py-1 text-xs w-28"
+                      value={normalPrice}
+                      onChange={(e) => setNormalPrice(e.target.value)}
+                      disabled={savingPrices}
+                    />
+                  ) : (
+                    <input
+                      id="normal_price"
+                      type="text"
+                      className="border-none bg-transparent text-xs w-28"
+                      value={normalPrice}
+                      disabled
+                      readOnly
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="insurance_price"
+                    className="text-xs font-medium"
+                  >
+                    Prix Assurance
+                  </Label>
+                  {editingPrices ? (
+                    <input
+                      id="insurance_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="border rounded px-2 py-1 text-xs w-28"
+                      value={insurancePrice}
+                      onChange={(e) => setInsurancePrice(e.target.value)}
+                      disabled={savingPrices}
+                    />
+                  ) : (
+                    <input
+                      id="insurance_price"
+                      type="text"
+                      className="border-none bg-transparent text-xs w-28"
+                      value={insurancePrice}
+                      disabled
+                      readOnly
+                    />
+                  )}
+                </div>
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-1">
+                  {editingPrices ? (
+                    <>
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        onClick={savePrices}
+                        disabled={savingPrices}
+                      >
+                        {savingPrices ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : null}
+                        Sauvegarder
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => setEditingPrices(false)}
+                        disabled={savingPrices}
+                      >
+                        Annuler
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => setEditingPrices(true)}
+                    >
+                      Modifier Prix
+                    </Button>
+                  )}
+                </div>
+                {pricesError && (
+                  <p className="text-xs text-destructive mt-1">{pricesError}</p>
+                )}
+              </div>
+              {/* --- End Price Fields --- */}
+              {/* Status Display */}
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0 print:h-4 print:w-4" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Statut
+                  </p>
+                  {/* Status Select (Screen Only) */}
+                  <div className="flex items-center gap-2 print:hidden">
+                    <Select
+                      value={resultData.status ?? ""}
+                      onValueChange={(value: string) =>
+                        handleStatusChange(value)
+                      }
+                      disabled={loadingStatusUpdate}
+                    >
+                      <SelectTrigger id="resultStatus" className="h-9 flex-1">
+                        {" "}
+                        <SelectValue placeholder="Changer statut..." />{" "}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="attente">
+                          <div className="flex items-center gap-2">
+                            <Hourglass className="h-4 w-4 text-muted-foreground" />{" "}
+                            En attente
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="en cours">
+                          <div className="flex items-center gap-2">
+                            <Hourglass className="h-4 w-4 text-blue-600" /> En
+                            cours
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="fini">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />{" "}
+                            Fini
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {loadingStatusUpdate && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {statusUpdateError && (
+                    <p className="text-xs text-destructive mt-1 print:hidden">
+                      {statusUpdateError}
+                    </p>
+                  )}
+                  {/* Status Badge (Print Only) */}
+                  <Badge
+                    variant={getStatusBadgeVariant(resultData.status)}
+                    className="hidden text-sm font-medium print:inline-flex print:text-xs print:font-normal print:border print:shadow-none"
+                  >
+                    {displayStatus(resultData.status)}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        {/* print info grid for print only*/}
+        <div className="grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6  print:grid-cols-2 hidden print:grid ">
+          {/* Patient Info */}
+          <div className="flex flex-col gap-1 rounded-lg border border-slate-600 print:shadow-lg bg-white/90 p-3 print:border  print:bg-white print:rounded-md print:p-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <User className="h-4 w-4" />
+              Patient
+            </div>
+            {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
+            {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
+            {renderInfoItem(
+              CalendarDays,
+              "Naissance",
+              patientData?.date_of_birth
+                ? format(parseISO(patientData.date_of_birth), "P", {
+                    locale: fr,
+                  })
+                : null
+            )}
+            {/* <div className="hidden print:block">
+              {renderInfoItem(
+                CalendarDays,
+                "Date Résultat",
+                resultData.result_date
+                  ? format(parseISO(resultData.result_date), "Pp", { locale: fr })
+                  : null
+              )}
+            </div> */}
+          </div>
+
+          {/* Doctor Info */}
+          <div className="flex flex-col gap-1 rounded-lg border border-slate-600  bg-white/90 p-3 print:border print:shadow-lg print:bg-white print:rounded-md print:p-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <Stethoscope className="h-4 w-4" /> Médecin
+            </div>
+            {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
+            {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
+            {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
+          </div>
+        </div>
+
+
+        <div className="print:block text-center mt-2 font-bold text-lg">
+          <h1>ANTIBIOGRAMME</h1>
+        </div>
+
+        {/* ATB Content */}
+        <Card className="shadow print:shadow-none print:border-none">
+          <CardHeader className="flex-row items-center gap-2 print:hidden">
+            {/* <CardTitle className="flex-1 text-lg">ANTIBIOGRAMME</CardTitle> */}
+          </CardHeader>
+          <CardContent>
+            {resultId && <ATBTable resultId={resultId} onMetaSaved={handleMetaSaved} />}
+          </CardContent>
+        </Card>
+      </div>{" "}
+      {/* End Report Content Wrapper */}
+    </div> // End main container div
+  );
+};
+
+export default ATBPage;
+
