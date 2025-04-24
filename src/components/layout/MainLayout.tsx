@@ -63,6 +63,17 @@ const MainLayout: React.FC = () => {
       label: "Parametres Validations",
       icon: Settings,
     },
+    // ECB Model Management
+    {
+      to: "/ecb-models",
+      label: "Modèles ECB",
+      icon: Layers,
+    },
+    {
+      to: "/atbs",
+      label: "Gestion ATBs",
+      icon: Layers,
+    },
     // Add other main navigation items here
   ];
 

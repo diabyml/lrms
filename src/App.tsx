@@ -29,6 +29,12 @@ import RistourneFormPage from "./pages/RistourneFormPage";
 import SkipRangeManagementPage from "./pages/SkipRangeManagementPage";
 import ProtidogrammePage from "./pages/ProtidogrammePage";
 import ATBPage from "./pages/ATBPage";
+import ATBManagementPage from "./pages/ATBManagementPage";
+import ECBPage from "./pages/ECBPage";
+import ECBModelManagementPage from "./pages/ECBModelManagementPage";
+import VHBPage from "./pages/VHBPage";
+import VIHPage from "./pages/VIHPage";
+import AnapathPage from "./pages/AnapathPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -102,7 +108,13 @@ function App() {
             />
             <Route path="/protidogramme/:resultId" element={<ProtidogrammePage />} />
             <Route path="/skip-range-management" element={<SkipRangeManagementPage />} />
+            <Route path="/atbs" element={<ATBManagementPage />} />
             <Route path="/atb/:resultId" element={<ATBPage />} />
+            <Route path="/ecb/:resultId" element={<ECBPage />} />
+            <Route path="/ecb-models" element={<ECBModelManagementPage />} />
+            <Route path="/vhb/:resultId" element={<VHBPage />} />
+            <Route path="/vih/:resultId" element={<VIHPage />} />
+            <Route path="/anapath/:resultId" element={<AnapathPage />} />
           </Route>
         </Route>
 

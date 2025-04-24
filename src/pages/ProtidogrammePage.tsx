@@ -54,6 +54,7 @@ import Template1 from "@/components/print_header/Template1";
 import Template2 from "@/components/print_header/Template2";
 import Template3 from "@/components/print_header/Template3";
 import Template4 from "@/components/print_header/Template4";
+import Footer from "@/components/Footer";
 
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
@@ -957,13 +958,9 @@ const ProtidogrammeForm = () => {
               </div>
 
 
-              <div className="flex items-center justify-between mt-4 font-bold">
-            <p>
-              Bamako, le{" "}
-              {format(new Date(), "dd/MM/yyyy")}
-            </p>
-            <p>Le Biologiste</p>
-          </div>
+              <div className="mt-4">
+                <Footer date={new Date().toISOString() || ""} />
+              </div>
             </div>
           )}
         </CardContent>

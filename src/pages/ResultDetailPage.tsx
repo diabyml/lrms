@@ -90,6 +90,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react"; // Keep or use another handle icon if preferred
+import Footer from "@/components/Footer";
 
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
@@ -241,6 +242,32 @@ const ResultDetailPage: React.FC = () => {
     }
     fetchColumnWidths();
   }, []);
+
+  // --- Print Category Selection State ---
+  const [categoriesToPrint, setCategoriesToPrint] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (groupedResults.length > 0) {
+      setCategoriesToPrint((prev) => {
+        if (prev.length === 0) {
+          return groupedResults.map((g) => g.category.id);
+        }
+        const currentSet = new Set(prev);
+        groupedResults.forEach((g) => currentSet.add(g.category.id));
+        return Array.from(currentSet);
+      });
+    }
+  }, [groupedResults]);
+
+  const handleCategoryPrintToggle = (categoryId: string) => {
+    setCategoriesToPrint((prev) => {
+      if (prev.includes(categoryId)) {
+        return prev.filter((id) => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
+  };
 
   // Find the selected header component
   const SelectedHeaderComponent = useMemo(() => {
@@ -1180,27 +1207,15 @@ const ResultDetailPage: React.FC = () => {
 
         {/* --- 3. Grouped Results Section (Single Table per Category + Page Break Toggle) --- */}
         <div className="space-y-8 print:space-y-4">
-          {" "}
-          {/* Increased space between categories */}
-          {groupedResults.length === 0 && !loading && (
-            <Card className="print:border-none print:shadow-none">
-              <CardContent className="pt-6 text-center text-muted-foreground print:pt-2">
-                Aucune valeur de résultat enregistrée pour ce rapport.
-              </CardContent>
-            </Card>
-          )}
           {groupedResults.map((categoryGroup) => {
-            // Check the state for this category for page break
-            const shouldForceBreak =
-              forceBreakBefore[categoryGroup.category.id] ?? false;
-
+            const shouldForceBreak = forceBreakBefore[categoryGroup.category.id] ?? false;
+            const shouldPrint = categoriesToPrint.includes(categoryGroup.category.id);
             return (
-              // Apply force break class here if needed
               <div
                 key={categoryGroup.category.id}
                 className={cn(
-                  // Removed: print:break-inside-avoid-page - let category content break naturally
-                  shouldForceBreak && "print-force-break-before" // Apply force break class
+                  shouldForceBreak && "print-force-break-before",
+                  !shouldPrint && "print:hidden"
                 )}
               >
                 {/* Category Header (Includes Page Break Toggle) */}
@@ -1238,6 +1253,31 @@ const ResultDetailPage: React.FC = () => {
                     </Label>
                   </div>
                   {/* --- End Page Break Toggle Checkbox --- */}
+                  {/* --- Category Print Toggle Checkbox (Screen Only) --- */}
+                  <div className="flex items-center space-x-2 ml-auto print:hidden pl-4">
+                    <Checkbox
+                      id={`print-${categoryGroup.category.id}`}
+                      checked={categoriesToPrint.includes(
+                        categoryGroup.category.id
+                      )}
+                      onCheckedChange={(checked) => {
+                        const isChecked = checked === true;
+                        handleCategoryPrintToggle(
+                          categoryGroup.category.id,
+                          isChecked
+                        );
+                      }}
+                      aria-label="Inclure dans l'impression"
+                    />
+                    <Label
+                      htmlFor={`print-${categoryGroup.category.id}`}
+                      className="text-xs font-medium text-muted-foreground cursor-pointer flex items-center gap-1"
+                      title="Inclure cette catégorie dans l'impression"
+                    >
+                      Imprimer
+                    </Label>
+                  </div>
+                  {/* --- End Category Print Toggle Checkbox --- */}
                 </div>
 
                 {/* == START: SINGLE TABLE PER CATEGORY == */}
@@ -1527,23 +1567,29 @@ const ResultDetailPage: React.FC = () => {
 
 
           </div>
-          <div className="flex items-center justify-between mt-4 font-bold">
-            <p>
-              Bamako, le{" "}
-              {resultData.result_date
-                ? format(new Date(resultData.result_date), "dd/MM/yyyy")
-                : ""}
-            </p>
-            <p>Le Biologiste</p>
+          <div className="mt-4">
+           <Footer date={resultData.result_date}/>
           </div>
 
 
-          <div className="mt-[200px] flex flex-row items-center space-x-2 print:hidden">
+          <div className="mt-[200px] flex flex-wrap flex-row items-center space-x-2 print:hidden">
               <div className="">
                 <Button onClick={() => navigate(`/protidogramme/${resultId}`)}>Protidogramme</Button>
               </div>
               <div className="flex items-center space-x-2">
                 <Button onClick={() => navigate(`/atb/${resultId}`)}>ATB</Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={() => navigate(`/ecb/${resultId}`)}>ECB</Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={() => navigate(`/vhb/${resultId}`)}>VHB</Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={() => navigate(`/vih/${resultId}`)}>VIH</Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={() => navigate(`/anapath/${resultId}`)}>Anapath</Button>
               </div>
         </div>
         </div>
