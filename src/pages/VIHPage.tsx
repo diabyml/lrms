@@ -930,7 +930,7 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
             <span className="font-bold underline">RESULTATS</span>
           </div>
           <div className="mb-4">
-            <div className="font-bold text-xl underline">CHARGE VIRALE HIV1</div>
+            <div className="font-bold text-xl underline">CHARGE VIRALE VIH</div>
           </div>
           <div className="flex flex-row justify-between items-start mt-8">
             <div className="flex flex-col items-start gap-2 text-lg" style={{minWidth: '340px'}}>
@@ -947,7 +947,7 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
                   return (
                     <>
                       <span className="font-bold text-2xl">Pas de virus détecté</span>
-                      <span className="text-xs mt-1">(d'échantillon, 1 copie /ml = 0.58* 1UI/ml)</span>
+                      <span className="text-xs mt-1">(pour 1 ml d'échantillon)</span>
                     </>
                   );
                 }
