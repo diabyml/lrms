@@ -95,13 +95,17 @@ const ResultFormPage: React.FC = () => {
 
   // --- State ---
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [isFree, setIsFree] = useState<boolean>(false);
+  const [notes, setNotes] = useState<string>("");
   const [currentPatientId, setCurrentPatientId] = useState<string | null>(
     patientIdFromRoute || null
   );
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [availableTestTypes, setAvailableTestTypes] = useState<TestType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<
+    string | undefined
+  >(undefined);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | undefined>(
     undefined
   );
@@ -145,36 +149,25 @@ const ResultFormPage: React.FC = () => {
             )
             .eq("patient_result_id", resultId), // Fetch FKs needed for grouping
           supabase.from("doctor").select("id, full_name").order("full_name"),
-          supabase.from("test_type").select("id, name, category_id").order("name"),
+          supabase
+            .from("test_type")
+            .select("id, name, category_id")
+            .order("name"),
         ]);
 
       // Handle Main Result
       if (resultRes.error) throw resultRes.error;
       if (!resultRes.data) throw new Error("Résultat non trouvé.");
       const resultData = resultRes.data;
-      setSelectedDoctorId(resultData.doctor_id);
-      setResultDate(
-        resultData.result_date && isValid(parseISO(resultData.result_date))
-          ? parseISO(resultData.result_date)
-          : new Date()
-      ); // Safely parse date
-      setCurrentPatientId(resultData.patient_id);
+      setPatient(resultRes.data.patient);
+      setSelectedDoctorId(resultRes.data.doctor_id);
+      setResultDate(resultRes.data.result_date ? new Date(resultRes.data.result_date) : undefined);
+      setCurrentPatientId(resultRes.data.patient_id);
       setOriginalResultValues(valuesRes.data || []);
-      setNormalPrice(resultData.normal_price ?? "");
-      setInsurancePrice(resultData.insurance_price ?? "");
-
-      // Handle Patient
-      if (resultData.patient_id) {
-        /* ... fetch patient ... */
-        const { data: patientData, error: patientError } = await supabase
-          .from("patient")
-          .select("*")
-          .eq("id", resultData.patient_id)
-          .single();
-        if (patientError)
-          console.warn("Erreur chargement patient:", patientError.message);
-        setPatient(patientData);
-      }
+      setNormalPrice(resultRes.data.normal_price ?? "");
+      setInsurancePrice(resultRes.data.insurance_price ?? "");
+      setIsFree(!!resultRes.data.isFree);
+      setNotes(resultRes.data.notes ?? "");
 
       // Handle Doctors and All Test Types
       if (doctorsRes.error) throw doctorsRes.error;
@@ -258,7 +251,10 @@ const ResultFormPage: React.FC = () => {
           .eq("id", patientIdFromRoute)
           .single(),
         supabase.from("doctor").select("id, full_name").order("full_name"),
-        supabase.from("test_type").select("id, name, category_id").order("name"),
+        supabase
+          .from("test_type")
+          .select("id, name, category_id")
+          .order("name"),
       ]);
       if (patientRes.error) throw patientRes.error;
       if (!patientRes.data)
@@ -506,19 +502,22 @@ const ResultFormPage: React.FC = () => {
         // Status handled on create or via detail page, not here
       };
       if (normalPrice !== "") resultSaveData.normal_price = Number(normalPrice);
-      if (insurancePrice !== "") resultSaveData.insurance_price = Number(insurancePrice);
+      if (insurancePrice !== "")
+        resultSaveData.insurance_price = Number(insurancePrice);
+      resultSaveData.isFree = isFree;
+      resultSaveData.notes = notes;
 
       const { data: savedResult, error: resultSaveError } = await (isEditMode
         ? supabase
             .from("patient_result")
             .update(resultSaveData)
-            .eq("id", resultId!)
-            .select("id")
+            .eq("id", resultId)
+            .select()
             .single()
         : supabase
             .from("patient_result")
-            .insert({ ...resultSaveData, status: "attente" })
-            .select("id")
+            .insert(resultSaveData)
+            .select()
             .single());
 
       if (resultSaveError) throw resultSaveError;
@@ -826,13 +825,43 @@ const ResultFormPage: React.FC = () => {
                 />
               </div>
             </div>
+            {/* isFree Checkbox */}
+            <div className="flex items-center space-x-2 mt-2">
+              <Checkbox
+                id="isFree"
+                checked={isFree}
+                onCheckedChange={(checked) => setIsFree(!!checked)}
+                disabled={loadingSubmit}
+              />
+              <Label htmlFor="isFree" className="font-semibold">
+                Gratuit
+              </Label>
+            </div>
+
+            {/* Notes Textarea */}
+            <div className="mt-4">
+              <Label htmlFor="notes" className="font-semibold">
+                Notes
+              </Label>
+              <textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="w-full border rounded-md p-2 mt-1 focus:outline-none focus:ring focus:border-blue-300"
+                placeholder="Ajouter des notes ou des commentaires..."
+                disabled={loadingSubmit}
+              />
+            </div>
 
             {/* Category Filter */}
             <div style={{ marginBottom: 16 }}>
               <Label htmlFor="category-filter">Catégorie</Label>
               <Select
                 value={selectedCategoryId ?? "all"}
-                onValueChange={(val) => setSelectedCategoryId(val === "all" ? undefined : val)}
+                onValueChange={(val) =>
+                  setSelectedCategoryId(val === "all" ? undefined : val)
+                }
               >
                 <SelectTrigger id="category-filter">
                   <SelectValue placeholder="Filtrer par catégorie" />
@@ -840,7 +869,9 @@ const ResultFormPage: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="all">Toutes les catégories</SelectItem>
                   {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

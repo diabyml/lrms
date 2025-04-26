@@ -77,7 +77,7 @@ interface PatientResultWithFee extends PatientResult {
   isSelectedInitial?: boolean;
 }
 
-import './RistourneFormPage.print.css';
+import "./RistourneFormPage.print.css";
 
 const RistourneFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -86,11 +86,16 @@ const RistourneFormPage: React.FC = () => {
 
   // --- State ---
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [doctorFeeConfig, setDoctorFeeConfig] = useState<DoctorFeeConfig | null>(null);
-  const [normalPricePercentage, setNormalPricePercentage] = useState<number>(40);
-  const [insurancePricePercentage, setInsurancePricePercentage] = useState<number>(100);
+  const [doctorFeeConfig, setDoctorFeeConfig] =
+    useState<DoctorFeeConfig | null>(null);
+  const [normalPricePercentage, setNormalPricePercentage] =
+    useState<number>(40);
+  const [insurancePricePercentage, setInsurancePricePercentage] =
+    useState<number>(100);
   const [savingFeeConfig, setSavingFeeConfig] = useState(false);
-  const [patientResults, setPatientResults] = useState<PatientResultWithFee[]>([]);
+  const [patientResults, setPatientResults] = useState<PatientResultWithFee[]>(
+    []
+  );
   const [notes, setNotes] = useState<string>("");
   const [totalFee, setTotalFee] = useState<number>(0);
   const [status, setStatus] = useState<string>("pending");
@@ -121,7 +126,8 @@ const RistourneFormPage: React.FC = () => {
         if (isEditMode && ristourneId) {
           const { data: ristourneData, error: ristourneError } = await supabase
             .from("ristourne")
-            .select(`
+            .select(
+              `
               *,
               doctor:doctor_id(*),
               ristourne_patient_result(
@@ -131,7 +137,8 @@ const RistourneFormPage: React.FC = () => {
                   patient:patient_id(*)
                 )
               )
-            `)
+            `
+            )
             .eq("id", ristourneId)
             .single();
 
@@ -149,13 +156,15 @@ const RistourneFormPage: React.FC = () => {
             setStatus(ristourneData.status);
 
             // Set selected patient results
-            const patientResults = ristourneData.ristourne_patient_result.map(rpr => ({
-              ...rpr.patient_result,
-              calculatedFee: rpr.fee_amount,
-              isSelected: true,
-              isSelectedInitial: true,
-              patient: rpr.patient_result.patient
-            }));
+            const patientResults = ristourneData.ristourne_patient_result.map(
+              (rpr) => ({
+                ...rpr.patient_result,
+                calculatedFee: rpr.fee_amount,
+                isSelected: true,
+                isSelectedInitial: true,
+                patient: rpr.patient_result.patient,
+              })
+            );
             setPatientResults(patientResults);
 
             // Fetch doctor fee config if doctor is available
@@ -171,9 +180,15 @@ const RistourneFormPage: React.FC = () => {
               if (feeConfigData) {
                 setDoctorFeeConfig(feeConfigData);
                 setNormalPricePercentage(feeConfigData.normal_price_percentage);
-                setInsurancePricePercentage(feeConfigData.insurance_price_percentage);
+                setInsurancePricePercentage(
+                  feeConfigData.insurance_price_percentage
+                );
                 // Load all patient results with existing ones marked as selected
-                await loadPatientResults(ristourneData.doctor.id, feeConfigData, patientResults);
+                await loadPatientResults(
+                  ristourneData.doctor.id,
+                  feeConfigData,
+                  patientResults
+                );
               }
             }
           }
@@ -190,7 +205,10 @@ const RistourneFormPage: React.FC = () => {
   }, [isEditMode, ristourneId]);
 
   // --- Calculations ---
-  const calculateFee = (result: PatientResult, config: DoctorFeeConfig): number => {
+  const calculateFee = (
+    result: PatientResult,
+    config: DoctorFeeConfig
+  ): number => {
     const normalFee = result.normal_price
       ? (result.normal_price * config.normal_price_percentage) / 100
       : 0;
@@ -202,32 +220,35 @@ const RistourneFormPage: React.FC = () => {
     return Math.round(normalFee + insuranceFee);
   };
 
-  const recalculateFeesAndTotal = useCallback((results: PatientResultWithFee[], config: DoctorFeeConfig | null) => {
-    if (!config) return results;
+  const recalculateFeesAndTotal = useCallback(
+    (results: PatientResultWithFee[], config: DoctorFeeConfig | null) => {
+      if (!config) return results;
 
-    const updatedResults = results.map(result => ({
-      ...result,
-      calculatedFee: calculateFee(result, config)
-    }));
+      const updatedResults = results.map((result) => ({
+        ...result,
+        calculatedFee: calculateFee(result, config),
+      }));
 
-    const total = updatedResults
-      .filter(r => r.isSelected)
-      .reduce((sum, r) => sum + r.calculatedFee, 0);
+      const total = updatedResults
+        .filter((r) => r.isSelected)
+        .reduce((sum, r) => sum + r.calculatedFee, 0);
 
-    setTotalFee(total);
-    return updatedResults;
-  }, []);
+      setTotalFee(total);
+      return updatedResults;
+    },
+    []
+  );
 
   // --- Handlers ---
   const handleResultSelection = (resultId: string, isSelected: boolean) => {
-    setPatientResults(current => {
-      const updated = current.map(result =>
+    setPatientResults((current) => {
+      const updated = current.map((result) =>
         result.id === resultId ? { ...result, isSelected } : result
       );
 
       if (doctorFeeConfig) {
         const total = updated
-          .filter(r => r.isSelected)
+          .filter((r) => r.isSelected)
           .reduce((sum, r) => sum + r.calculatedFee, 0);
         setTotalFee(total);
       }
@@ -257,21 +278,32 @@ const RistourneFormPage: React.FC = () => {
       if (error) throw error;
 
       setDoctorFeeConfig(data);
-      setPatientResults(current => recalculateFeesAndTotal(current, data));
+      setPatientResults((current) => recalculateFeesAndTotal(current, data));
       // Refetch patient results with new config
-      await loadPatientResults(selectedDoctor.id, data, patientResults.filter(r => r.isSelected));
+      await loadPatientResults(
+        selectedDoctor.id,
+        data,
+        patientResults.filter((r) => r.isSelected)
+      );
     } catch (err: any) {
       console.error("Error saving fee config:", err);
-      setError(err.message || "Une erreur est survenue lors de la sauvegarde de la configuration");
+      setError(
+        err.message ||
+          "Une erreur est survenue lors de la sauvegarde de la configuration"
+      );
     } finally {
       setSavingFeeConfig(false);
     }
   };
 
-  const loadPatientResults = async (doctorId: string, config: DoctorFeeConfig, existingResults?: PatientResultWithFee[]) => {
+  const loadPatientResults = async (
+    doctorId: string,
+    config: DoctorFeeConfig,
+    existingResults?: PatientResultWithFee[]
+  ) => {
     let idsToInclude: string[] = [];
     if (existingResults && existingResults.length > 0) {
-      idsToInclude = existingResults.map(r => r.id);
+      idsToInclude = existingResults.map((r) => r.id);
     }
 
     // --- NEW LOGIC: Find results that are paid or pending in other ristournes ---
@@ -298,7 +330,10 @@ const RistourneFormPage: React.FC = () => {
         .select("patient_result_id, ristourne(status)");
       if (!lockedError && Array.isArray(lockedResults)) {
         excludeResultIds = lockedResults
-          .filter((r: any) => r.ristourne && ["paid", "pending"].includes(r.ristourne.status))
+          .filter(
+            (r: any) =>
+              r.ristourne && ["paid", "pending"].includes(r.ristourne.status)
+          )
           .map((r: any) => r.patient_result_id);
       }
     }
@@ -308,9 +343,16 @@ const RistourneFormPage: React.FC = () => {
       .from("patient_result")
       .select("*, patient:patient_id(*)");
 
+    // exclude patient_result where isFree is true
+    query = query.eq("isFree", false);
+
     if (idsToInclude.length > 0) {
       // In edit mode: unpaid OR (paid AND id in selected)
-      query = query.or(`paid_status.eq.unpaid,or(paid_status.eq.paid,id.in.(${idsToInclude.join(',')}))`);
+      query = query.or(
+        `paid_status.eq.unpaid,or(paid_status.eq.paid,id.in.(${idsToInclude.join(
+          ","
+        )}))`
+      );
       query = query.eq("doctor_id", doctorId);
     } else {
       // In create mode: only unpaid
@@ -323,7 +365,7 @@ const RistourneFormPage: React.FC = () => {
         (id) => !idsToInclude.includes(id)
       );
       if (idsToReallyExclude.length > 0) {
-        query = query.not('id', 'in', `(${idsToReallyExclude.join(',')})`);
+        query = query.not("id", "in", `(${idsToReallyExclude.join(",")})`);
       }
     }
 
@@ -337,22 +379,23 @@ const RistourneFormPage: React.FC = () => {
 
     // Create a map of existing results for quick lookup
     const existingResultsMap = new Map(
-      existingResults?.map(r => [r.id, r]) || []
+      existingResults?.map((r) => [r.id, r]) || []
     );
 
     const resultsWithFee = (data || []).map((result) => {
       const existingResult = existingResultsMap.get(result.id);
       return {
         ...result,
-        calculatedFee: existingResult?.calculatedFee || calculateFee(result, config),
-        isSelected: Boolean(existingResult)
+        calculatedFee:
+          existingResult?.calculatedFee || calculateFee(result, config),
+        isSelected: Boolean(existingResult),
       };
     });
 
     setPatientResults(resultsWithFee);
     // Calculate total for selected results
     const total = resultsWithFee
-      .filter(r => r.isSelected)
+      .filter((r) => r.isSelected)
       .reduce((sum, r) => sum + r.calculatedFee, 0);
     setTotalFee(total);
   };
@@ -367,7 +410,7 @@ const RistourneFormPage: React.FC = () => {
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== "PGRST116") {
         setError("Erreur lors du chargement de la configuration des frais");
         console.error("Error fetching doctor fee config:", error);
         return;
@@ -420,10 +463,10 @@ const RistourneFormPage: React.FC = () => {
       // Find previously selected but now unselected (only in edit mode)
       if (isEditMode) {
         const previouslySelectedIds = patientResults
-          .filter(r => r.isSelectedInitial)
-          .map(r => r.id);
+          .filter((r) => r.isSelectedInitial)
+          .map((r) => r.id);
         const nowUnselectedIds = previouslySelectedIds.filter(
-          id => !selectedResults.some(r => r.id === id)
+          (id) => !selectedResults.some((r) => r.id === id)
         );
         if (nowUnselectedIds.length > 0) {
           // Update their paid_status to 'unpaid'
@@ -434,26 +477,27 @@ const RistourneFormPage: React.FC = () => {
         }
       }
 
-      const { data, error } = await supabase.rpc(
-        "handle_ristourne_upsert",
-        {
-          p_ristourne_id: ristourneId || null,
-          p_doctor_id: selectedDoctor.id,
-          p_notes: notes,
-          p_total_fee: totalFee,
-          p_status: status,
-          p_patient_results: selectedResults.map((result) => ({
-            patient_result_id: result.id,
-            fee_amount: result.calculatedFee,
-          })),
-        }
-      );
+      const { data, error } = await supabase.rpc("handle_ristourne_upsert", {
+        p_ristourne_id: ristourneId || null,
+        p_doctor_id: selectedDoctor.id,
+        p_notes: notes,
+        p_total_fee: totalFee,
+        p_status: status,
+        p_patient_results: selectedResults.map((result) => ({
+          patient_result_id: result.id,
+          fee_amount: result.calculatedFee,
+        })),
+      });
 
       if (error) throw error;
 
       // Navigate back to list with success message
       navigate("/ristournes", {
-        state: { message: `Ristourne ${isEditMode ? "modifiée" : "créée"} avec succès.` },
+        state: {
+          message: `Ristourne ${
+            isEditMode ? "modifiée" : "créée"
+          } avec succès.`,
+        },
       });
     } catch (err: any) {
       console.error("Error saving ristourne:", err);
@@ -466,27 +510,28 @@ const RistourneFormPage: React.FC = () => {
   // Mark which results were initially selected (for edit mode)
   useEffect(() => {
     if (isEditMode && patientResults.length > 0) {
-      setPatientResults(current =>
-        current.map(r => ({
+      setPatientResults((current) =>
+        current.map((r) => ({
           ...r,
-          isSelectedInitial: r.isSelectedInitial ?? r.isSelected
+          isSelectedInitial: r.isSelectedInitial ?? r.isSelected,
         }))
       );
     }
   }, [isEditMode, patientResults.length]);
 
   // --- Select All State ---
-  const allSelected = patientResults.length > 0 && patientResults.every(r => r.isSelected);
-  const someSelected = patientResults.some(r => r.isSelected);
+  const allSelected =
+    patientResults.length > 0 && patientResults.every((r) => r.isSelected);
+  const someSelected = patientResults.some((r) => r.isSelected);
 
   const handleSelectAllChange = (checked: boolean) => {
-    setPatientResults(current =>
-      current.map(result => ({ ...result, isSelected: checked }))
+    setPatientResults((current) =>
+      current.map((result) => ({ ...result, isSelected: checked }))
     );
     if (doctorFeeConfig) {
       const total = patientResults
-        .map(r => ({ ...r, isSelected: checked }))
-        .filter(r => r.isSelected)
+        .map((r) => ({ ...r, isSelected: checked }))
+        .filter((r) => r.isSelected)
         .reduce((sum, r) => sum + r.calculatedFee, 0);
       setTotalFee(total);
     }
@@ -561,18 +606,28 @@ const RistourneFormPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {patientResults.filter(r => r.isSelected && r.paid_status === 'paid').length === 0 ? (
-              <tr><td colSpan={5}>Aucun résultat payé sélectionné</td></tr>
+            {patientResults.filter(
+              (r) => r.isSelected && r.paid_status === "paid"
+            ).length === 0 ? (
+              <tr>
+                <td colSpan={5}>Aucun résultat payé sélectionné</td>
+              </tr>
             ) : (
-              patientResults.filter(r => r.isSelected && r.paid_status === 'paid').map(result => (
-                <tr key={result.id}>
-                  <td>{result.patient.full_name}</td>
-                  <td>{result.result_date ? format(new Date(result.result_date), 'dd/MM/yyyy') : ''}</td>
-                  <td>{result.normal_price?.toLocaleString()} </td>
-                  <td>{result.insurance_price?.toLocaleString()} </td>
-                  <td>{result.calculatedFee.toLocaleString()} </td>
-                </tr>
-              ))
+              patientResults
+                .filter((r) => r.isSelected && r.paid_status === "paid")
+                .map((result) => (
+                  <tr key={result.id}>
+                    <td>{result.patient.full_name}</td>
+                    <td>
+                      {result.result_date
+                        ? format(new Date(result.result_date), "dd/MM/yyyy")
+                        : ""}
+                    </td>
+                    <td>{result.normal_price?.toLocaleString()} </td>
+                    <td>{result.insurance_price?.toLocaleString()} </td>
+                    <td>{result.calculatedFee.toLocaleString()} </td>
+                  </tr>
+                ))
             )}
           </tbody>
         </table>
@@ -584,7 +639,10 @@ const RistourneFormPage: React.FC = () => {
       </div>
 
       {/* Main Form (hide in print) */}
-      <form className="ristourne-print-area print:hidden" onSubmit={handleSubmit}>
+      <form
+        className="ristourne-print-area print:hidden"
+        onSubmit={handleSubmit}
+      >
         {/* Doctor Selection */}
         <Card>
           <CardHeader>
@@ -635,18 +693,24 @@ const RistourneFormPage: React.FC = () => {
                     min="0"
                     max="100"
                     value={normalPricePercentage}
-                    onChange={(e) => setNormalPricePercentage(Number(e.target.value))}
+                    onChange={(e) =>
+                      setNormalPricePercentage(Number(e.target.value))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="insurancePrice">Pourcentage Prix Assurance</Label>
+                  <Label htmlFor="insurancePrice">
+                    Pourcentage Prix Assurance
+                  </Label>
                   <Input
                     id="insurancePrice"
                     type="number"
                     min="0"
                     max="100"
                     value={insurancePricePercentage}
-                    onChange={(e) => setInsurancePricePercentage(Number(e.target.value))}
+                    onChange={(e) =>
+                      setInsurancePricePercentage(Number(e.target.value))
+                    }
                   />
                 </div>
               </div>
@@ -657,7 +721,9 @@ const RistourneFormPage: React.FC = () => {
                 onClick={handleSaveFeeConfig}
                 disabled={savingFeeConfig}
               >
-                {savingFeeConfig && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {savingFeeConfig && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 <Save className="mr-2 h-4 w-4" />
                 {doctorFeeConfig ? "Mettre à jour" : "Enregistrer"}
               </Button>
@@ -684,7 +750,9 @@ const RistourneFormPage: React.FC = () => {
                         <Checkbox
                           checked={allSelected}
                           indeterminate={someSelected && !allSelected}
-                          onCheckedChange={(checked) => handleSelectAllChange(!!checked)}
+                          onCheckedChange={(checked) =>
+                            handleSelectAllChange(!!checked)
+                          }
                           disabled={submitting || patientResults.length === 0}
                           aria-label="Tout sélectionner"
                         />
@@ -693,7 +761,9 @@ const RistourneFormPage: React.FC = () => {
                       <TableHead>Date</TableHead>
                       <TableHead>Prix Normal</TableHead>
                       <TableHead>Prix Assurance</TableHead>
-                      <TableHead className="text-right">Frais Calculés</TableHead>
+                      <TableHead className="text-right">
+                        Frais Calculés
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -713,14 +783,22 @@ const RistourneFormPage: React.FC = () => {
                             <Checkbox
                               checked={result.isSelected}
                               onCheckedChange={(checked) =>
-                                handleResultSelection(result.id, checked as boolean)
+                                handleResultSelection(
+                                  result.id,
+                                  checked as boolean
+                                )
                               }
                               disabled={submitting}
                             />
                           </TableCell>
                           <TableCell>{result.patient.full_name}</TableCell>
                           <TableCell>
-                            {result.result_date ? format(new Date(result.result_date), 'dd/MM/yyyy') : ''}
+                            {result.result_date
+                              ? format(
+                                  new Date(result.result_date),
+                                  "dd/MM/yyyy"
+                                )
+                              : ""}
                           </TableCell>
                           <TableCell>
                             {result.normal_price?.toLocaleString()} FCFA
