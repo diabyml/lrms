@@ -40,7 +40,7 @@ import {
   Save,
   Stethoscope,
   User,
-  X
+  X,
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -159,28 +159,29 @@ const Protidogramme: React.FC = () => {
       setResultData(result);
 
       // 2. Fetch related Patient and Doctor data concurrently
-      const [patientRes, doctorRes, protidogrammeRes, headerRes] = await Promise.all([
-        supabase
-          .from("patient")
-          .select("*")
-          .eq("id", result.patient_id)
-          .single(),
-        supabase
-          .from("doctor")
-          .select("*")
-          .eq("id", result.doctor_id)
-          .single(),
-        supabase
-          .from("protidogramme")
-          .select("*")
-          .eq("result_id", resultId)
-          .maybeSingle(),
-        supabase
-          .from("print_header_config")
-          .select("*")
-          .limit(1)
-          .maybeSingle(),
-      ]);
+      const [patientRes, doctorRes, protidogrammeRes, headerRes] =
+        await Promise.all([
+          supabase
+            .from("patient")
+            .select("*")
+            .eq("id", result.patient_id)
+            .single(),
+          supabase
+            .from("doctor")
+            .select("*")
+            .eq("id", result.doctor_id)
+            .single(),
+          supabase
+            .from("protidogramme")
+            .select("*")
+            .eq("result_id", resultId)
+            .maybeSingle(),
+          supabase
+            .from("print_header_config")
+            .select("*")
+            .limit(1)
+            .maybeSingle(),
+        ]);
 
       if (patientRes.error)
         console.warn("Erreur chargement patient:", patientRes.error.message);
@@ -496,7 +497,7 @@ const Protidogramme: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>En-tête Manquant</AlertTitle>
             <AlertDescription>
-              La configuration de l'en-tête d'impression n'a pas été trouvée.{' '}
+              La configuration de l'en-tête d'impression n'a pas été trouvée.{" "}
               <Link to="/settings/print-header" className="underline">
                 Configurer maintenant
               </Link>
@@ -745,15 +746,7 @@ const Protidogramme: React.FC = () => {
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(
-              CalendarDays,
-              "Date de Naissance",
-              patientData?.date_of_birth
-                ? format(parseISO(patientData.date_of_birth), "P", {
-                    locale: fr,
-                  })
-                : null
-            )}
+            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
@@ -815,7 +808,8 @@ const ProtidogrammeForm = () => {
       .eq("result_id", resultId)
       .single()
       .then(({ data, error }) => {
-        if (error && error.code !== "PGRST116") setError("Erreur de chargement");
+        if (error && error.code !== "PGRST116")
+          setError("Erreur de chargement");
         setProtidogramme(data);
         setDescription(data?.description || "");
         setImagePreview(data?.image ? getImageUrl(data.image) : null);
@@ -847,7 +841,9 @@ const ProtidogrammeForm = () => {
       if (imageFile) {
         const ext = imageFile.name.split(".").pop();
         const newPath = `protidogramme/${resultId}_${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("images").upload(newPath, imageFile, { upsert: true });
+        const { error: uploadErr } = await supabase.storage
+          .from("images")
+          .upload(newPath, imageFile, { upsert: true });
         if (uploadErr) {
           setUploadError("Erreur lors de l'upload de l'image");
           setSaving(false);
@@ -857,14 +853,15 @@ const ProtidogrammeForm = () => {
         imagePath = newPath;
       }
       // Upsert row
-      const { error: dbErr } = await supabase
-        .from("protidogramme")
-        .upsert({
+      const { error: dbErr } = await supabase.from("protidogramme").upsert(
+        {
           result_id: resultId,
           image: imagePath,
           description: description,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "result_id" });
+        },
+        { onConflict: "result_id" }
+      );
       if (dbErr) {
         setUploadError("Erreur lors de la sauvegarde");
         setSaving(false);
@@ -888,7 +885,12 @@ const ProtidogrammeForm = () => {
 
   // UI
   if (loading) {
-    return <div className="max-w-xl mx-auto py-10"><Skeleton className="h-40 w-full mb-4" /><Skeleton className="h-6 w-1/2" /></div>;
+    return (
+      <div className="max-w-xl mx-auto py-10">
+        <Skeleton className="h-40 w-full mb-4" />
+        <Skeleton className="h-6 w-1/2" />
+      </div>
+    );
   }
   return (
     <div className="max-w-xl mx-auto">
@@ -896,13 +898,17 @@ const ProtidogrammeForm = () => {
         <h1 className="text-2xl font-bold">Protidogramme</h1>
         <div className="flex gap-2">
           {!editMode && (
-            <Button variant="outline" size="sm" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" /> Imprimer</Button>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="w-4 h-4 mr-1" /> Imprimer
+            </Button>
           )}
         </div>
       </div>
       <Card className="shadow print:shadow-none print:border-none">
         <CardHeader className="flex-row items-center gap-2 print:hidden">
-          <CardTitle className="flex-1 text-lg">{editMode ? (protidogramme ? "Modifier" : "Ajouter") : "Aperçu"}</CardTitle>
+          <CardTitle className="flex-1 text-lg">
+            {editMode ? (protidogramme ? "Modifier" : "Ajouter") : "Aperçu"}
+          </CardTitle>
           {!editMode && (
             <Button
               size="sm"
@@ -919,14 +925,31 @@ const ProtidogrammeForm = () => {
               <div>
                 <label className="block mb-1 font-medium">Image</label>
                 {imagePreview && (
-                  <img src={imagePreview} alt="Aperçu" className="max-h-60 rounded  mb-2" />
+                  <img
+                    src={imagePreview}
+                    alt="Aperçu"
+                    className="max-h-60 rounded  mb-2"
+                  />
                 )}
-                <Input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} />
-                {uploadError && <div className="text-red-500 text-sm mt-1">{uploadError}</div>}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  ref={fileInputRef}
+                />
+                {uploadError && (
+                  <div className="text-red-500 text-sm mt-1">{uploadError}</div>
+                )}
               </div>
               <div>
                 <label className="block mb-1 font-medium">Description</label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} required className="resize-vertical" />
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  required
+                  className="resize-vertical"
+                />
               </div>
               <div className="flex gap-2 mt-4">
                 <Button type="submit" disabled={saving}>
@@ -942,21 +965,50 @@ const ProtidogrammeForm = () => {
                     </>
                   )}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => { setEditMode(false); setUploadError(null); setImageFile(null); setImagePreview(protidogramme?.image ? getImageUrl(protidogramme.image) : null); setDescription(protidogramme?.description || ""); }}><X className="w-4 h-4 mr-1" /> Annuler</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditMode(false);
+                    setUploadError(null);
+                    setImageFile(null);
+                    setImagePreview(
+                      protidogramme?.image
+                        ? getImageUrl(protidogramme.image)
+                        : null
+                    );
+                    setDescription(protidogramme?.description || "");
+                  }}
+                >
+                  <X className="w-4 h-4 mr-1" /> Annuler
+                </Button>
               </div>
             </form>
           ) : (
             <div className="print:block">
               {protidogramme?.image && (
-                <img src={getImageUrl(protidogramme.image)} alt="Protidogramme" className="max-h-96 mb-4 rounded border mx-auto print:max-h-[450px]" style={{ maxWidth: "100%" }} />
+                <img
+                  src={getImageUrl(protidogramme.image)}
+                  alt="Protidogramme"
+                  className="max-h-96 mb-4 rounded border mx-auto print:max-h-[450px]"
+                  style={{ maxWidth: "100%" }}
+                />
               )}
               <div className="prose prose-sm print:prose print:max-w-full print:break-words">
-                {
-
-                }
-                {protidogramme?.description ?   <div> {protidogramme.description.split('\n').map( l => <div key={l}> {l} </div> )} </div> :  <span className="text-muted-foreground">Aucune description</span>}
+                {}
+                {protidogramme?.description ? (
+                  <div>
+                    {" "}
+                    {protidogramme.description.split("\n").map((l) => (
+                      <div key={l}> {l} </div>
+                    ))}{" "}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">
+                    Aucune description
+                  </span>
+                )}
               </div>
-
 
               <div className="mt-4">
                 <Footer date={new Date().toISOString() || ""} />

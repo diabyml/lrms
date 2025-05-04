@@ -39,7 +39,7 @@ import {
   Save,
   Stethoscope,
   User,
-  X
+  X,
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -99,9 +99,12 @@ const ECBPage: React.FC = () => {
   const [patientData, setPatientData] = useState<Patient | null>(null);
   const [doctorData, setDoctorData] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [loadingStatusUpdate, setLoadingStatusUpdate] = useState<boolean>(false);
+  const [loadingStatusUpdate, setLoadingStatusUpdate] =
+    useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
+  const [statusUpdateError, setStatusUpdateError] = useState<string | null>(
+    null
+  );
   const [description, setDescription] = useState<string>("");
   const [editingPrices, setEditingPrices] = useState(false);
   const [normalPrice, setNormalPrice] = useState<string>("");
@@ -120,7 +123,9 @@ const ECBPage: React.FC = () => {
   useEffect(() => {
     const fetchModels = async () => {
       setLoadingModels(true);
-      const { data, error } = await supabase.from("ecb_model").select("id, name, description, structure");
+      const { data, error } = await supabase
+        .from("ecb_model")
+        .select("id, name, description, structure");
       if (!error) setEcbModels(data || []);
       setLoadingModels(false);
     };
@@ -175,16 +180,8 @@ const ECBPage: React.FC = () => {
           .select("*")
           .eq("id", result.patient_id)
           .single(),
-        supabase
-          .from("doctor")
-          .select("*")
-          .eq("id", result.doctor_id)
-          .single(),
-        supabase
-          .from("print_header_config")
-          .select("*")
-          .limit(1)
-          .maybeSingle(),
+        supabase.from("doctor").select("*").eq("id", result.doctor_id).single(),
+        supabase.from("print_header_config").select("*").limit(1).maybeSingle(),
       ]);
 
       if (patientRes.error)
@@ -377,16 +374,24 @@ const ECBPage: React.FC = () => {
 
   // ECBs state
   const [ecbs, setEcbs] = useState<any[]>([]);
-  const [ecbSections, setEcbSections] = useState<{ [ecbId: string]: any[] }>({});
-  const [ecbValues, setEcbValues] = useState<{ [sectionId: string]: any[] }>({});
+  const [ecbSections, setEcbSections] = useState<{ [ecbId: string]: any[] }>(
+    {}
+  );
+  const [ecbValues, setEcbValues] = useState<{ [sectionId: string]: any[] }>(
+    {}
+  );
   const [loadingEcbs, setLoadingEcbs] = useState<boolean>(true);
   const [editingEcbId, setEditingEcbId] = useState<string | null>(null);
-  const [batchValueEdits, setBatchValueEdits] = useState<{ [valueId: string]: string }>({});
+  const [batchValueEdits, setBatchValueEdits] = useState<{
+    [valueId: string]: string;
+  }>({});
   const [savingBatchEcbId, setSavingBatchEcbId] = useState<string | null>(null);
   const [printEcbId, setPrintEcbId] = useState<string | null>(null);
 
   // --- ECB Title Inline Edit State ---
-  const [editingTitleEcbId, setEditingTitleEcbId] = useState<string | null>(null);
+  const [editingTitleEcbId, setEditingTitleEcbId] = useState<string | null>(
+    null
+  );
   const [titleEditValue, setTitleEditValue] = useState<string>("");
   const [savingTitleEcbId, setSavingTitleEcbId] = useState<string | null>(null);
 
@@ -400,7 +405,10 @@ const ECBPage: React.FC = () => {
   };
   const saveTitleEdit = async (ecbId: string) => {
     setSavingTitleEcbId(ecbId);
-    await supabase.from("ecb").update({ title: titleEditValue }).eq("id", ecbId);
+    await supabase
+      .from("ecb")
+      .update({ title: titleEditValue })
+      .eq("id", ecbId);
     setSavingTitleEcbId(null);
     setEditingTitleEcbId(null);
     setTitleEditValue("");
@@ -427,7 +435,10 @@ const ECBPage: React.FC = () => {
     const { data: sectionList } = await supabase
       .from("ecb_section")
       .select("*")
-      .in("ecb_id", ecbIds.length ? ecbIds : ["00000000-0000-0000-0000-000000000000"])
+      .in(
+        "ecb_id",
+        ecbIds.length ? ecbIds : ["00000000-0000-0000-0000-000000000000"]
+      )
       .order("position", { ascending: true });
     const sectionMap: { [ecbId: string]: any[] } = {};
     (sectionList || []).forEach((section) => {
@@ -440,7 +451,12 @@ const ECBPage: React.FC = () => {
     const { data: valueList } = await supabase
       .from("ecb_value")
       .select("*")
-      .in("section_id", sectionIds.length ? sectionIds : ["00000000-0000-0000-0000-000000000000"])
+      .in(
+        "section_id",
+        sectionIds.length
+          ? sectionIds
+          : ["00000000-0000-0000-0000-000000000000"]
+      )
       .order("position", { ascending: true });
     const valueMap: { [sectionId: string]: any[] } = {};
     (valueList || []).forEach((v) => {
@@ -508,22 +524,27 @@ const ECBPage: React.FC = () => {
     }
     return {};
   }
-  const [boldToggles, setBoldToggles] = useState<{ [valueId: string]: { labelBold: boolean; valueBold: boolean } }>(getInitialBoldToggles);
+  const [boldToggles, setBoldToggles] = useState<{
+    [valueId: string]: { labelBold: boolean; valueBold: boolean };
+  }>(getInitialBoldToggles);
 
   useEffect(() => {
-    window.localStorage.setItem("ecb_bold_toggles", JSON.stringify(boldToggles));
+    window.localStorage.setItem(
+      "ecb_bold_toggles",
+      JSON.stringify(boldToggles)
+    );
   }, [boldToggles]);
 
   const toggleLabelBold = (valueId: string) => {
     setBoldToggles((prev) => ({
       ...prev,
-      [valueId]: { ...prev[valueId], labelBold: !prev[valueId]?.labelBold }
+      [valueId]: { ...prev[valueId], labelBold: !prev[valueId]?.labelBold },
     }));
   };
   const toggleValueBold = (valueId: string) => {
     setBoldToggles((prev) => ({
       ...prev,
-      [valueId]: { ...prev[valueId], valueBold: !prev[valueId]?.valueBold }
+      [valueId]: { ...prev[valueId], valueBold: !prev[valueId]?.valueBold },
     }));
   };
 
@@ -547,11 +568,18 @@ const ECBPage: React.FC = () => {
   }
 
   // Get all section IDs for all ECBs
-  const allSectionIds = Object.values(ecbSections || {}).flat().map((section: any) => section.id);
-  const [sectionBoldToggles, setSectionBoldToggles] = useState<{ [sectionId: string]: boolean }>(() => getInitialSectionBoldToggles(allSectionIds));
+  const allSectionIds = Object.values(ecbSections || {})
+    .flat()
+    .map((section: any) => section.id);
+  const [sectionBoldToggles, setSectionBoldToggles] = useState<{
+    [sectionId: string]: boolean;
+  }>(() => getInitialSectionBoldToggles(allSectionIds));
 
   useEffect(() => {
-    window.localStorage.setItem("ecb_section_bold_toggles", JSON.stringify(sectionBoldToggles));
+    window.localStorage.setItem(
+      "ecb_section_bold_toggles",
+      JSON.stringify(sectionBoldToggles)
+    );
   }, [sectionBoldToggles]);
 
   // Ensure new sections get default bold=true after mount
@@ -573,7 +601,7 @@ const ECBPage: React.FC = () => {
   const toggleSectionBold = (sectionId: string) => {
     setSectionBoldToggles((prev) => ({
       ...prev,
-      [sectionId]: !prev[sectionId]
+      [sectionId]: !prev[sectionId],
     }));
   };
 
@@ -589,16 +617,21 @@ const ECBPage: React.FC = () => {
     }
     return {};
   }
-  const [abnormalCells, setAbnormalCells] = useState<{ [valueId: string]: boolean }>(getInitialAbnormalCells);
+  const [abnormalCells, setAbnormalCells] = useState<{
+    [valueId: string]: boolean;
+  }>(getInitialAbnormalCells);
 
   useEffect(() => {
-    window.localStorage.setItem("ecb_abnormal_cells", JSON.stringify(abnormalCells));
+    window.localStorage.setItem(
+      "ecb_abnormal_cells",
+      JSON.stringify(abnormalCells)
+    );
   }, [abnormalCells]);
 
   const toggleAbnormalCell = (valueId: string) => {
     setAbnormalCells((prev) => ({
       ...prev,
-      [valueId]: !prev[valueId]
+      [valueId]: !prev[valueId],
     }));
   };
 
@@ -727,7 +760,7 @@ const ECBPage: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>En-tête Manquant</AlertTitle>
             <AlertDescription>
-              La configuration de l'en-tête d'impression n'a pas été trouvée.{' '}
+              La configuration de l'en-tête d'impression n'a pas été trouvée.{" "}
               <Link to="/settings/print-header" className="underline">
                 Configurer maintenant
               </Link>
@@ -976,15 +1009,7 @@ const ECBPage: React.FC = () => {
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(
-              CalendarDays,
-              "Date de Naissance",
-              patientData?.date_of_birth
-                ? format(parseISO(patientData.date_of_birth), "P", {
-                    locale: fr,
-                  })
-                : null
-            )}
+            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
@@ -1017,14 +1042,20 @@ const ECBPage: React.FC = () => {
             <div>
               <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
-                  <Label htmlFor="ecb-model-select">Sélectionner un modèle</Label>
+                  <Label htmlFor="ecb-model-select">
+                    Sélectionner un modèle
+                  </Label>
                   <Select
                     value={selectedModelId}
                     onValueChange={setSelectedModelId}
                     disabled={loadingModels || creatingEcb}
                   >
                     <SelectTrigger id="ecb-model-select" className="w-full">
-                      <SelectValue placeholder={loadingModels ? "Chargement..." : "Choisir un modèle"} />
+                      <SelectValue
+                        placeholder={
+                          loadingModels ? "Chargement..." : "Choisir un modèle"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {ecbModels.map((model) => (
@@ -1036,7 +1067,10 @@ const ECBPage: React.FC = () => {
                   </Select>
                   {selectedModelId && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      {ecbModels.find((m) => m.id === selectedModelId)?.description}
+                      {
+                        ecbModels.find((m) => m.id === selectedModelId)
+                          ?.description
+                      }
                     </div>
                   )}
                 </div>
@@ -1045,9 +1079,12 @@ const ECBPage: React.FC = () => {
                     setCreatingEcb(true);
                     setCreateEcbError(null);
                     try {
-                      if (!selectedModelId || !resultId) throw new Error("Sélectionner un modèle.");
+                      if (!selectedModelId || !resultId)
+                        throw new Error("Sélectionner un modèle.");
                       // Get model details
-                      const model = ecbModels.find((m) => m.id === selectedModelId);
+                      const model = ecbModels.find(
+                        (m) => m.id === selectedModelId
+                      );
                       if (!model) throw new Error("Modèle non trouvé.");
                       // Insert ECB
                       const { data: newEcb, error: ecbError } = await supabase
@@ -1056,7 +1093,9 @@ const ECBPage: React.FC = () => {
                           result_id: resultId,
                           model_id: model.id,
                           title: model.name,
-                          created_by: (await supabase.auth.getUser()).data.user?.id || null,
+                          created_by:
+                            (await supabase.auth.getUser()).data.user?.id ||
+                            null,
                         })
                         .select()
                         .single();
@@ -1088,19 +1127,25 @@ const ECBPage: React.FC = () => {
                       }
                       // Insert sections
                       if (sectionInserts.length) {
-                        const { error: sectionError } = await supabase.from("ecb_section").insert(sectionInserts);
+                        const { error: sectionError } = await supabase
+                          .from("ecb_section")
+                          .insert(sectionInserts);
                         if (sectionError) throw sectionError;
                       }
                       // Insert values
                       if (valueInserts.length) {
-                        const { error: valueError } = await supabase.from("ecb_value").insert(valueInserts);
+                        const { error: valueError } = await supabase
+                          .from("ecb_value")
+                          .insert(valueInserts);
                         if (valueError) throw valueError;
                       }
                       // Optionally, refresh ECB data or navigate to the new ECB
                       await fetchEcbs();
                       setSelectedModelId("");
                     } catch (err: any) {
-                      setCreateEcbError(err.message || "Erreur lors de la création de l''ECB.");
+                      setCreateEcbError(
+                        err.message || "Erreur lors de la création de l''ECB."
+                      );
                     } finally {
                       setCreatingEcb(false);
                     }
@@ -1108,12 +1153,16 @@ const ECBPage: React.FC = () => {
                   disabled={!selectedModelId || creatingEcb}
                   className="min-w-[120px]"
                 >
-                  {creatingEcb ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {creatingEcb ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
                   Créer
                 </Button>
               </div>
               {createEcbError && (
-                <div className="text-xs text-destructive mt-2">{createEcbError}</div>
+                <div className="text-xs text-destructive mt-2">
+                  {createEcbError}
+                </div>
               )}
             </div>
           </div>
@@ -1121,7 +1170,9 @@ const ECBPage: React.FC = () => {
           {loadingEcbs ? (
             <Skeleton className="h-12 w-full" />
           ) : ecbs.length === 0 ? (
-            <div className="text-muted-foreground text-sm">Aucun ECB trouvé pour ce résultat.</div>
+            <div className="text-muted-foreground text-sm">
+              Aucun ECB trouvé pour ce résultat.
+            </div>
           ) : (
             <div className="space-y-6 print:space-y-0">
               {ecbs.map((ecb) => (
@@ -1133,7 +1184,9 @@ const ECBPage: React.FC = () => {
                           <>
                             <Input
                               value={titleEditValue}
-                              onChange={(e) => setTitleEditValue(e.target.value)}
+                              onChange={(e) =>
+                                setTitleEditValue(e.target.value)
+                              }
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") saveTitleEdit(ecb.id);
                                 if (e.key === "Escape") cancelEditingTitle();
@@ -1148,7 +1201,11 @@ const ECBPage: React.FC = () => {
                               onClick={() => saveTitleEdit(ecb.id)}
                               disabled={savingTitleEcbId === ecb.id}
                             >
-                              {savingTitleEcbId === ecb.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enregistrer"}
+                              {savingTitleEcbId === ecb.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Enregistrer"
+                              )}
                             </Button>
                             <Button
                               size="xs"
@@ -1165,7 +1222,9 @@ const ECBPage: React.FC = () => {
                             <Button
                               size="xs"
                               variant="ghost"
-                              onClick={() => startEditingTitle(ecb.id, ecb.title)}
+                              onClick={() =>
+                                startEditingTitle(ecb.id, ecb.title)
+                              }
                               className="ml-1"
                             >
                               <Edit className="h-3 w-3" />
@@ -1174,7 +1233,8 @@ const ECBPage: React.FC = () => {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Créé le {format(parseISO(ecb.created_at), "Pp", { locale: fr })}
+                        Créé le{" "}
+                        {format(parseISO(ecb.created_at), "Pp", { locale: fr })}
                       </div>
                     </div>
                     <div className="flex gap-2 print:hidden">
@@ -1186,7 +1246,9 @@ const ECBPage: React.FC = () => {
                             onClick={() => saveAllBatchEdits(ecb.id)}
                             disabled={savingBatchEcbId === ecb.id}
                           >
-                            {savingBatchEcbId === ecb.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            {savingBatchEcbId === ecb.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
                             Enregistrer toutes les modifications
                           </Button>
                           <Button
@@ -1226,9 +1288,17 @@ const ECBPage: React.FC = () => {
                           {section.section_title}
                           <Button
                             size="icon"
-                            variant={sectionBoldToggles[section.id] ? "default" : "ghost"}
+                            variant={
+                              sectionBoldToggles[section.id]
+                                ? "default"
+                                : "ghost"
+                            }
                             className="h-5 w-5 p-0"
-                            title={sectionBoldToggles[section.id] ? "Définir en normal" : "Mettre en gras"}
+                            title={
+                              sectionBoldToggles[section.id]
+                                ? "Définir en normal"
+                                : "Mettre en gras"
+                            }
                             onClick={() => toggleSectionBold(section.id)}
                             type="button"
                             tabIndex={-1}
@@ -1238,14 +1308,25 @@ const ECBPage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-1  gap-2">
                           {(ecbValues[section.id] || []).map((value) => (
-                            <div key={value.id} className="flex items-center gap-2">
+                            <div
+                              key={value.id}
+                              className="flex items-center gap-2"
+                            >
                               <Label className="w-40 text-md font-medium flex items-center gap-1">
                                 {value.label}
                                 <Button
                                   size="icon"
-                                  variant={boldToggles[value.id]?.labelBold ? "default" : "ghost"}
+                                  variant={
+                                    boldToggles[value.id]?.labelBold
+                                      ? "default"
+                                      : "ghost"
+                                  }
                                   className="h-5 w-5 p-0"
-                                  title={boldToggles[value.id]?.labelBold ? "Définir en normal" : "Mettre en gras"}
+                                  title={
+                                    boldToggles[value.id]?.labelBold
+                                      ? "Définir en normal"
+                                      : "Mettre en gras"
+                                  }
                                   onClick={() => toggleLabelBold(value.id)}
                                   type="button"
                                   tabIndex={-1}
@@ -1257,15 +1338,25 @@ const ECBPage: React.FC = () => {
                                 <div className="flex-1 flex items-center gap-1">
                                   <Input
                                     value={batchValueEdits[value.id] ?? ""}
-                                    onChange={(e) => handleBatchEdit(value.id, e.target.value)}
+                                    onChange={(e) =>
+                                      handleBatchEdit(value.id, e.target.value)
+                                    }
                                     disabled={savingBatchEcbId === ecb.id}
                                     className="text-xs flex-1"
                                   />
                                   <Button
                                     size="icon"
-                                    variant={boldToggles[value.id]?.valueBold ? "default" : "ghost"}
+                                    variant={
+                                      boldToggles[value.id]?.valueBold
+                                        ? "default"
+                                        : "ghost"
+                                    }
                                     className="h-5 w-5 p-0"
-                                    title={boldToggles[value.id]?.valueBold ? "Définir en normal" : "Mettre en gras"}
+                                    title={
+                                      boldToggles[value.id]?.valueBold
+                                        ? "Définir en normal"
+                                        : "Mettre en gras"
+                                    }
                                     onClick={() => toggleValueBold(value.id)}
                                     type="button"
                                     tabIndex={-1}
@@ -1274,18 +1365,44 @@ const ECBPage: React.FC = () => {
                                   </Button>
                                   <Button
                                     size="icon"
-                                    variant={abnormalCells[value.id] ? "destructive" : "ghost"}
+                                    variant={
+                                      abnormalCells[value.id]
+                                        ? "destructive"
+                                        : "ghost"
+                                    }
                                     className="h-5 w-5 p-0"
-                                    title={abnormalCells[value.id] ? "Cellule anormale" : "Marquer comme anormale"}
+                                    title={
+                                      abnormalCells[value.id]
+                                        ? "Cellule anormale"
+                                        : "Marquer comme anormale"
+                                    }
                                     onClick={() => toggleAbnormalCell(value.id)}
                                     type="button"
                                     tabIndex={-1}
                                   >
-                                    <span style={{fontWeight: "bold"}}>!</span>
+                                    <span style={{ fontWeight: "bold" }}>
+                                      !
+                                    </span>
                                   </Button>
                                 </div>
                               ) : (
-                                <span className={`text-xs flex-1 ${boldToggles[value.id]?.valueBold ? "font-bold" : ""} ${abnormalCells[value.id] ? "bg-gray-200 font-bold" : ""}`}>{value.value ?? <span className="italic text-muted-foreground">(vide)</span>}</span>
+                                <span
+                                  className={`text-xs flex-1 ${
+                                    boldToggles[value.id]?.valueBold
+                                      ? "font-bold"
+                                      : ""
+                                  } ${
+                                    abnormalCells[value.id]
+                                      ? "bg-gray-200 font-bold"
+                                      : ""
+                                  }`}
+                                >
+                                  {value.value ?? (
+                                    <span className="italic text-muted-foreground">
+                                      (vide)
+                                    </span>
+                                  )}
+                                </span>
                               )}
                             </div>
                           ))}
@@ -1297,35 +1414,60 @@ const ECBPage: React.FC = () => {
                   {printEcbId === ecb.id && (
                     <div className="hidden print:block bg-white p-4 print:p-0">
                       {/* Add ecb title here */}
-                      <div className="font-semibold text-lg text-center mb-1">{ecb.title}</div>
+                      <div className="font-semibold text-lg text-center mb-1">
+                        {ecb.title}
+                      </div>
                       <table className="w-full border-collapse print-ecb-table">
                         <tbody>
                           {(ecbSections[ecb.id] || []).map((section) => (
                             <React.Fragment key={section.id}>
                               <tr>
-                                <td colSpan={2} className={`text-xs mb-1 py-2 print-ecb-section-title ${sectionBoldToggles[section.id] ? "font-bold" : "font-normal"}`}>
+                                <td
+                                  colSpan={2}
+                                  className={`text-xs mb-1 py-2 print-ecb-section-title ${
+                                    sectionBoldToggles[section.id]
+                                      ? "font-bold"
+                                      : "font-normal"
+                                  }`}
+                                >
                                   {section.section_title}
                                 </td>
                               </tr>
                               {(ecbValues[section.id] || []).map((value) => (
                                 <tr key={value.id}>
                                   <td
-                                    className={`align-top pr-4 pb-1 text-xs print-ecb-label ${boldToggles[value.id]?.labelBold ? "font-bold" : "font-normal"}`}
+                                    className={`align-top pr-4 pb-1 text-xs print-ecb-label ${
+                                      boldToggles[value.id]?.labelBold
+                                        ? "font-bold"
+                                        : "font-normal"
+                                    }`}
                                     style={{ width: "35%" }}
                                   >
                                     {value.label}
                                   </td>
                                   <td
-                                    className={`align-top pb-1 text-xs print-ecb-value ${boldToggles[value.id]?.valueBold ? "font-bold" : "font-normal"} ${abnormalCells[value.id] ? "print-ecb-abnormal-cell" : ""}`}
+                                    className={`align-top pb-1 text-xs print-ecb-value ${
+                                      boldToggles[value.id]?.valueBold
+                                        ? "font-bold"
+                                        : "font-normal"
+                                    } ${
+                                      abnormalCells[value.id]
+                                        ? "print-ecb-abnormal-cell"
+                                        : ""
+                                    }`}
                                   >
                                     {value.value ? (
                                       <div className="flex items-center justify-between">
-                                        {value.value.split(";").map((line, index) => (
-                                          <div key={index}>{line}</div>
-                                        ))}
+                                        {value.value
+                                          .split(";")
+                                          .map((line, index) => (
+                                            <div key={index}>{line}</div>
+                                          ))}
                                       </div>
                                     ) : (
-                                      <span className="italic text-muted-foreground">(vide)</span>
+                                      <span className="italic text-muted-foreground">
+                                        (vide)
+                                      </span>
                                     )}
                                   </td>
                                 </tr>
@@ -1333,14 +1475,11 @@ const ECBPage: React.FC = () => {
                             </React.Fragment>
                           ))}
                         </tbody>
-                      
                       </table>
-
 
                       <div className="mt-4">
                         <Footer date={new Date().toISOString()} />
                       </div>
-
 
                       <style jsx global>{`
                         @media print {
@@ -1397,42 +1536,42 @@ const ECBPage: React.FC = () => {
 export default ECBPage;
 
 <style jsx global>{`
-@media print {
-  .print-ecb-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13.5px;
+  @media print {
+    .print-ecb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    .print-ecb-label {
+      font-weight: bold;
+      text-align: left;
+      padding-right: 16px;
+      vertical-align: top;
+      width: 35%;
+      font-size: 13.5px;
+    }
+    .print-ecb-section-title {
+      background: #f6f6f6;
+      font-size: 14px;
+      font-weight: bold;
+      padding-top: 12px;
+      padding-bottom: 6px;
+      text-align: left;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .print-ecb-value {
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+      font-size: 13.5px;
+    }
+    .print-ecb-abnormal-cell {
+      background: #e5e5e5 !important;
+      font-weight: bold !important;
+    }
+    .print-ecb-table td {
+      padding-top: 3px;
+      padding-bottom: 3px;
+    }
   }
-  .print-ecb-label {
-    font-weight: bold;
-    text-align: left;
-    padding-right: 16px;
-    vertical-align: top;
-    width: 35%;
-    font-size: 13.5px;
-  }
-  .print-ecb-section-title {
-    background: #f6f6f6;
-    font-size: 14px;
-    font-weight: bold;
-    padding-top: 12px;
-    padding-bottom: 6px;
-    text-align: left;
-    border-bottom: 1px solid #e5e5e5;
-  }
-  .print-ecb-value {
-    text-align: left;
-    vertical-align: top;
-    word-break: break-word;
-    font-size: 13.5px;
-  }
-  .print-ecb-abnormal-cell {
-    background: #e5e5e5 !important;
-    font-weight: bold !important;
-  }
-  .print-ecb-table td {
-    padding-top: 3px;
-    padding-bottom: 3px;
-  }
-}
-`}</style>
+`}</style>;

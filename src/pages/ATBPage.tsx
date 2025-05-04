@@ -21,7 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table as ShadTable, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Table as ShadTable,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 // Icons & Date Handling
 import { format, parseISO, set } from "date-fns";
@@ -42,7 +49,7 @@ import {
   Save,
   Stethoscope,
   User,
-  X
+  X,
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -136,7 +143,7 @@ const ATBPage: React.FC = () => {
   const [loadingHeader, setLoadingHeader] = useState<boolean>(true);
 
   // --- Editable Antibiogram Fields State ---
-  
+
   const [atbResultId, setAtbResultId] = useState<string | null>(null);
   const [fieldsLoading, setFieldsLoading] = useState(true);
 
@@ -157,8 +164,6 @@ const ATBPage: React.FC = () => {
     };
     fetchAtbFields();
   }, [resultId]);
-
-
 
   // Define fetchResultDetails at the top-level of the component
   const fetchResultDetails = async () => {
@@ -195,16 +200,8 @@ const ATBPage: React.FC = () => {
           .select("*")
           .eq("id", result.patient_id)
           .single(),
-        supabase
-          .from("doctor")
-          .select("*")
-          .eq("id", result.doctor_id)
-          .single(),
-        supabase
-          .from("print_header_config")
-          .select("*")
-          .limit(1)
-          .maybeSingle(),
+        supabase.from("doctor").select("*").eq("id", result.doctor_id).single(),
+        supabase.from("print_header_config").select("*").limit(1).maybeSingle(),
       ]);
 
       if (patientRes.error)
@@ -473,7 +470,10 @@ const ATBPage: React.FC = () => {
         .select("id")
         .eq("result_id", resultId);
       if (atbsResultError) {
-        console.error("Erreur lors de la vérification d'atbs_result:", atbsResultError);
+        console.error(
+          "Erreur lors de la vérification d'atbs_result:",
+          atbsResultError
+        );
         return;
       }
       if (atbsResultList && atbsResultList.length > 0) {
@@ -481,13 +481,17 @@ const ATBPage: React.FC = () => {
         return;
       }
       // 2. Create a new atbs_result for this result
-      const { data: newAtbsResult, error: createAtbsResultError } = await supabase
-        .from("atbs_result")
-        .insert({ result_id: resultId })
-        .select("id")
-        .single();
+      const { data: newAtbsResult, error: createAtbsResultError } =
+        await supabase
+          .from("atbs_result")
+          .insert({ result_id: resultId })
+          .select("id")
+          .single();
       if (createAtbsResultError || !newAtbsResult) {
-        console.error("Erreur lors de la création d'atbs_result:", createAtbsResultError);
+        console.error(
+          "Erreur lors de la création d'atbs_result:",
+          createAtbsResultError
+        );
         return;
       }
       // 3. Fetch all atbs
@@ -495,7 +499,10 @@ const ATBPage: React.FC = () => {
         .from("atbs")
         .select("id");
       if (atbsListError || !atbsList) {
-        console.error("Erreur lors de la récupération des ATBs:", atbsListError);
+        console.error(
+          "Erreur lors de la récupération des ATBs:",
+          atbsListError
+        );
         return;
       }
       // 4. Bulk insert atbs_result_atb entries for each atb
@@ -508,7 +515,10 @@ const ATBPage: React.FC = () => {
           .from("atbs_result_atb")
           .insert(atbsResultAtbRows);
         if (atbsResultAtbError) {
-          console.error("Erreur lors de la création des atbs_result_atb:", atbsResultAtbError);
+          console.error(
+            "Erreur lors de la création des atbs_result_atb:",
+            atbsResultAtbError
+          );
         }
       }
     };
@@ -627,10 +637,7 @@ const ATBPage: React.FC = () => {
           Détails du Résultat
         </h1>
         <div className="flex justify-end">
-          <Button
-            variant="default"
-            onClick={() => window.print()}
-          >
+          <Button variant="default" onClick={() => window.print()}>
             Imprimer
           </Button>
           <Button
@@ -658,7 +665,7 @@ const ATBPage: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>En-tête Manquant</AlertTitle>
             <AlertDescription>
-              La configuration de l'en-tête d'impression n'a pas été trouvée.{' '}
+              La configuration de l'en-tête d'impression n'a pas été trouvée.{" "}
               <Link to="/settings/print-header" className="underline">
                 Configurer maintenant
               </Link>
@@ -906,15 +913,7 @@ const ATBPage: React.FC = () => {
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(
-              CalendarDays,
-              "Date de Naissance",
-              patientData?.date_of_birth
-                ? format(parseISO(patientData.date_of_birth), "P", {
-                    locale: fr,
-                  })
-                : null
-            )}
+            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
@@ -936,7 +935,6 @@ const ATBPage: React.FC = () => {
             {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
           </div>
         </div>
-
         {/* ANTIBIOGRAMME Title and Editable Fields */}
         <div className="flex flex-col items-center gap-2 mt-2">
           <Input
@@ -945,32 +943,54 @@ const ATBPage: React.FC = () => {
             onChange={(e) => setDescription(e.target.value)}
             style={{ maxWidth: 400 }}
           />
-        
+
           {/* TODO: Replace below with antibiogram table code provided by user */}
           <div className="w-full mt-0">
             {/* === ANTIBIOGRAMME TABLE GOES HERE === */}
             {atbsResultsLoading ? (
-              <div className="text-center">Chargement des antibiogrammes...</div>
+              <div className="text-center">
+                Chargement des antibiogrammes...
+              </div>
             ) : atbsResults.length === 0 ? (
               <div className="flex flex-col gap-2 items-center">
-                <div className="text-center text-muted-foreground">Aucun antibiogramme trouvé.</div>
-                <Button onClick={ () => window.location.reload() } className="mx-auto">Creer</Button>
+                <div className="text-center text-muted-foreground">
+                  Aucun antibiogramme trouvé.
+                </div>
+                <Button
+                  onClick={() => window.location.reload()}
+                  className="mx-auto"
+                >
+                  Creer
+                </Button>
               </div>
             ) : (
               <div className="flex flex-col gap-8 mt-0">
                 {atbsResults.map((result) => (
                   <div
                     key={result.id}
-                    className={selectedForPrint.length > 0 && !selectedForPrint.includes(result.id) ? 'print:hidden' : ''}
+                    className={
+                      selectedForPrint.length > 0 &&
+                      !selectedForPrint.includes(result.id)
+                        ? "print:hidden"
+                        : ""
+                    }
                   >
                     <div className="flex items-center gap-2 mb-2 print:hidden">
                       <input
                         type="checkbox"
-                        checked={selectedForPrint.length === 0 || selectedForPrint.includes(result.id)}
+                        checked={
+                          selectedForPrint.length === 0 ||
+                          selectedForPrint.includes(result.id)
+                        }
                         onChange={() => handleTogglePrint(result.id)}
                         id={`print-checkbox-${result.id}`}
                       />
-                      <label htmlFor={`print-checkbox-${result.id}`} className="text-sm">Inclure pour impression</label>
+                      <label
+                        htmlFor={`print-checkbox-${result.id}`}
+                        className="text-sm"
+                      >
+                        Inclure pour impression
+                      </label>
                     </div>
                     <AntibiogramTable resultId={result.id} />
                   </div>
@@ -978,10 +998,9 @@ const ATBPage: React.FC = () => {
               </div>
             )}
           </div>
-
-       
-      </div> {/* End Report Content Wrapper */}
-      <style>{`
+        </div>{" "}
+        {/* End Report Content Wrapper */}
+        <style>{`
         @media print {
           .report-content table {
             font-size: 16px;
@@ -1003,22 +1022,26 @@ const ATBPage: React.FC = () => {
           }
         }
       `}</style>
+      </div>
     </div>
-    </div>
-  )
-}
+  );
+};
 
 const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
   const [atbs, setAtbs] = useState<{ id: string; name: string }[]>([]);
   const [atbsResultId, setAtbsResultId] = useState<string | null>(null);
   const [atbsResultATBs, setAtbsResultATBs] = useState<any[]>([]);
-  const [localSIR, setLocalSIR] = useState<Record<string, { S: boolean; I: boolean; R: boolean }>>({});
+  const [localSIR, setLocalSIR] = useState<
+    Record<string, { S: boolean; I: boolean; R: boolean }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<null | 'success' | 'error'>(null);
+  const [saveStatus, setSaveStatus] = useState<null | "success" | "error">(
+    null
+  );
   const [naturePrelevement, setNaturePrelevement] = useState("");
   const [souche, setSouche] = useState("");
-  
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -1066,7 +1089,7 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
   }, [resultId]);
 
   // Checkbox handler
-  const handleCheckbox = (atbId: string, type: 'S' | 'I' | 'R') => {
+  const handleCheckbox = (atbId: string, type: "S" | "I" | "R") => {
     setLocalSIR((prev) => ({
       ...prev,
       [atbId]: {
@@ -1097,45 +1120,61 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
         }
       }
 
-      await supabase.from("atbs_result" as any).update({
-        nature_prelement: naturePrelevement,
-        souche: souche,
-      }).eq("id", atbsResultId);
+      await supabase
+        .from("atbs_result" as any)
+        .update({
+          nature_prelement: naturePrelevement,
+          souche: souche,
+        })
+        .eq("id", atbsResultId);
 
-      setSaveStatus('success');
+      setSaveStatus("success");
     } catch (e) {
-      setSaveStatus('error');
+      setSaveStatus("error");
     }
     setSaving(false);
   };
 
-  if (loading) return <div className="text-center">Chargement du tableau...</div>;
-  if (!atbsResultId) return <div className="text-center text-muted-foreground">Aucun antibiogramme trouvé.</div>;
+  if (loading)
+    return <div className="text-center">Chargement du tableau...</div>;
+  if (!atbsResultId)
+    return (
+      <div className="text-center text-muted-foreground">
+        Aucun antibiogramme trouvé.
+      </div>
+    );
 
   return (
     <div className="overflow-x-auto">
-        <div className="flex gap-4 w-full justify-center">
-            <div className="flex flex-col items-start">
-              <Label htmlFor="nature_prelevement" className="text-lg font-bold print:-mb-2">Nature du prélèvement</Label>
-              <Input
-                id="nature_prelevement"
-                value={naturePrelevement}
-                onChange={ (e) => setNaturePrelevement(e.target.value) }
-                style={{ minWidth: 220 }}
-                className="print:border-none print:bg-transparent"
-              />
-            </div>
-            <div className="flex flex-col items-start">
-              <Label htmlFor="souche" className="text-lg font-bold print:-mb-2">Souche étudiée</Label>
-              <Input
-                id="souche"
-                value={souche}
-                onChange={ (e) => setSouche(e.target.value) }
-                style={{ minWidth: 180 }}
-                className="print:border-none print:bg-transparent"
-              />
-            </div>
-          </div>
+      <div className="flex gap-4 w-full justify-center">
+        <div className="flex flex-col items-start">
+          <Label
+            htmlFor="nature_prelevement"
+            className="text-lg font-bold print:-mb-2"
+          >
+            Nature du prélèvement
+          </Label>
+          <Input
+            id="nature_prelevement"
+            value={naturePrelevement}
+            onChange={(e) => setNaturePrelevement(e.target.value)}
+            style={{ minWidth: 220 }}
+            className="print:border-none print:bg-transparent"
+          />
+        </div>
+        <div className="flex flex-col items-start">
+          <Label htmlFor="souche" className="text-lg font-bold print:-mb-2">
+            Souche étudiée
+          </Label>
+          <Input
+            id="souche"
+            value={souche}
+            onChange={(e) => setSouche(e.target.value)}
+            style={{ minWidth: 180 }}
+            className="print:border-none print:bg-transparent"
+          />
+        </div>
+      </div>
       <ShadTable>
         <TableHeader>
           <TableRow>
@@ -1147,33 +1186,62 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
         </TableHeader>
         <TableBody>
           {atbs.map((atb, idx) => (
-            <TableRow key={atb.id} className={idx % 2 === 0 ? "bg-muted/50" : ""}>
+            <TableRow
+              key={atb.id}
+              className={idx % 2 === 0 ? "bg-muted/50" : ""}
+            >
               <TableCell>{atb.name}</TableCell>
               <TableCell className="text-center">
-                <Checkbox checked={!!localSIR[atb.id]?.S} onCheckedChange={() => handleCheckbox(atb.id, 'S')} />
+                <Checkbox
+                  className="print:hidden"
+                  checked={!!localSIR[atb.id]?.S}
+                  onCheckedChange={() => handleCheckbox(atb.id, "S")}
+                />
+                <p className="hidden print:inline">
+                  {localSIR[atb.id]?.S && <>S</>}
+                </p>
               </TableCell>
               <TableCell className="text-center">
-                <Checkbox checked={!!localSIR[atb.id]?.I} onCheckedChange={() => handleCheckbox(atb.id, 'I')} />
+                <Checkbox
+                  className="print:hidden"
+                  checked={!!localSIR[atb.id]?.I}
+                  onCheckedChange={() => handleCheckbox(atb.id, "I")}
+                />
+                <p className="hidden print:inline">
+                  {localSIR[atb.id]?.I && <>I</>}
+                </p>
               </TableCell>
               <TableCell className="text-center">
-                <Checkbox checked={!!localSIR[atb.id]?.R} onCheckedChange={() => handleCheckbox(atb.id, 'R')} />
+                <Checkbox
+                  checked={!!localSIR[atb.id]?.R}
+                  onCheckedChange={() => handleCheckbox(atb.id, "R")}
+                  className="print:hidden"
+                />
+                <p className="hidden print:inline">
+                  {localSIR[atb.id]?.R && <>R</>}
+                </p>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </ShadTable>
       <div className="mt-2 text-sm  font-semibold text-center">
-        S = sensible &nbsp; | &nbsp; I = intermédiaire &nbsp; | &nbsp; R = résistant
+        S = sensible &nbsp; | &nbsp; I = intermédiaire &nbsp; | &nbsp; R =
+        résistant
       </div>
       <div className="flex flex-col items-center mt-4 print:hidden">
         <Button disabled={saving} onClick={handleSave}>
-          {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+          {saving ? "Enregistrement..." : "Enregistrer les modifications"}
         </Button>
-        {saveStatus === 'success' && (
-          <span className="text-green-600 mt-2 print:hidden">Modifications enregistrées !</span>
+        {saveStatus === "success" && (
+          <span className="text-green-600 mt-2 print:hidden">
+            Modifications enregistrées !
+          </span>
         )}
-        {saveStatus === 'error' && (
-          <span className="text-red-600 mt-2 print:hidden">Erreur lors de l'enregistrement.</span>
+        {saveStatus === "error" && (
+          <span className="text-red-600 mt-2 print:hidden">
+            Erreur lors de l'enregistrement.
+          </span>
         )}
       </div>
       <div className="mt-4">
@@ -1182,7 +1250,5 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
     </div>
   );
 };
-
-
 
 export default ATBPage;

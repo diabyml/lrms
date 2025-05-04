@@ -40,7 +40,7 @@ import {
   Save,
   Stethoscope,
   User,
-  X
+  X,
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -162,16 +162,8 @@ const VHBPage: React.FC = () => {
           .select("*")
           .eq("id", result.patient_id)
           .single(),
-        supabase
-          .from("doctor")
-          .select("*")
-          .eq("id", result.doctor_id)
-          .single(),
-        supabase
-          .from("print_header_config")
-          .select("*")
-          .limit(1)
-          .maybeSingle(),
+        supabase.from("doctor").select("*").eq("id", result.doctor_id).single(),
+        supabase.from("print_header_config").select("*").limit(1).maybeSingle(),
       ]);
 
       if (patientRes.error)
@@ -487,7 +479,7 @@ const VHBPage: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>En-tête Manquant</AlertTitle>
             <AlertDescription>
-              La configuration de l'en-tête d'impression n'a pas été trouvée.{' '}
+              La configuration de l'en-tête d'impression n'a pas été trouvée.{" "}
               <Link to="/settings/print-header" className="underline">
                 Configurer maintenant
               </Link>
@@ -736,15 +728,7 @@ const VHBPage: React.FC = () => {
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(
-              CalendarDays,
-              "Date de Naissance",
-              patientData?.date_of_birth
-                ? format(parseISO(patientData.date_of_birth), "P", {
-                    locale: fr,
-                  })
-                : null
-            )}
+            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
@@ -769,27 +753,19 @@ const VHBPage: React.FC = () => {
 
         {/* main page content  */}
 
-              <MainPageContent resultId={resultId as string} />
-
-
+        <MainPageContent resultId={resultId as string} />
       </div>{" "}
       {/* End Report Content Wrapper */}
     </div> // End main container div
   );
 };
 
-
-
-
 interface Props {
   resultId: string;
 }
 
-
 const MainPageContent: React.FC<Props> = ({ resultId }) => {
-  return (
-    <div>content here</div>
-  )
-}
+  return <div>content here</div>;
+};
 
 export default VHBPage;

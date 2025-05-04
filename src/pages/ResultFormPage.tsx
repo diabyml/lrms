@@ -161,7 +161,11 @@ const ResultFormPage: React.FC = () => {
       const resultData = resultRes.data;
       setPatient(resultRes.data.patient);
       setSelectedDoctorId(resultRes.data.doctor_id);
-      setResultDate(resultRes.data.result_date ? new Date(resultRes.data.result_date) : undefined);
+      setResultDate(
+        resultRes.data.result_date
+          ? new Date(resultRes.data.result_date)
+          : undefined
+      );
       setCurrentPatientId(resultRes.data.patient_id);
       setOriginalResultValues(valuesRes.data || []);
       setNormalPrice(resultRes.data.normal_price ?? "");
@@ -800,6 +804,7 @@ const ResultFormPage: React.FC = () => {
                   id="normal_price"
                   name="normal_price"
                   type="number"
+                  required
                   min="0"
                   step="0.01"
                   placeholder="Prix normal du test (ex: 1000)"
@@ -816,6 +821,7 @@ const ResultFormPage: React.FC = () => {
                   id="insurance_price"
                   name="insurance_price"
                   type="number"
+                  required
                   min="0"
                   step="0.01"
                   placeholder="Prix avec assurance (ex: 800)"

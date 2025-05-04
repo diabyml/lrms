@@ -655,7 +655,7 @@ const PatientFormPage: React.FC = () => {
             {/* Optional Fields Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Date of Birth */}
-              <div className="space-y-2">
+              <div className="hidden space-y-2">
                 <Label htmlFor="date_of_birth" className="font-semibold">
                   Date de Naissance
                 </Label>

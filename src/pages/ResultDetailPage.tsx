@@ -201,12 +201,16 @@ const ResultDetailPage: React.FC = () => {
   const [pricesError, setPricesError] = useState<string | null>(null);
 
   // Add state for skip range check values
-  const [skipRangeCheckValues, setSkipRangeCheckValues] = useState<{ value: string; type: string }[]>([]);
+  const [skipRangeCheckValues, setSkipRangeCheckValues] = useState<
+    { value: string; type: string }[]
+  >([]);
 
   useEffect(() => {
     // Fetch skip_range_check values from Supabase
     const fetchSkipRangeCheck = async () => {
-      const { data, error } = await supabase.from("skip_range_check").select("value, type");
+      const { data, error } = await supabase
+        .from("skip_range_check")
+        .select("value, type");
       if (!error && data) {
         setSkipRangeCheckValues(data);
       }
@@ -245,6 +249,12 @@ const ResultDetailPage: React.FC = () => {
 
   // --- Print Category Selection State ---
   const [categoriesToPrint, setCategoriesToPrint] = useState<string[]>([]);
+  const [parametersToPrint, setParametersToPrint] = useState<string[]>([]);
+  const [testTypesToPrint, setTestTypesToPrint] = useState<string[]>([]);
+  const [categoriesUnitToShow, setCategoriesUnitToShow] = useState<string[]>(
+    []
+  );
+  const [categoriesRefToShow, setCategoriesRefToShow] = useState<string[]>([]);
 
   useEffect(() => {
     if (groupedResults.length > 0) {
@@ -259,6 +269,56 @@ const ResultDetailPage: React.FC = () => {
     }
   }, [groupedResults]);
 
+  // changes this to handle categoriesUnitToShow and categoriesRefToShow
+  useEffect(() => {
+    if (groupedResults.length > 0) {
+      setCategoriesUnitToShow((prev) => {
+        if (prev.length === 0) {
+          return groupedResults.map((g) => g.category.id);
+        }
+        const currentSet = new Set(prev);
+        groupedResults.forEach((g) => currentSet.add(g.category.id));
+        return Array.from(currentSet);
+      });
+    }
+    console.log("categoriesUnitToShow:", categoriesUnitToShow);
+  }, [groupedResults]);
+
+  useEffect(() => {
+    if (groupedResults.length > 0) {
+      setCategoriesRefToShow((prev) => {
+        if (prev.length === 0) {
+          return groupedResults.map((g) => g.category.id);
+        }
+        const currentSet = new Set(prev);
+        groupedResults.forEach((g) => currentSet.add(g.category.id));
+        return Array.from(currentSet);
+      });
+    }
+    console.log("categoriesRefToShow:", categoriesRefToShow);
+  }, [groupedResults]);
+
+  // handle for categoriesUnitToShow and categoriesRefToShow
+  const handleCategoriesUnitToShowToggle = (categoryId: string) => {
+    setCategoriesUnitToShow((prev) => {
+      if (prev.includes(categoryId)) {
+        return prev.filter((id) => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
+  };
+
+  const handleCategoriesRefToShowToggle = (categoryId: string) => {
+    setCategoriesRefToShow((prev) => {
+      if (prev.includes(categoryId)) {
+        return prev.filter((id) => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
+  };
+
   const handleCategoryPrintToggle = (categoryId: string) => {
     setCategoriesToPrint((prev) => {
       if (prev.includes(categoryId)) {
@@ -267,6 +327,107 @@ const ResultDetailPage: React.FC = () => {
         return [...prev, categoryId];
       }
     });
+  };
+
+  // useEffect for parameters to print when groupedResults changes : parameters are in groupedResults>testTypes>parameters
+  useEffect(() => {
+    if (groupedResults.length > 0) {
+      console.log("groupedResults:", groupedResults);
+      /*
+        here is how data is stored:
+        [
+    {
+        "category": {
+            "id": "fe8e35c5-5bec-43c5-9476-75781712634d",
+            "name": "SEROLOGIE-IMMUNOLOGIE",
+            "created_at": "",
+            "updated_at": ""
+        },
+        "testTypes": [
+            {
+                "testType": {
+                    "id": "d0f8bb0a-d70b-42a1-82fe-cc4baecddfa5",
+                    "name": "Ac ANTI DNA NATIF",
+                    "category": null,
+                    "created_at": "2025-04-01T17:43:56.866062+00:00",
+                    "updated_at": "2025-04-01T17:43:56.866062+00:00",
+                    "category_id": "fe8e35c5-5bec-43c5-9476-75781712634d",
+                    "description": null
+                },
+                "parameters": [
+                    {
+                        "id": "a2790671-1911-4880-b5e3-ea0a8cba2f94",
+                        "name": "Ac ANTI DNA NATIF",
+                        "unit": "-",
+                        "order": 0,
+                        "test_type": null,
+                        "created_at": "2025-04-01T17:43:57.32109+00:00",
+                        "updated_at": "2025-04-01T17:43:57.32109+00:00",
+                        "description": null,
+                        "test_type_id": "d0f8bb0a-d70b-42a1-82fe-cc4baecddfa5",
+                        "reference_range": "NEGATIF: < 3; DOUTEUX: 30 - 50; PROBABLE: 50 - 300; POSITIF: > 300",
+                        "resultValue": "87"
+                    }
+                ]
+            }
+        ]
+    }
+]
+      */
+      //  using data structure above, we need to get all parameters id in the array
+      const parametersIds = groupedResults.flatMap((category) =>
+        category.testTypes.flatMap((testType) =>
+          testType.parameters.map((p) => p.id)
+        )
+      );
+      console.log("parametersIds:", parametersIds);
+      // setParametersToPrint(parametersIds);
+    }
+  }, [groupedResults]);
+
+  // handle parameters to print toggle
+  const handleParameterToggle = (parameterId: string) => {
+    setParametersToPrint((prev) => {
+      if (prev.includes(parameterId)) {
+        return prev.filter((id) => id !== parameterId);
+      } else {
+        return [...prev, parameterId];
+      }
+    });
+  };
+
+  // useEffect for testTypesToPrint extract all category names in to the array
+  useEffect(() => {
+    if (groupedResults.length > 0) {
+      const testTypesIds = groupedResults.flatMap(
+        (category) => category.category.id
+      );
+      console.log("testTypesIds:", testTypesIds);
+      setTestTypesToPrint(testTypesIds);
+    }
+    console.log("testTypesToPrint:", testTypesToPrint);
+  }, [groupedResults]);
+
+  // handle testTypes to print toggle
+  const handleTestTypeToggle = (testTypeId: string) => {
+    setTestTypesToPrint((prev) => {
+      if (prev.includes(testTypeId)) {
+        return prev.filter((id) => id !== testTypeId);
+      } else {
+        return [...prev, testTypeId];
+      }
+    });
+
+    // // using handleParameterToggle to toggle all parameters of the test type
+    // const parametersIds = groupedResults.flatMap((category) =>
+    //   category.testTypes.flatMap((testType) =>
+    //     testType.parameters.map((p) => p.id)
+    //   )
+    // );
+    // console.log("parametersIds:", parametersIds);
+    // parametersIds.forEach((parameterId) => {
+    //   handleParameterToggle(parameterId);
+    // });
   };
 
   // Find the selected header component
@@ -516,6 +677,10 @@ const ResultDetailPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [description, resultData?.description, saveDescription]);
 
+  useEffect(() => {
+    console.log("Grouped results: ", groupedResults);
+  }, [groupedResults]);
+
   // Save prices
   const savePrices = useCallback(async () => {
     setSavingPrices(true);
@@ -635,7 +800,7 @@ const ResultDetailPage: React.FC = () => {
               param.reference_range,
               category.category.name,
               testType.testType.name,
-              skipRangeCheckValues.map( ({value}) =>  value )
+              skipRangeCheckValues.map(({ value }) => value)
             );
             break;
           }
@@ -1090,7 +1255,8 @@ const ResultDetailPage: React.FC = () => {
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(
+            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
+            {/* {renderInfoItem(
               CalendarDays,
               "Date de Naissance",
               patientData?.date_of_birth
@@ -1098,7 +1264,7 @@ const ResultDetailPage: React.FC = () => {
                     locale: fr,
                   })
                 : null
-            )}
+            )} */}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
@@ -1117,7 +1283,7 @@ const ResultDetailPage: React.FC = () => {
             </div>
             {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
             {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
-            {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
+            {renderInfoItem(Info, "Provenance", doctorData?.hospital)}
           </div>
         </div>
 
@@ -1208,8 +1374,11 @@ const ResultDetailPage: React.FC = () => {
         {/* --- 3. Grouped Results Section (Single Table per Category + Page Break Toggle) --- */}
         <div className="space-y-8 print:space-y-4">
           {groupedResults.map((categoryGroup) => {
-            const shouldForceBreak = forceBreakBefore[categoryGroup.category.id] ?? false;
-            const shouldPrint = categoriesToPrint.includes(categoryGroup.category.id);
+            const shouldForceBreak =
+              forceBreakBefore[categoryGroup.category.id] ?? false;
+            const shouldPrint = categoriesToPrint.includes(
+              categoryGroup.category.id
+            );
             return (
               <div
                 key={categoryGroup.category.id}
@@ -1283,7 +1452,7 @@ const ResultDetailPage: React.FC = () => {
                 {/* == START: SINGLE TABLE PER CATEGORY == */}
                 <Table className="print:text-xs">
                   {/* == Table Header (Rendered ONCE per category) == */}
-                  <TableHeader className="bg-muted/10 print:bg-gray-100">
+                  <TableHeader className="bg-muted/10 print:bg-gray-300 text-black">
                     <TableRow>
                       <TableHead
                         style={{ width: `${paramWidth}%` }}
@@ -1293,21 +1462,49 @@ const ResultDetailPage: React.FC = () => {
                       </TableHead>
                       <TableHead
                         style={{ width: `${valueWidth}%` }}
-                        className="pl-2 print:pl-1"
+                        className={cn(
+                          "pl-2 print:pl-1",
+                          categoriesUnitToShow.includes(
+                            categoryGroup.category.id
+                          ) &&
+                            categoriesRefToShow.includes(
+                              categoryGroup.category.id
+                            )
+                            ? ""
+                            : "do-something"
+                        )}
                       >
                         Valeur
                       </TableHead>
                       <TableHead
                         style={{ width: `${unitWidth}%` }}
-                        className="pl-2 print:pl-1"
+                        className="pl-2 print:pl-1 cursor-pointer"
+                        // toggler
+                        onClick={() => {
+                          handleCategoriesUnitToShowToggle(
+                            categoryGroup.category.id
+                          );
+                        }}
                       >
-                        Unité
+                        {categoriesUnitToShow.includes(
+                          categoryGroup.category.id
+                        )
+                          ? "Unité"
+                          : ""}
                       </TableHead>
                       <TableHead
                         style={{ width: `${refWidth}%` }}
-                        className="pr-4 print:pr-1"
+                        className="pr-4 print:pr-1 cursor-pointer"
+                        // toggler
+                        onClick={() => {
+                          handleCategoriesRefToShowToggle(
+                            categoryGroup.category.id
+                          );
+                        }}
                       >
-                        Réf.
+                        {categoriesRefToShow.includes(categoryGroup.category.id)
+                          ? "Réf."
+                          : ""}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1330,10 +1527,21 @@ const ResultDetailPage: React.FC = () => {
                       <React.Fragment key={testTypeGroup.testType.id}>
                         {/* --- Test Type Subheader Row --- */}
                         {testTypeGroup.parameters.length > 1 && (
-                          <TableRow className="bg-muted/50 print:bg-gray-50 hover:bg-muted/60 print:break-inside-avoid">
+                          <TableRow
+                            className={cn(
+                              "bg-muted/50 print:bg-gray-100  print:break-inside-avoid",
+                              // bg red if test type is not in testTypesToPrint
+                              testTypesToPrint.includes(
+                                testTypeGroup.testType.id
+                              ) && "!bg-red-400 print:hidden"
+                            )}
+                          >
                             <TableCell
                               colSpan={4}
-                              className="py-1.5 px-4 print:px-1 font-semibold text-sm print:text-xs text-foreground"
+                              className="py-1.5 px-4 print:px-1 font-semibold text-sm print:text-xs text-foreground print:text-black cursor-pointer"
+                              onClick={() =>
+                                handleTestTypeToggle(testTypeGroup.testType.id)
+                              }
                             >
                               {testTypeGroup.testType.name}
                             </TableCell>
@@ -1351,7 +1559,7 @@ const ResultDetailPage: React.FC = () => {
                                   param.reference_range,
                                   categoryGroup.category.name,
                                   testTypeGroup.testType.name,
-                                  skipRangeCheckValues.map( ({value}) =>  value )
+                                  skipRangeCheckValues.map(({ value }) => value)
                                 );
                               // 2. Check override state
                               const overrideState =
@@ -1387,22 +1595,48 @@ const ResultDetailPage: React.FC = () => {
                                 }
                               }
 
+                              // if (testTypeGroup.parameters.length === 1) {
+                              //   console.log(
+                              //     "parametre unique:",
+                              //     testTypeGroup.parameters[0].name
+                              //   );
+                              // }
+
+                              const isSingleParameter =
+                                testTypeGroup.parameters.length === 1;
+
                               return (
                                 <TableRow
                                   key={param.id}
                                   className={cn(
-                                    "print:even:bg-white print:break-inside-avoid  "
+                                    "print:even:bg-white print:break-inside-avoid  ",
                                     // shouldHighlight &&
                                     //   "bg-red-100 dark:bg-red-900/30 print:bg-white" // Lighter red for screen/print
                                     // highlightClass
+                                    // hide based on parametersToPrint print hidden important
+                                    parametersToPrint.length > 0 &&
+                                      parametersToPrint.includes(param.id)
+                                      ? "print:hidden"
+                                      : ""
                                   )}
                                 >
                                   <TableCell
                                     style={{ width: `${paramWidth}%` }}
-                                    className="font-medium pl-6 print:pl-2"
+                                    className={cn(
+                                      "font-medium text-black pl-6 print:pl-2 cursor-pointer",
+                                      parametersToPrint.includes(param.id)
+                                        ? "text-red-400"
+                                        : ""
+                                    )}
                                     dangerouslySetInnerHTML={{
-                                      __html: param.name,
+                                      __html: isSingleParameter
+                                        ? `<span style="font-weight: 600; color: black; display:inline-block; margin-left: -5px">${param.name}</span>`
+                                        : param.name,
                                     }}
+                                    // attache handle parameter toggle
+                                    onClick={() =>
+                                      handleParameterToggle(param.id)
+                                    }
                                   ></TableCell>
                                   <TableCell
                                     style={{ width: `${valueWidth}%` }}
@@ -1411,7 +1645,9 @@ const ResultDetailPage: React.FC = () => {
                                       isClickable &&
                                         "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5", // Apply click styles if needed
                                       valueClasses, // Apply text styles
-                                      highlightClass
+                                      highlightClass ===
+                                        "result-indeterminate-range" &&
+                                        highlightClass
                                     )}
                                     onClick={
                                       isClickable
@@ -1424,11 +1660,15 @@ const ResultDetailPage: React.FC = () => {
                                         : undefined
                                     }
                                   >
-                                    {param.resultValue}
+                                    <p
+                                      className={` inline-block px-2 mx-auto ${highlightClass}`}
+                                    >
+                                      {param.resultValue}
+                                    </p>
                                   </TableCell>
                                   <TableCell
                                     style={{ width: `${unitWidth}%` }}
-                                    className="pl-2 print:pl-1"
+                                    className="pl-2 print:pl-1 text-black"
                                     dangerouslySetInnerHTML={{
                                       __html: param.unit || "-",
                                     }}
@@ -1437,7 +1677,7 @@ const ResultDetailPage: React.FC = () => {
                                   </TableCell>
                                   <TableCell
                                     style={{ width: `${refWidth}%` }}
-                                    className="text-muted-foreground pr-4 print:pr-1 !whitespace-pre-line"
+                                    className="text-black pr-4 print:pr-1 !whitespace-pre-line"
                                   >
                                     {!param.reference_range && "-"}
                                     {param.reference_range === "NEGATIF" && "-"}
@@ -1469,7 +1709,7 @@ const ResultDetailPage: React.FC = () => {
                               <TableRow>
                                 <TableCell
                                   colSpan={4}
-                                  className="py-2 px-6 print:px-2 text-sm print:text-xs text-muted-foreground"
+                                  className="py-2 px-6 print:px-2 text-sm print:text-xs"
                                 >
                                   <div
                                     dangerouslySetInnerHTML={{
@@ -1548,7 +1788,7 @@ const ResultDetailPage: React.FC = () => {
             className="border px-2 py-1 text-xs w-16 rounded"
           />
         </div>
-       
+
         {/* Controlled margin top for signature block */}
         <div
           className="text-sm text-black print:block print:mt-4"
@@ -1558,40 +1798,43 @@ const ResultDetailPage: React.FC = () => {
             className="font-bold"
             // dangerouslySetInnerHTML={{ __html: description }}
           >
-
-              {
-                description.split("\n").map((line, index) => (
-                  <div key={index}>{line}</div>
-                ))
-              }
-
-
+            {description.split("\n").map((line, index) => (
+              <div key={index}>{line}</div>
+            ))}
           </div>
           <div className="mt-4">
-           <Footer date={resultData.result_date}/>
+            <Footer date={resultData.result_date} />
           </div>
 
-
           <div className="mt-[200px] flex flex-wrap flex-row items-center space-x-2 print:hidden">
-              <div className="">
-                <Button onClick={() => navigate(`/protidogramme/${resultId}`)}>Protidogramme</Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button onClick={() => navigate(`/atb/${resultId}`)}>ATB</Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button onClick={() => navigate(`/ecb/${resultId}`)}>ECB</Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button onClick={() => navigate(`/vhb/${resultId}`)}>VHB</Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button onClick={() => navigate(`/vih/${resultId}`)}>VIH</Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button onClick={() => navigate(`/anapath/${resultId}`)}>Anapath</Button>
-              </div>
-        </div>
+            <div className="">
+              <Button onClick={() => navigate(`/protidogramme/${resultId}`)}>
+                Protidogramme
+              </Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/atb/${resultId}`)}>ATB</Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/ecb/${resultId}`)}>ECB</Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/vhb/${resultId}`)}>VHB</Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/vih/${resultId}`)}>VIH</Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/anapath/${resultId}`)}>
+                Anapath
+              </Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/spermogramme/${resultId}`)}>
+                Spermogramme
+              </Button>
+            </div>
+          </div>
         </div>
       </div>{" "}
       {/* End Report Content Wrapper */}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -125,186 +125,191 @@ body {
   font-style: normal;
 }
 
-
-
-
- /* Ensure warning background prints */
- .result-indeterminate-range {
+/* Ensure warning background prints */
+.result-indeterminate-range {
   background-color: rgba(251, 191, 36, 0.4) !important;
   /* color: #78350f !important; */ /* if text color is set */
 }
 
 /* Ensure out-of-range background prints */
 .result-out-of-range {
-   background-color: rgba(254, 226, 226, 0.7) !important;
-   background-color: rgba(248, 208, 208, 0.7) !important;
-   /* color: #991b1b !important; */ /* if text color is set */
+  background-color: rgba(254, 226, 226, 0.7) !important;
+  background-color: rgba(187, 177, 177, 0.7) !important;
+  /* color: #991b1b !important; */ /* if text color is set */
 }
 
-
 /* === Print Specific Styles === */
-@layer utilities { /* Or place directly after @tailwind utilities */
+@layer utilities {
+  /* Or place directly after @tailwind utilities */
   @media print {
-      /* --- Hide elements not for print --- */
-      /* Hide main layout sidebar and header */
-      aside, /* Target the <aside> tag used in MainLayout */
+    /* --- Hide elements not for print --- */
+    /* Hide main layout sidebar and header */
+    aside, /* Target the <aside> tag used in MainLayout */
       header:not(.report-header), /* Target non-report headers - adjust selector if needed */
-      .print\:hidden { /* Utility class added in components */
-          display: none !important; /* Use !important to override potential Tailwind specificity */
-      }
+      .print\:hidden {
+      /* Utility class added in components */
+      display: none !important; /* Use !important to override potential Tailwind specificity */
+    }
 
-      /* --- Reset page layout for print --- */
-      body {
-          /* margin: 0;
+    /* --- Reset page layout for print --- */
+    body {
+      /* margin: 0;
           padding: 0; */
 
+      /* /----------------- */
+      margin: 0 !important;
+      padding: 0 !important;
+      /* ----------------- */
 
-          /* /----------------- */
-          margin: 0 !important;
-          padding: 0 !important;
-          /* ----------------- */
+      background-color: #fff !important; /* Ensure white background */
+      font-size: 10pt; /* Set a base print font size */
+      /* Consider a print-friendly font stack if default isn't ideal */
+      /* font-family: 'Times New Roman', Times, serif; */
 
+      -webkit-print-color-adjust: exact !important; /* Chrome, Safari, Edge */
+      print-color-adjust: exact !important; /* Standard */
+    }
 
+    .bg-red-100 {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
 
-
-          background-color: #fff !important; /* Ensure white background */
-          font-size: 10pt; /* Set a base print font size */
-           /* Consider a print-friendly font stack if default isn't ideal */
-           /* font-family: 'Times New Roman', Times, serif; */
-
-
-           -webkit-print-color-adjust: exact !important; /* Chrome, Safari, Edge */
-            print-color-adjust: exact !important; /* Standard */
-      }
-
-      .bg-red-100 { 
-    -webkit-print-color-adjust: exact !important;
-  print-color-adjust: exact !important;  }
-
-      /* Target the main content area from MainLayout to remove constraints */
-      /* Adjust selector based on your MainLayout structure if needed */
-      main {
-           padding: 0 !important;
-           margin: 0 !important;
-           overflow: visible !important; /* Show all content */
-           max-width: none !important; /* Remove max-width */
-      }
-      /* Target the immediate parent div if it has padding/margins */
-      /* div[data-testid="main-content-wrapper"] { Adjust based on actual attributes/classes
+    /* Target the main content area from MainLayout to remove constraints */
+    /* Adjust selector based on your MainLayout structure if needed */
+    main {
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important; /* Show all content */
+      max-width: none !important; /* Remove max-width */
+    }
+    /* Target the immediate parent div if it has padding/margins */
+    /* div[data-testid="main-content-wrapper"] { Adjust based on actual attributes/classes
            padding: 0 !important; margin: 0 !important;
       } */
 
-      /* --- Style the report content container --- */
-      .report-content {
-           margin: 1cm; /* Add print margins */
-           margin-top: 0cm; 
-           padding: 0 !important; /* Remove screen padding */
-           border: none !important; /* Remove screen border */
-           box-shadow: none !important; /* Remove screen shadow */
-           width: auto !important; /* Let it flow naturally */
-           min-height: auto !important;
-           background-color: #fff !important; /* Ensure white */
-      }
+    /* --- Style the report content container --- */
+    .report-content {
+      margin: 1cm; /* Add print margins */
+      margin-top: 0cm;
+      padding: 0 !important; /* Remove screen padding */
+      border: none !important; /* Remove screen border */
+      box-shadow: none !important; /* Remove screen shadow */
+      width: auto !important; /* Let it flow naturally */
+      min-height: auto !important;
+      background-color: #fff !important; /* Ensure white */
+    }
 
-      .report-content > div:first-child {
-        margin-top: 0 !important;
-        margin-bottom: 0.5rem !important; /* Add back a smaller bottom margin for print */
-        padding-top: 0 !important;
-     }
+    .report-content > div:first-child {
+      margin-top: 0 !important;
+      margin-bottom: 0.5rem !important; /* Add back a smaller bottom margin for print */
+      padding-top: 0 !important;
+    }
 
-     .report-content > div:first-child > header {
-     padding-top: 0 !important;
-  }
+    .report-content > div:first-child > header {
+      padding-top: 0 !important;
+    }
 
-      /* --- General Print Element Adjustments --- */
-      h1, h2, h3 {
-          margin-top: 0.5em;
-          margin-bottom: 0.25em;
-      }
-      p {
-          margin-bottom: 0.2em;
-          line-height: 1.3;
-      }
-      /* Remove default card styling for print */
-      .print\:shadow-none { box-shadow: none !important; }
-      .print\:border-none { border: none !important; }
+    /* --- General Print Element Adjustments --- */
+    h1,
+    h2,
+    h3 {
+      margin-top: 0.5em;
+      margin-bottom: 0.25em;
+    }
+    p {
+      margin-bottom: 0.2em;
+      line-height: 1.3;
+    }
+    /* Remove default card styling for print */
+    .print\:shadow-none {
+      box-shadow: none !important;
+    }
+    .print\:border-none {
+      border: none !important;
+    }
 
-      /* Table adjustments */
-      table {
-           width: 100%;
-           border-collapse: collapse; /* Common for print */
-      }
-      thead.print\:bg-gray-100 { /* Specific class for print header background */
-           background-color: #f3f4f6 !important; /* Example gray */
-           /* Ensure background prints if needed (browser dependent) */
-           /* -webkit-print-color-adjust: exact; */
-           /* print-color-adjust: exact; */
-      }
-      th, td {
-          padding: 4px 6px; /* Reduce padding */
-          /* Add simple borders */
-          border: 1px solid #e5e7eb;  
-          border: 1px solid oklch(86.9% 0.022 252.894);
-          border: 1px solid oklch(70.4% 0.04 256.788);
+    /* Table adjustments */
+    table {
+      width: 100%;
+      border-collapse: collapse; /* Common for print */
+    }
+    thead.print\:bg-gray-100 {
+      /* Specific class for print header background */
+      background-color: #f3f4f6 !important; /* Example gray */
+      /* Ensure background prints if needed (browser dependent) */
+      /* -webkit-print-color-adjust: exact; */
+      /* print-color-adjust: exact; */
+    }
+    th,
+    td {
+      padding: 4px 6px; /* Reduce padding */
+      /* Add simple borders */
+      border: 1px solid #e5e7eb;
+      border: 1px solid oklch(86.9% 0.022 252.894);
+      border: 1px solid oklch(70.4% 0.04 256.788);
 
-          text-align: left;
-      }
-      /* Prevent page breaks inside table rows and specific cards/sections */
-      tr, .print\:break-inside-avoid {
-          page-break-inside: avoid;
-      }
-      /* Prevent page breaks before category headers */
-      .print\:break-before-avoid {
-           page-break-before: avoid;
-      }
-       /* Encourage page breaks *after* category groups if needed */
-       /* .category-group-container { page-break-after: always; } */
+      text-align: left;
+    }
+    /* Prevent page breaks inside table rows and specific cards/sections */
+    tr,
+    .print\:break-inside-avoid {
+      page-break-inside: avoid;
+    }
+    /* Prevent page breaks before category headers */
+    .print\:break-before-avoid {
+      page-break-before: avoid;
+    }
+    /* Encourage page breaks *after* category groups if needed */
+    /* .category-group-container { page-break-after: always; } */
 
-      /* Ensure links are visible but not necessarily blue/underlined */
-      a {
-          color: #000 !important;
-          text-decoration: none !important;
-      }
-       /* Optionally show URL for links (usually not needed for lab reports) */
-      /* a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 90%; } */
+    /* Ensure links are visible but not necessarily blue/underlined */
+    a {
+      color: #000 !important;
+      text-decoration: none !important;
+    }
+    /* Optionally show URL for links (usually not needed for lab reports) */
+    /* a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 90%; } */
 
-      /* Badge styling for print */
-       .print\:border { border-width: 1px !important; }
-       .print\:shadow-none { box-shadow: none !important; }
-       .print\:font-normal { font-weight: 400 !important; }
-       .print\:text-xs { font-size: 0.75rem !important; line-height: 1rem !important;}
+    /* Badge styling for print */
+    .print\:border {
+      border-width: 1px !important;
+    }
+    .print\:shadow-none {
+      box-shadow: none !important;
+    }
+    .print\:font-normal {
+      font-weight: 400 !important;
+    }
+    .print\:text-xs {
+      font-size: 0.75rem !important;
+      line-height: 1rem !important;
+    }
 
+    /* Ensure header templates render reasonably */
+    .report-content header {
+      border-bottom: 1px solid #ccc !important; /* Lighter border */
+      padding-bottom: 0.5cm !important;
+      margin-bottom: 0.5cm !important;
+    }
 
-      /* Ensure header templates render reasonably */
-      .report-content header {
-           border-bottom: 1px solid #ccc !important; /* Lighter border */
-           padding-bottom: 0.5cm !important;
-           margin-bottom: 0.5cm !important;
-      }
-
-      /* Class to force a page break BEFORE an element */
-  .print-force-break-before {
-    break-before: page !important; /* Modern standard */
-    page-break-before: always !important; /* Older fallback */
-    /* Optional: Add some padding/margin at the top of the element after the break */
-    padding-top: 1rem !important;
-    margin-top: 0 !important; /* Reset any default margin */
-  }
-
-
+    /* Class to force a page break BEFORE an element */
+    .print-force-break-before {
+      break-before: page !important; /* Modern standard */
+      page-break-before: always !important; /* Older fallback */
+      /* Optional: Add some padding/margin at the top of the element after the break */
+      padding-top: 1rem !important;
+      margin-top: 0 !important; /* Reset any default margin */
+    }
   }
 }
-
-
 
 .template-heading-shadow {
   /* box-shadow: -1px -11px 41px -15px rgba(0,0,0,0.75);
   -webkit-box-shadow: -1px -11px 41px -15px rgba(0,0,0,0.75);
   -moz-box-shadow: -1px -11px 41px -15px rgba(0,0,0,0.75); */
 
-
-  box-shadow: rgba(6, 24, 44, 0.4) 0px 0px 0px 2px, rgba(6, 24, 44, 0.65) 0px 4px 6px -1px, rgba(255, 255, 255, 0.08) 0px 1px 0px inset;
+  box-shadow: rgba(6, 24, 44, 0.4) 0px 0px 0px 2px,
+    rgba(6, 24, 44, 0.65) 0px 4px 6px -1px,
+    rgba(255, 255, 255, 0.08) 0px 1px 0px inset;
 }
-
-
-

@@ -2,6 +2,8 @@
 
 // no typescript check
 
+import "./Spermogramme.css";
+
 import { cn } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -54,7 +56,6 @@ import Template1 from "@/components/print_header/Template1";
 import Template2 from "@/components/print_header/Template2";
 import Template3 from "@/components/print_header/Template3";
 import Template4 from "@/components/print_header/Template4";
-import Footer from "@/components/Footer";
 
 // --- Types ---
 type PatientResult = Tables<"patient_result">;
@@ -93,7 +94,7 @@ const displayStatus = (status: string | null): string => {
 // --- End Helper Functions ---
 
 // --- Component ---
-const VIHPage: React.FC = () => {
+const PlaceholderPage: React.FC = () => {
   const { resultId } = useParams<{ resultId: string }>();
   const navigate = useNavigate();
   const [resultData, setResultData] = useState<PatientResult | null>(null);
@@ -466,29 +467,6 @@ const VIHPage: React.FC = () => {
       </div>
       {/* --- Report Content Wrapper (for Print/PDF) --- */}
       <div className="report-content bg-white  p-4 sm:p-6 border border-transparent print:border-none print:p-0 print:shadow-none">
-        {/* 7. Render header above report content */}
-        {headerConfig ? (
-          <div className="mb-2 print:mb-0">
-            <SelectedHeaderComponent
-              data={headerDataProps}
-              isPreview={false}
-              reportTitle="RAPPORT DE RÉSULTATS"
-            />
-          </div>
-        ) : (
-          <Alert variant="default" className="mb-2 print:mb-0 print:hidden">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>En-tête Manquant</AlertTitle>
-            <AlertDescription>
-              La configuration de l'en-tête d'impression n'a pas été trouvée.{" "}
-              <Link to="/settings/print-header" className="underline">
-                Configurer maintenant
-              </Link>
-              .
-            </AlertDescription>
-          </Alert>
-        )}
-        <Separator className="my-2 print:my-0 print:border-none" />
         {/* 2. Info Grid (Patient, Doctor, Result Meta) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 print:mb-4 print:grid-cols-2 print:hidden">
           {/* Patient Card */}
@@ -719,287 +697,473 @@ const VIHPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-        {/* print info grid for print only*/}
-        <div className="grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6  print:grid-cols-2 hidden print:grid ">
-          {/* Patient Info */}
-          <div className="flex flex-col gap-1 rounded-lg border border-slate-600 print:shadow-lg bg-white/90 p-3 print:border  print:bg-white print:rounded-md print:p-2 text-xs">
-            <div className="flex items-center gap-2 font-semibold mb-1">
-              <User className="h-4 w-4" />
-              Patient
-            </div>
-            {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
-            {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
-            {/* <div className="hidden print:block">
-              {renderInfoItem(
-                CalendarDays,
-                "Date Résultat",
-                resultData.result_date
-                  ? format(parseISO(resultData.result_date), "Pp", { locale: fr })
-                  : null
-              )}
-            </div> */}
-          </div>
 
-          {/* Doctor Info */}
-          <div className="flex flex-col gap-1 rounded-lg border border-slate-600  bg-white/90 p-3 print:border print:shadow-lg print:bg-white print:rounded-md print:p-2 text-xs">
-            <div className="flex items-center gap-2 font-semibold mb-1">
-              <Stethoscope className="h-4 w-4" /> Médecin
-            </div>
-            {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
-            {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
-            {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
-          </div>
+        <div className="flex items-center justify-end  print:hidden">
+          <Button onClick={handlePrint} className="">
+            Imprimer
+          </Button>
         </div>
 
-        <MainPageContent resultId={resultId as string} />
-      </div>{" "}
+        <SpermogrammeReport />
+      </div>
       {/* End Report Content Wrapper */}
     </div> // End main container div
   );
 };
 
-interface MainPageContentProps {
-  resultId: string;
+const SpermogrammeReport = () => {
+  return (
+    <>
+      <div className="p-4 space-y-1">
+        <ReportHeader />
+
+        <SampleId />
+
+        {/* section 2  patient details */}
+        <SectionContainer>
+          <PatientDetailsTable />
+        </SectionContainer>
+        {/* section3  */}
+        <SectionContainer>
+          {/* sample details */}
+          <div className="flex flex-wrap items-center gap-6">
+            <ReportPill label="Délai d'abstinence" value="3 (j)" />
+            <ReportPill label="Lieu de Recueil" value="Laboratoire" />
+            <ReportPill label="Mode de Recueil" value="Masturbation" />
+          </div>
+          <div className="grid grid-cols-3 gap-1 pt-1 ">
+            <ReportCard label="Volume" value="1 ml" ref="VN: 1.5 - 6 ml" />
+            <ReportCard label="pH" value="-" ref="VN: 7.2 - 8.5" />
+            <ReportCard label="Viscosité" value="Normale" />
+            <ReportCard label="Couleur" value="Normale" />
+            <ReportCard label="Odeur" value="Normale" />
+          </div>
+          <div className="grid grid-cols-2 pt-1 gap-2">
+            <ReportCard label="Agglutinats spontanés" value="Absence" />
+            <ReportCard label="Agrégats multiples" value="Absence" />
+          </div>
+        </SectionContainer>
+        <SectionContainer>
+          <div className="flex items-center justify-between">
+            <Text type="section">
+              MOBILITÉ DES SPERMATOZOÏDES APRÈS 1 HEURE
+            </Text>
+            <Pill>
+              <Text type="text">Normale [a+b+c] ≥ 40%</Text>
+            </Pill>
+          </div>
+          <div className="grid grid-cols-2 gap-1 ">
+            <ReportCard
+              label="Rapides et progressifs (a)"
+              value="15%"
+              ref="VN:Vitesse > 25 ms"
+            />
+            <ReportCard
+              label="Lents et progressifs (b)"
+              value="15%"
+              ref="VN:Vitesse < 25 ms"
+            />
+            <ReportCard label="Mobiles sur place (c)" value="5%" />
+            <ReportCard label="Immobiles (d)" value="80%" />
+          </div>
+        </SectionContainer>
+        <SectionContainer>
+          <div className="flex items-center gap-2">
+            <Text type="section">CULOT DE CENTRIFUGATION:</Text>
+            <Text type="text">AUCUN SPERMATOZOIDE OBSERVÉ</Text>
+          </div>
+          <Text type="section">
+            NUMÉRATION/CONCENTRATION DE SPERMATOZOÏDES PAR MILLILITRE DE SPERME
+          </Text>
+          <NumerationTabale />
+          <Text type="text">
+            Identification des cellules rondes: Cellules épithéliales
+          </Text>
+        </SectionContainer>
+        <SectionContainer>
+          <Text type="section">VITALITE ou Test de Williams</Text>
+          <div className="grid grid-cols-2 gap-2">
+            <ReportCard
+              label="% de spermatozoïdes Vivants"
+              value="40%"
+              ref="VN: ≥ 58%"
+            />
+            <ReportCard label="% de spermatozoïdes Morts" value="60%" />
+          </div>
+        </SectionContainer>
+        <SectionContainer>
+          <Text type="section">
+            SPERMOCYTOGRAMME (Critères de David et Kruger)
+          </Text>
+          <SpermoCytogrammeTable />
+        </SectionContainer>
+        <div className="flex items-center justify-between">
+          <Text type="section" className="uppercase">
+            Conclusion:{" "}
+          </Text>
+          <Text type="text">Le Biologiste</Text>
+        </div>
+        <ReportFooter />
+      </div>
+    </>
+  );
+};
+
+interface TextProps {
+  children: React.ReactNode;
+  type: "header" | "section" | "subSection" | "title " | "text";
+  className?: string;
+}
+const Text: React.FC<TextProps> = ({ children, type, className }) => {
+  // medical: {
+  // 				primary: '#9b87f5',
+  // 				secondary: '#7E69AB',
+  // 				light: '#E5DEFF',
+  // 				dark: '#1A1F2C',
+  // 			},
+  return (
+    <span
+      className={cn(
+        "inline-block text-base leading-4",
+        type === "header" &&
+          "font-bold print:text-[14pt] text-[#9b87f5] print:text-black",
+        type === "section" &&
+          " print:text-[10pt] text-[#9b87f5] print:text-black font-bold",
+        type === "text" && "font-normal print:text-[9pt]",
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+};
+
+function Pill({
+  children,
+  primary,
+  bg,
+}: {
+  children: React.ReactNode;
+  primary?: boolean;
+  bg?: boolean;
+}) {
+  return (
+    <div
+      className={`border border-slate-${
+        primary ? 300 : 200
+      } rounded-full px-2  ${bg ? `bg-slate-50` : ""}`}
+    >
+      {children}
+    </div>
+  );
 }
 
-const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
-  const [vih, setVih] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [value, setValue] = useState<string>(
-    vih?.value ?? "1 350 000 copies/ml; 6.13 log10 ou Pas de virus détecté"
+function ReportCard({
+  label,
+  value,
+  ref,
+}: {
+  label: string;
+  value: string;
+  ref?: string;
+}) {
+  return (
+    <div className="bg-gray-50 px-2 rounded-lg">
+      {ref ? (
+        <>
+          <div className="flex items-center justify-between py-1">
+            <Text type="text">{label}</Text>
+
+            <Pill>
+              <Text type="text">{ref}</Text>
+            </Pill>
+          </div>
+          <Text type="text" className="font-bold">
+            {value}
+          </Text>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 py-1">
+            <Text type="text">{label}:</Text>
+            <Text type="text">{value}</Text>
+          </div>
+        </>
+      )}
+    </div>
   );
-  const [editMode, setEditMode] = useState<boolean>(false);
-  const [saving, setSaving] = useState<boolean>(false);
+}
 
-  // Fetch VIH for this resultId
-  useEffect(() => {
-    const fetchVih = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from("vih")
-          .select("*")
-          .eq("result_id", resultId)
-          .maybeSingle();
-        if (error) throw error;
-        setVih(data);
-        setValue(
-          data?.value ||
-            "1 350 000 copies/ml; 6.13 log10 ou Pas de virus détecté"
-        );
-      } catch (err: any) {
-        setError(err.message || "Erreur lors du chargement du VIH.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchVih();
-  }, [resultId]);
+function ReportPill({ label, value }: { label: string; value: string }) {
+  return (
+    <Pill>
+      <div className="flex items-center gap-2 ml-1">
+        <Text type="text" className="text-muted-foreground leading-5">
+          {label}:
+        </Text>
+        <Text type="text" className="font-bold leading-5">
+          {value}
+        </Text>
+      </div>
+    </Pill>
+  );
+}
 
-  // Create VIH
-  const handleCreate = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const { data, error } = await supabase
-        .from("vih")
-        .insert({ result_id: resultId, value })
-        .select()
-        .single();
-      if (error) throw error;
-      setVih(data);
-      setEditMode(false);
-    } catch (err: any) {
-      setError(err.message || "Erreur lors de la création du VIH.");
-    } finally {
-      setSaving(false);
-    }
-  };
+interface ReportTableProps {
+  columns: string[];
+  data: unknown[];
+  borderVisible?: boolean;
+}
 
-  // Update VIH
-  const handleUpdate = async () => {
-    if (!vih) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const { data, error } = await supabase
-        .from("vih")
-        .update({ value })
-        .eq("id", vih.id)
-        .select()
-        .single();
-      if (error) throw error;
-      setVih(data);
-      setEditMode(false);
-    } catch (err: any) {
-      setError(err.message || "Erreur lors de la mise à jour du VIH.");
-    } finally {
-      setSaving(false);
-    }
-  };
+function ReportTable({
+  columns,
+  data,
+  borderVisible = true,
+}: ReportTableProps) {
+  return (
+    <div className={`${borderVisible ? "border-visible" : "border-none"}`}>
+      <table className="w-full  ">
+        <thead>
+          <tr className="text-left">
+            {columns.map((column, index) => (
+              <th key={index}>
+                <Text type="text" className="font-bold">
+                  {column}
+                </Text>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr key={index}>
+              {columns.map((column, index) => (
+                <td key={index}>
+                  <Text type="text">{row[column]}</Text>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-  if (loading) return <div>Chargement du VIH...</div>;
-  if (error) return <div className="text-destructive">{error}</div>;
+function PatientDetailsTable() {
+  return (
+    <div className="border-none">
+      <table className="w-full  ">
+        <thead>
+          <tr className="text-left">
+            <th>
+              <Text type="text" className="text-muted-foreground">
+                Prénom et Nom
+              </Text>
+            </th>
+            <th>
+              <Text type="text" className="text-muted-foreground">
+                Âge
+              </Text>
+            </th>
+            <th>
+              <Text type="text" className="text-muted-foreground">
+                Profession
+              </Text>
+            </th>
+            <th>
+              <Text type="text" className="text-muted-foreground">
+                Résidence
+              </Text>
+            </th>
+            <th>
+              <Text type="text" className="text-muted-foreground">
+                Ethnie
+              </Text>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="text-left">
+            <td>
+              <Text type="text" className="font-bold">
+                Naouma TRAORE
+              </Text>
+            </td>
+            <td>
+              <Text type="text" className="font-bold">
+                - ans
+              </Text>
+            </td>
+            <td>
+              <Text type="text" className="font-bold">
+                -
+              </Text>
+            </td>
+            <td>
+              <Text type="text" className="font-bold">
+                -
+              </Text>
+            </td>
+            <td>
+              <Text type="text" className="font-bold">
+                -
+              </Text>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReportHeader() {
+  return (
+    <div className="flex flex-col items-center border border-slate-300 rounded-lg">
+      <Text type="header" className=" text-center tracking-wider pt-2 ">
+        DÉCLIC SANTÉ
+      </Text>
+      <Text type="text">
+        MEDINA COURA RUE: 1 PORTE: 28 BAMAKO - MALI TEL: 92906964/67737350
+      </Text>
+      <Text type="text">LABORATOIRE - ECHOGRAPHIES - CONSULTATIONS</Text>
+    </div>
+  );
+}
+
+function SampleId() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const day = date.getDate();
+  // get month name in french
+  const month = date.getMonth();
+
+  const monthNames = [
+    "Janvier",
+    "Février",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Août",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Décembre",
+  ];
+
+  const monthName = monthNames[month];
 
   return (
-    <div className="space-y-4">
-      {/* Print Button (screen only) */}
-      <div className="print:hidden flex justify-end">
-        <Button onClick={() => window.print()} variant="outline" size="sm">
-          Imprimer
-        </Button>
+    <div className="flex items-center justify-between">
+      <Text type="section" className="uppercase">
+        Spermogramme {year}
+      </Text>
+      <Pill bg>
+        <Text type="text">
+          Nº: 022/24 du {day} {monthName}
+        </Text>
+      </Pill>
+    </div>
+  );
+}
+
+function ReportFooter() {
+  return (
+    <>
+      <div className="flex flex-col items-center">
+        <Text type="text" className="font-bold -ml-[200px]">
+          OLIGO-ASTHENO-NECROZOOSPERMIE SEVERE
+        </Text>
+        <Text type="text" className="font-bold -ml-[200px]">
+          HYPOSPERMIE
+        </Text>
+        <Text type="text" className="font-bold -ml-[200px]">
+          INTERET DE BILAN INFECTIEUX
+        </Text>
+        <Text type="text" className="font-bold -ml-[200px]">
+          EXAMEN DE CONTROLE A REALISER DANS 03 MOIS
+        </Text>
       </div>
+      {/* <div className="flex justify-end">
+        <Text type="text">Le Biologiste</Text>
+      </div> */}
+    </>
+  );
+}
 
-      {/* Form section (screen only) */}
-      <div className="print:hidden">
-        {!vih ? (
-          <>
-            <h2 className="text-lg font-semibold">Créer VIH</h2>
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="ex: 1 350 000 copies/ml; 6.13 log10 ou Pas de virus détecté"
-              disabled={saving}
-            />
-            <p className="text-muted-foreground text-lg">
-              (ex: 1 350 000 copies/ml; 6.13 log10 ou Pas de virus détecté)
-            </p>
-            <Button
-              onClick={handleCreate}
-              disabled={saving || !value}
-              className="mt-2"
-            >
-              {saving ? "Création..." : "Créer"}
-            </Button>
-          </>
-        ) : (
-          <>
-            <h2 className="text-lg font-semibold">VIH</h2>
-            {editMode ? (
-              <>
-                <Input
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  disabled={saving}
-                  placeholder="ex: 1 350 000 copies/ml; 6.13 log10 ou Pas de virus détecté"
-                />
-                <p className="text-muted-foreground text-lg">
-                  (ex: 1 350 000 copies/ml; 6.13 log10 ou Pas de virus détecté)
-                </p>
-                <div className="flex gap-2 mt-2">
-                  <Button onClick={handleUpdate} disabled={saving || !value}>
-                    {saving ? "Sauvegarde..." : "Sauvegarder"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditMode(false);
-                      setValue(vih.value);
-                    }}
-                    disabled={saving}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center gap-4">
-                <span className="font-mono text-lg">{vih.value}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditMode(true)}
-                >
-                  Modifier
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Print section */}
-      <h2 className=" text-3xl text-center mb-4 print:pt-4 font-bold uppercase mx-auto tracking-tight print:block  print:text-center">
-        VIROLOGIE
-      </h2>
-      {vih?.value ? (
-        <div className="print:block mt-8 text-black text-lg">
-          <div className="flex flex-row justify-between mb-4">
-            <span className="font-bold underline">EXAMENS</span>
-            <span className="font-bold underline">RESULTATS</span>
-          </div>
-          <div className="mb-4">
-            <div className="font-bold text-xl underline">CHARGE VIRALE VIH</div>
-          </div>
-          <div className="flex flex-row justify-between items-start mt-8">
-            <div
-              className="flex flex-col items-start gap-2 text-lg"
-              style={{ minWidth: "340px" }}
-            >
-              <span className="font-semibold">
-                Charge virale&nbsp;&nbsp;VIH
-              </span>
-              <span className="text-xs mt-1 whitespace-nowrap">
-                (Abbott m2000rt et m2000sp Technique PCR en temps réel)
-              </span>
-
-              {!vih.value.includes("virus") && (
-                <span className="font-semibold mt-20">Soit</span>
-              )}
-            </div>
-            <div
-              className="flex flex-col items-end gap-2 text-lg text-right"
-              style={{ minWidth: "340px" }}
-            >
-              {/* Handle Pas de virus détecté, else extract copies/ml and log10 using regex with ; separator */}
-              {(() => {
-                if (/pas de virus détecté/i.test(vih.value)) {
-                  return (
-                    <>
-                      <span className="font-bold text-2xl">
-                        Pas de virus détecté
-                      </span>
-                      <span className="text-xs mt-1">
-                        (pour 1 ml d'échantillon)
-                      </span>
-                    </>
-                  );
-                }
-                const matchCopies = vih.value.match(/([\d\s]+copies\/ml)/i);
-                const matchLog = vih.value.match(/;\s*([\d.]+)\s*log10/i);
-                return (
-                  <>
-                    <span className="font-bold text-2xl">
-                      {matchCopies ? matchCopies[1].trim() : vih.value}
-                    </span>
-                    <span className="text-xs font-normal">
-                      {" "}
-                      (limite de détection &lt;40 pour 0.6 ml)
-                    </span>
-                    <span className="text-xs mt-1">
-                      (d'échantillon, 1 copie /ml = 0.58* 1UI/ml)
-                    </span>
-                    <div className="flex flex-row justify-between w-full mt-8 ">
-                      <span></span>
-                      <span className="font-bold text-2xl">
-                        {matchLog ? matchLog[1] : ""} log<sub>10</sub>
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className=" mt-20">
-        <Footer date={new Date().toISOString()} />
-      </div>
+interface SectionContainerProps {
+  children: React.ReactNode;
+}
+const SectionContainer = ({ children }: SectionContainerProps) => {
+  return (
+    <div className="border border-slate-300 rounded-lg px-2 py-1">
+      {children}
     </div>
   );
 };
-export default VIHPage;
+
+function NumerationTabale() {
+  const columns = ["Paramètres", "Résultats", "Ref."];
+  const data = [
+    {
+      Paramètres: "Nombre de Spermatozoïdes / millilitre de sperme",
+      Résultats: "5 millions",
+      "Ref.": "> 15 millions/ml",
+    },
+    {
+      Paramètres: "Nombre de Spermatozoïdes dans l'éjaculat",
+      Résultats: "+",
+      "Ref.": "≥  39.10^6 / ml",
+    },
+    {
+      Paramètres: "Cellules rondes",
+      Résultats: "+",
+      "Ref.": "≤ 5000 / ml",
+    },
+    {
+      Paramètres: "Leucocytes",
+      Résultats: "+",
+      "Ref.": "≤ 10^6 / ml",
+    },
+  ];
+
+  return <ReportTable columns={columns} data={data} />;
+}
+
+function SpermoCytogrammeTable() {
+  const columns = ["Paramètres", "Résultats", "Ref."];
+  const data = [
+    {
+      Paramètres: "% de spermatozoïdes de formes typiques",
+      Résultats: "-%",
+      "Ref.": "≥ 4%",
+    },
+    {
+      Paramètres: "% de spermatozoïdes présentant une anomalie de la tête",
+      Résultats: "-%",
+      "Ref.": "-",
+    },
+    {
+      Paramètres:
+        "% de spermatozoïdes présentant une anomalie de la pièce intermédiaire",
+      Résultats: "-%",
+      "Ref.": "-",
+    },
+    {
+      Paramètres: "% de spermatozoïdes présentant une anomalie de la flagelle",
+      Résultats: "-%",
+      "Ref.": "-",
+    },
+    {
+      Paramètres: "% de spermatozoïdes de formes immatures",
+      Résultats: "-%",
+      "Ref.": "-",
+    },
+  ];
+
+  return <ReportTable columns={columns} data={data} />;
+}
+
+export default PlaceholderPage;

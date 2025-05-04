@@ -4,6 +4,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import { supabase, Tables } from "../lib/supabaseClient";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 // Import shadcn/ui components and icons
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +42,7 @@ import {
   AlertCircle,
   Info,
   ListChecks,
+  Trash,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -74,6 +82,12 @@ const PatientDetailPage: React.FC = () => {
   const [loadingPatient, setLoadingPatient] = useState<boolean>(true);
   const [loadingResults, setLoadingResults] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
+  // error and loading states for delete
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
 
   // Fetch patient details
   const fetchPatientDetails = useCallback(async () => {
@@ -137,6 +151,36 @@ const PatientDetailPage: React.FC = () => {
     }
   }, [patientId]);
 
+  // Add delete handler
+  const handleDeleteResult = useCallback(async () => {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    if (!selectedResultId) return;
+
+    try {
+      const { error } = await supabase
+        .from("patient_result")
+        .delete()
+        .eq("id", selectedResultId);
+
+      if (error) throw error;
+
+      // Refresh the data after deletion
+      fetchPatientResults();
+
+      // Close the dialog
+      setIsDeleteDialogOpen(false);
+      setSelectedResultId(null);
+    } catch (error: unknown) {
+      console.error("Error deleting result:", error);
+      setDeleteError(
+        `Impossible de supprimer le résultat. \n ${error.message}`
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [selectedResultId, fetchPatientResults]);
+
   // Fetch both on mount / patientId change
   useEffect(() => {
     setError(null); // Clear previous errors on new load
@@ -180,197 +224,253 @@ const PatientDetailPage: React.FC = () => {
 
   // Main Render
   return (
-    <div className="space-y-6">
-      {/* Back Button and Page Title Area */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-        {/* Back Button */}
-        <div>
-          <Link to="/patients">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour à la liste
-            </Button>
-          </Link>
-        </div>
-        {/* Edit Button (show only if patient loaded and no error) */}
-        {!isLoading && patient && !error && (
-          <Link to={`/patients/${patientId}/edit`}>
-            <Button variant="secondary">
-              <Edit className="mr-2 h-4 w-4" />
-              Modifier le Patient
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Loading State for Patient Card */}
-      {loadingPatient && (
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-3/5" />
-            <Skeleton className="h-4 w-4/5" />
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Error State */}
-      {error &&
-        !isLoading && ( // Show error only if not loading
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Erreur</AlertTitle>
-            <AlertDescription>
-              {error}{" "}
-              <Button
-                variant="link"
-                onClick={() => {
-                  fetchPatientDetails();
-                  fetchPatientResults();
-                }}
-                className="p-0 h-auto text-destructive-foreground underline"
-              >
-                Réessayer
+    <>
+      <div className="space-y-6">
+        {/* Back Button and Page Title Area */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          {/* Back Button */}
+          <div>
+            <Link to="/patients">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Retour à la liste
               </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-      {/* Patient Details Card (Show only if loaded and no error) */}
-      {!loadingPatient && patient && !error && (
-        <Card className="overflow-hidden">
-          <CardHeader className="bg-muted/30">
-            <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Informations du Patient
-            </CardTitle>
-            <CardDescription>Détails démographiques.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            {renderDetailItem(User, "Nom Complet", patient.full_name)}
-            {renderDetailItem(Info, "ID Unique", patient.patient_unique_id)}
-            {renderDetailItem(
-              CalendarDays,
-              "Date de Naissance",
-              patient.date_of_birth
-                ? format(parseISO(patient.date_of_birth), "PPP", { locale: fr })
-                : null
-            )}
-            {renderDetailItem(Info, "Genre", patient.gender)}
-            {renderDetailItem(Phone, "Téléphone", patient.phone)}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Test Results Section */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <ListChecks className="h-6 w-6" />
-            Historique des Résultats
-          </h2>
-          {/* Add Result Button (show only if patient loaded and no error) */}
+            </Link>
+          </div>
+          {/* Edit Button (show only if patient loaded and no error) */}
           {!isLoading && patient && !error && (
-            <Button
-              onClick={() => navigate(`/patients/${patientId}/results/new`)}
-            >
-              {" "}
-              {/* Navigate to create result page */}
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Ajouter un Résultat
-            </Button>
+            <Link to={`/patients/${patientId}/edit`}>
+              <Button variant="secondary">
+                <Edit className="mr-2 h-4 w-4" />
+                Modifier le Patient
+              </Button>
+            </Link>
           )}
         </div>
 
-        {/* Loading State for Results Table */}
-        {loadingResults && (
-          <div className="border rounded-lg overflow-hidden bg-background">
-            <Skeleton className="h-12 w-full" /> {/* Header */}
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
+        {/* Loading State for Patient Card */}
+        {loadingPatient && (
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-3/5" />
+              <Skeleton className="h-4 w-4/5" />
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
         )}
 
-        {/* Results Table (Show only if not loading and no general error - specific results errors handled internally) */}
-        {!loadingResults && !error && (
-          <div className="border rounded-lg overflow-hidden bg-background">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Date du Résultat</TableHead>
-                  <TableHead>Médecin Prescripteur</TableHead>
-                  <TableHead className="w-[130px]">Statut</TableHead>
-                  <TableHead className="text-right w-[150px]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {results.length > 0 ? (
-                  results.map((result) => (
-                    <TableRow key={result.id}>
-                      <TableCell>
-                        {result.result_date
-                          ? format(
-                              parseISO(result.result_date),
-                              "PPP 'à' HH:mm",
-                              { locale: fr }
-                            )
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        {result.doctor?.full_name || (
-                          <span className="italic text-muted-foreground">
-                            Inconnu
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(result.status)}>
-                          {/* Capitalize status for display */}
-                          {result.status?.charAt(0).toUpperCase() +
-                            result.status?.slice(1) || "N/A"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link to={`/results/${result.id}`}>
-                          {" "}
-                          {/* Link to specific result detail page */}
-                          <Button variant="outline" size="sm">
-                            <FileText className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />{" "}
+        {/* Error State */}
+        {error &&
+          !isLoading && ( // Show error only if not loading
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erreur</AlertTitle>
+              <AlertDescription>
+                {error}{" "}
+                <Button
+                  variant="link"
+                  onClick={() => {
+                    fetchPatientDetails();
+                    fetchPatientResults();
+                  }}
+                  className="p-0 h-auto text-destructive-foreground underline"
+                >
+                  Réessayer
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+        {/* Patient Details Card (Show only if loaded and no error) */}
+        {!loadingPatient && patient && !error && (
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-muted/30">
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Informations du Patient
+              </CardTitle>
+              <CardDescription>Détails démographiques.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              {renderDetailItem(User, "Nom Complet", patient.full_name)}
+              {renderDetailItem(Info, "ID Unique", patient.patient_unique_id)}
+              {renderDetailItem(
+                CalendarDays,
+                "Date de Naissance",
+                patient.date_of_birth
+                  ? format(parseISO(patient.date_of_birth), "PPP", {
+                      locale: fr,
+                    })
+                  : null
+              )}
+              {renderDetailItem(Info, "Genre", patient.gender)}
+              {renderDetailItem(Phone, "Téléphone", patient.phone)}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Test Results Section */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <ListChecks className="h-6 w-6" />
+              Historique des Résultats
+            </h2>
+            {/* Add Result Button (show only if patient loaded and no error) */}
+            {!isLoading && patient && !error && (
+              <Button
+                onClick={() => navigate(`/patients/${patientId}/results/new`)}
+              >
+                {" "}
+                {/* Navigate to create result page */}
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Ajouter un Résultat
+              </Button>
+            )}
+          </div>
+
+          {/* Loading State for Results Table */}
+          {loadingResults && (
+            <div className="border rounded-lg overflow-hidden bg-background">
+              <Skeleton className="h-12 w-full" /> {/* Header */}
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          )}
+
+          {/* Results Table (Show only if not loading and no general error - specific results errors handled internally) */}
+          {!loadingResults && !error && (
+            <div className="border rounded-lg overflow-hidden bg-background">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[180px]">
+                      Date du Résultat
+                    </TableHead>
+                    <TableHead>Médecin Prescripteur</TableHead>
+                    <TableHead className="w-[130px]">Statut</TableHead>
+                    <TableHead className="text-right w-[150px]">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {results.length > 0 ? (
+                    results.map((result) => (
+                      <TableRow key={result.id}>
+                        <TableCell>
+                          {result.result_date
+                            ? format(
+                                parseISO(result.result_date),
+                                "PPP 'à' HH:mm",
+                                { locale: fr }
+                              )
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          {result.doctor?.full_name || (
+                            <span className="italic text-muted-foreground">
+                              Inconnu
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(result.status)}>
+                            {/* Capitalize status for display */}
+                            {result.status?.charAt(0).toUpperCase() +
+                              result.status?.slice(1) || "N/A"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Link to={`/results/${result.id}`}>
+                            {" "}
+                            {/* Link to specific result detail page */}
+                            <Button variant="outline" size="sm">
+                              <FileText className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />{" "}
+                              {/* Responsive Icon */}
+                              <span className="hidden sm:inline">
+                                Voir Résultat
+                              </span>{" "}
+                              {/* Hide text on xs */}
+                              <span className="sm:hidden">Voir</span>{" "}
+                              {/* Show shorter text on xs */}
+                            </Button>
+                          </Link>
+                          {/* delete action */}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="ml-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSelectedResultId(result.id);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />{" "}
                             {/* Responsive Icon */}
                             <span className="hidden sm:inline">
-                              Voir Résultat
+                              Supprimer
                             </span>{" "}
                             {/* Hide text on xs */}
-                            <span className="sm:hidden">Voir</span>{" "}
+                            <span className="sm:hidden">Suppr</span>{" "}
                             {/* Show shorter text on xs */}
                           </Button>
-                        </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Aucun résultat trouvé pour ce patient.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      Aucun résultat trouvé pour ce patient.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Êtes-vous sûr de vouloir supprimer ce résultat ? Cette action est
+              irréversible.
+            </p>
+            {deleteError && (
+              <Alert variant="destructive">
+                <AlertTitle>Erreur</AlertTitle>
+                <AlertDescription>{deleteError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteResult}>
+                {deleteLoading ? "Suppression..." : "Supprimer"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

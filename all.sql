@@ -837,3 +837,17 @@ INSERT INTO skip_range_check (value, type) VALUES
 ('ELECTROPHORESE DE L’HEMOGLOBINE', 'category'),
 ('EXAMEN CYTOBACTERIOLOGIQUE DES URINES', 'category'),
 ('Groupe/RH', 'test_type');
+
+
+
+
+
+
+
+-- --------------------------------------------------------------------------------
+-- v3
+ALTER TABLE patient_result
+ADD COLUMN isFree BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE public.patient_result
+ADD COLUMN IF NOT EXISTS notes text;

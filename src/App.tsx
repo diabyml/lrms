@@ -35,6 +35,7 @@ import ECBModelManagementPage from "./pages/ECBModelManagementPage";
 import VHBPage from "./pages/VHBPage";
 import VIHPage from "./pages/VIHPage";
 import AnapathPage from "./pages/AnapathPage";
+import SpermogrammePage from "./pages/SpermogrammePage";
 // Import other placeholders as you create them
 
 function App() {
@@ -101,13 +102,22 @@ function App() {
             {/* ristournes */}
             <Route path="/ristournes" element={<RistourneListPage />} />
             <Route path="/ristournes/new" element={<RistourneFormPage />} />
-            <Route path="/ristournes/:ristourneId" element={<RistourneFormPage />} />
+            <Route
+              path="/ristournes/:ristourneId"
+              element={<RistourneFormPage />}
+            />
             <Route
               path="/settings/print-header"
               element={<PrintHeaderDesignPage />}
             />
-            <Route path="/protidogramme/:resultId" element={<ProtidogrammePage />} />
-            <Route path="/skip-range-management" element={<SkipRangeManagementPage />} />
+            <Route
+              path="/protidogramme/:resultId"
+              element={<ProtidogrammePage />}
+            />
+            <Route
+              path="/skip-range-management"
+              element={<SkipRangeManagementPage />}
+            />
             <Route path="/atbs" element={<ATBManagementPage />} />
             <Route path="/atb/:resultId" element={<ATBPage />} />
             <Route path="/ecb/:resultId" element={<ECBPage />} />
@@ -115,9 +125,12 @@ function App() {
             <Route path="/vhb/:resultId" element={<VHBPage />} />
             <Route path="/vih/:resultId" element={<VIHPage />} />
             <Route path="/anapath/:resultId" element={<AnapathPage />} />
+            <Route
+              path="/spermogramme/:resultId"
+              element={<SpermogrammePage />}
+            />
           </Route>
         </Route>
-
         {/* Catch-all route for 404 Not Found */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

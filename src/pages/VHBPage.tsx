@@ -40,7 +40,7 @@ import {
   Save,
   Stethoscope,
   User,
-  X
+  X,
 } from "lucide-react";
 
 import { useRef } from "react"; // Impo
@@ -163,16 +163,8 @@ const PlaceholderPage: React.FC = () => {
           .select("*")
           .eq("id", result.patient_id)
           .single(),
-        supabase
-          .from("doctor")
-          .select("*")
-          .eq("id", result.doctor_id)
-          .single(),
-        supabase
-          .from("print_header_config")
-          .select("*")
-          .limit(1)
-          .maybeSingle(),
+        supabase.from("doctor").select("*").eq("id", result.doctor_id).single(),
+        supabase.from("print_header_config").select("*").limit(1).maybeSingle(),
       ]);
 
       if (patientRes.error)
@@ -488,7 +480,7 @@ const PlaceholderPage: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>En-tête Manquant</AlertTitle>
             <AlertDescription>
-              La configuration de l'en-tête d'impression n'a pas été trouvée.{' '}
+              La configuration de l'en-tête d'impression n'a pas été trouvée.{" "}
               <Link to="/settings/print-header" className="underline">
                 Configurer maintenant
               </Link>
@@ -519,8 +511,8 @@ const PlaceholderPage: React.FC = () => {
                 "Date Naissance",
                 patientData?.date_of_birth
                   ? format(parseISO(patientData.date_of_birth), "P", {
-                    locale: fr,
-                  })
+                      locale: fr,
+                    })
                   : null
               )}
               <div className="hidden print:block">
@@ -529,8 +521,8 @@ const PlaceholderPage: React.FC = () => {
                   "Date Résultat",
                   resultData.result_date
                     ? format(parseISO(resultData.result_date), "Pp", {
-                      locale: fr,
-                    })
+                        locale: fr,
+                      })
                     : null
                 )}
               </div>
@@ -565,8 +557,8 @@ const PlaceholderPage: React.FC = () => {
                 "Date Résultat",
                 resultData.result_date
                   ? format(parseISO(resultData.result_date), "Pp", {
-                    locale: fr,
-                  })
+                      locale: fr,
+                    })
                   : null
               )}
               {/* --- Price Fields (Screen Only, Not Print) --- */}
@@ -737,15 +729,7 @@ const PlaceholderPage: React.FC = () => {
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
             {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(
-              CalendarDays,
-              "Date de Naissance",
-              patientData?.date_of_birth
-                ? format(parseISO(patientData.date_of_birth), "P", {
-                  locale: fr,
-                })
-                : null
-            )}
+            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,
@@ -769,8 +753,6 @@ const PlaceholderPage: React.FC = () => {
         </div>
 
         <MainPageContent resultId={resultId as string} />
-
-
       </div>{" "}
       {/* End Report Content Wrapper */}
     </div> // End main container div
@@ -881,7 +863,11 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
             <p className="text-muted-foreground text-lg">
               (Pas de virus détecté ou 366 copies/ml; 1.82 log)
             </p>
-            <Button onClick={handleCreate} disabled={saving || !value} className="mt-2">
+            <Button
+              onClick={handleCreate}
+              disabled={saving || !value}
+              className="mt-2"
+            >
               {saving ? "Création..." : "Créer"}
             </Button>
           </>
@@ -903,7 +889,14 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
                   <Button onClick={handleUpdate} disabled={saving || !value}>
                     {saving ? "Sauvegarde..." : "Sauvegarder"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setEditMode(false); setValue(vhb.value); }} disabled={saving}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditMode(false);
+                      setValue(vhb.value);
+                    }}
+                    disabled={saving}
+                  >
                     Annuler
                   </Button>
                 </div>
@@ -911,7 +904,11 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
             ) : (
               <div className="flex items-center gap-4">
                 <span className="font-mono text-lg">{vhb.value}</span>
-                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditMode(true)}
+                >
                   Modifier
                 </Button>
               </div>
@@ -920,33 +917,48 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
         )}
       </div>
 
-
-
       {/* Print section */}
       <h2 className=" text-3xl text-center mb-4 print:pt-4 font-bold uppercase mx-auto tracking-tight print:block  print:text-center">
         VIROLOGIE
       </h2>
-      {vhb?.value && (vhb.value.includes("Pas de virus") || vhb.value.includes("virus")) ? (
+      {vhb?.value &&
+      (vhb.value.includes("Pas de virus") || vhb.value.includes("virus")) ? (
         <div className=" print:block mt-8 text-black text-lg">
           <div className="flex flex-row justify-between mb-4">
             <span className="font-bold underline">EXAMENS</span>
             <span className="font-bold underline">RESULTATS</span>
           </div>
           <div className="mb-4">
-            <div className="font-bold text-xl underline">CHARGE VIRALE HEPATITE B</div>
+            <div className="font-bold text-xl underline">
+              CHARGE VIRALE HEPATITE B
+            </div>
           </div>
           <div className="flex flex-row justify-between items-start mt-8">
-            <div className="flex flex-col items-start gap-2 text-lg" style={{minWidth: '340px'}}>
-              <span className="font-semibold">Charge virale&nbsp;&nbsp;VHB</span>
-              <span className="text-xs mt-1 whitespace-nowrap">(Abbott m2000rt et m2000sp Technique PCR en temps réel)</span>
+            <div
+              className="flex flex-col items-start gap-2 text-lg"
+              style={{ minWidth: "340px" }}
+            >
+              <span className="font-semibold">
+                Charge virale&nbsp;&nbsp;VHB
+              </span>
+              <span className="text-xs mt-1 whitespace-nowrap">
+                (Abbott m2000rt et m2000sp Technique PCR en temps réel)
+              </span>
               {/* <span className="font-semibold mt-8">Soit</span> */}
             </div>
-            <div className="flex flex-col items-end gap-2 text-lg text-right" style={{minWidth: '340px'}}>
+            <div
+              className="flex flex-col items-end gap-2 text-lg text-right"
+              style={{ minWidth: "340px" }}
+            >
               <span className="font-bold text-2xl">
                 {vhb.value.match(/([\d,.]+\s*copies\/ml)/i)?.[1] || vhb.value}
               </span>
-              <span className="text-xs mt-1">( Pour 0.5 ml d'échantillon )</span>
-              <span className="font-bold text-2xl mt-8">{vhb.value.split(";")[1]?.trim() || ''}</span>
+              <span className="text-xs mt-1">
+                ( Pour 0.5 ml d'échantillon )
+              </span>
+              <span className="font-bold text-2xl mt-8">
+                {vhb.value.split(";")[1]?.trim() || ""}
+              </span>
             </div>
           </div>
         </div>
@@ -957,37 +969,50 @@ const MainPageContent: React.FC<MainPageContentProps> = ({ resultId }) => {
             <span className="font-bold underline text-xl">RESULTATS</span>
           </div>
           <div className="w-full mb-6">
-            <div className="font-bold text-2xl underline">CHARGE VIRALE HEPATITE B</div>
+            <div className="font-bold text-2xl underline">
+              CHARGE VIRALE HEPATITE B
+            </div>
           </div>
           <div className="flex flex-row justify-between items-start mt-8">
             {/* Left column */}
-            <div className="flex flex-col items-start gap-2 text-lg" style={{minWidth: '340px'}}>
-              <span className="font-semibold text-xl">Charge virale&nbsp;&nbsp;VHB</span>
-              <span className="text-xs mt-1 whitespace-nowrap">(Abbott m2000rt et m2000sp Technique PCR en temps réel)</span>
+            <div
+              className="flex flex-col items-start gap-2 text-lg"
+              style={{ minWidth: "340px" }}
+            >
+              <span className="font-semibold text-xl">
+                Charge virale&nbsp;&nbsp;VHB
+              </span>
+              <span className="text-xs mt-1 whitespace-nowrap">
+                (Abbott m2000rt et m2000sp Technique PCR en temps réel)
+              </span>
               <span className="font-semibold mt-13 text-2xl">Soit</span>
             </div>
             {/* Right column */}
-            <div className="flex flex-col items-end gap-2 text-lg text-right" style={{minWidth: '340px'}}>
+            <div
+              className="flex flex-col items-end gap-2 text-lg text-right"
+              style={{ minWidth: "340px" }}
+            >
               <span className="font-bold text-2xl">
                 {/* Extract main result, e.g. 366 copies/ml */}
                 {vhb.value.match(/([\d,.]+\s*copies\/ml)/i)?.[1] || vhb.value}
               </span>
-              <span className="text-xs mt-1">(limite de détection &lt;35 pour 0.5 ml)</span>
-              <span className="text-xs">(d'échantillon, 1 UI= 3.41 copie/ml)</span>
-              <span className="font-bold text-2xl mt-5">{vhb.value.split(";")[1]?.trim() || ''}</span>
+              <span className="text-xs mt-1">
+                (limite de détection &lt;35 pour 0.5 ml)
+              </span>
+              <span className="text-xs">
+                (d'échantillon, 1 UI= 3.41 copie/ml)
+              </span>
+              <span className="font-bold text-2xl mt-5">
+                {vhb.value.split(";")[1]?.trim() || ""}
+              </span>
             </div>
           </div>
         </div>
       ) : null}
 
-
-
-
-        <div className=" mt-20">
-          <Footer date={new Date().toISOString()} />
-        </div>
-
-
+      <div className=" mt-20">
+        <Footer date={new Date().toISOString()} />
+      </div>
     </div>
   );
 };

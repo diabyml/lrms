@@ -1,0 +1,29 @@
+
+
+
+
+/* on print */
+@media print {
+
+
+    .border-none   th,
+    .border-none   td,
+    .border-none   tr,
+    .border-none   table {
+        border: none !important;
+        padding-top: 2px;
+        padding-bottom: 2px;
+    }
+
+
+    .border-visible   th,
+    .border-visible   td,
+    .border-visible   tr,
+    .border-visible   table {
+       border: 1px solid rgb(199, 195, 195) !important;
+       padding-top: 2px !important;
+       padding-bottom: 2px !important;
+    }
+    
+
+}
