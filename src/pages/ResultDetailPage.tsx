@@ -1625,7 +1625,7 @@ const ResultDetailPage: React.FC = () => {
                                     className={cn(
                                       "font-medium text-black pl-6 print:pl-2 cursor-pointer",
                                       parametersToPrint.includes(param.id)
-                                        ? "text-red-400"
+                                        ? " bg-red-400"
                                         : ""
                                     )}
                                     dangerouslySetInnerHTML={{

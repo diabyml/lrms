@@ -42,6 +42,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // 
 import { Skeleton } from "@/components/ui/skeleton"; // Adjust path
 import { Separator } from "@/components/ui/separator"; // Adjust path
 
+// import Select as SearchableSelect from 'react-select
+import SearchableSelect from "react-select";
+
 // --- Icons & Date Handling ---
 import {
   ArrowLeft,
@@ -621,7 +624,7 @@ const ResultFormPage: React.FC = () => {
       navigate(
         isEditMode
           ? `/results/${currentResultId}`
-          : `/patients/${currentPatientId}`
+          : `/results/${currentResultId}`
       );
     } catch (err: any) {
       /* ... error handling ... */
@@ -724,7 +727,38 @@ const ResultFormPage: React.FC = () => {
                   Médecin Prescripteur{" "}
                   <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                {/* doctor-select */}
+                <SearchableSelect
+                  name="doctor"
+                  options={
+                    doctors.length > 0
+                      ? doctors.map((doc) => ({
+                          value: doc.id,
+                          label: doc.full_name,
+                        }))
+                      : []
+                  }
+                  value={
+                    doctors.length > 0
+                      ? doctors
+                          .map((doc) => ({
+                            value: doc.id,
+                            label: doc.full_name,
+                          }))
+                          .find(
+                            (option) => option.value === selectedDoctorId
+                          ) || null
+                      : null
+                  }
+                  onChange={(value) => setSelectedDoctorId(value?.value)}
+                  placeholder={
+                    doctors.length === 0 ? "Aucun médecin..." : "Rechercher..."
+                  }
+                  required
+                  isDisabled={loadingSubmit || doctors.length === 0}
+                />
+
+                {/* <Select
                   name="doctor"
                   value={selectedDoctorId}
                   onValueChange={(value) => setSelectedDoctorId(value)}
@@ -753,7 +787,7 @@ const ResultFormPage: React.FC = () => {
                       </SelectItem>
                     )}
                   </SelectContent>
-                </Select>
+                </Select> */}
               </div>
               {/* Result Date */}
               <div className="space-y-2">

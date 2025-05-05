@@ -64,6 +64,8 @@ import {
   Settings,
 } from "lucide-react";
 
+import SearchableSelect from "react-select";
+
 // --- Types ---
 type Doctor = Tables<"doctor">;
 type DoctorFeeConfig = Tables<"doctor_fee_config">;
@@ -653,10 +655,31 @@ const RistourneFormPage: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Select
+            <div className="w-[30%]">
+              <SearchableSelect
+                name="doctor"
+                options={doctors.map((doc) => ({
+                  value: doc.id,
+                  label: doc.full_name,
+                }))}
+                value={
+                  doctors
+                    .map((doc) => ({
+                      value: doc.id,
+                      label: doc.full_name,
+                    }))
+                    .find((option) => option.value === selectedDoctor?.id) ||
+                  null
+                }
+                onChange={(option) => handleDoctorChange(option?.value)}
+                isDisabled={submitting || isEditMode}
+                placeholder="Sélectionner un médecin..."
+              />
+            </div>
+            {/* <Select
               value={selectedDoctor?.id}
               onValueChange={handleDoctorChange}
-              disabled={submitting}
+              disabled={submitting || isEditMode}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner un médecin..." />
@@ -668,7 +691,7 @@ const RistourneFormPage: React.FC = () => {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+            </Select> */}
           </CardContent>
         </Card>
 
