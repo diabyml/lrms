@@ -851,3 +851,46 @@ ADD COLUMN isFree BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE public.patient_result
 ADD COLUMN IF NOT EXISTS notes text;
+
+
+
+
+
+
+-- abbre-models
+CREATE TABLE public.abbre_models (
+    id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    description text,
+    created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+-- Optional: Add a comment to the table for clarity
+COMMENT ON TABLE public.abbre_models IS 'Stores abbreviation models, identified by a unique name and an optional description.';
+
+-- Optional: Add comments to columns
+COMMENT ON COLUMN public.abbre_models.id IS 'Unique identifier for the abbreviation model (Primary Key).';
+COMMENT ON COLUMN public.abbre_models.name IS 'The unique name of the abbreviation model. This name is used as a suffix in test_type names.';
+COMMENT ON COLUMN public.abbre_models.description IS 'An optional longer description of the abbreviation model.';
+COMMENT ON COLUMN public.abbre_models.created_at IS 'Timestamp of when the abbreviation model was created.';
+
+-- Optional: If you want to enable Row Level Security (RLS) on this table (common in Supabase)
+-- ALTER TABLE public.abbre_models ENABLE ROW LEVEL SECURITY;
+
+-- Example Policies (you'd need to define these based on your app's auth rules):
+-- Allow public read-only access
+-- CREATE POLICY "Allow public read access" ON public.abbre_models
+-- FOR SELECT USING (true);
+
+-- Allow authenticated users to insert
+-- CREATE POLICY "Allow authenticated insert" ON public.abbre_models
+-- FOR INSERT TO authenticated WITH CHECK (true);
+
+-- Allow users to update their own models (if you had a user_id foreign key)
+-- Or allow admin role to update
+-- CREATE POLICY "Allow admin update" ON public.abbre_models
+-- FOR UPDATE USING (auth.role() = 'service_role' OR (SELECT current_user_is_admin())); -- (requires a helper function current_user_is_admin)
+
+-- Allow admin role to delete
+-- CREATE POLICY "Allow admin delete" ON public.abbre_models
+-- FOR DELETE USING (auth.role() = 'service_role' OR (SELECT current_user_is_admin()));

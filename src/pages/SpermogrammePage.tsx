@@ -711,6 +711,8 @@ const PlaceholderPage: React.FC = () => {
   );
 };
 
+const data = {};
+
 const SpermogrammeReport = () => {
   return (
     <>

@@ -40,6 +40,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { extractId } from "@/lib/utils";
 
 type Patient = Tables<"patient">;
 type Doctor = Tables<"doctor">;
@@ -101,7 +102,10 @@ const PatientListPage: React.FC = () => {
           .select("patient_id")
           .eq("doctor_id", doctorFilter);
         if (resultError) {
-          console.error("Supabase error while fetching patient_result:", resultError);
+          console.error(
+            "Supabase error while fetching patient_result:",
+            resultError
+          );
           throw resultError;
         }
         const patientIds = (resultRows || []).map((row) => row.patient_id);
@@ -170,7 +174,9 @@ const PatientListPage: React.FC = () => {
         .delete()
         .eq("id", patientToDelete.id);
       if (deleteError) throw deleteError;
-      setPatients((prev) => prev.filter((pat) => pat.id !== patientToDelete.id));
+      setPatients((prev) =>
+        prev.filter((pat) => pat.id !== patientToDelete.id)
+      );
       setTotalCount((prev) => prev - 1);
       setPatientToDelete(null);
     } catch (err: unknown) {
@@ -280,7 +286,7 @@ const PatientListPage: React.FC = () => {
                     // ... TableRow mapping remains the same ...
                     <TableRow key={patient.id}>
                       <TableCell className="font-medium">
-                        {patient.patient_unique_id}
+                        {extractId(patient.patient_unique_id)}
                       </TableCell>
                       <TableCell>{patient.full_name}</TableCell>
                       <TableCell>
@@ -318,14 +324,26 @@ const PatientListPage: React.FC = () => {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer ce patient ?</AlertDialogTitle>
+                              <AlertDialogTitle>
+                                Supprimer ce patient ?
+                              </AlertDialogTitle>
                               <AlertDialogDescription>
-                                Cette action est irréversible. Voulez-vous vraiment supprimer ce patient ?
+                                Cette action est irréversible. Voulez-vous
+                                vraiment supprimer ce patient ?
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel onClick={() => setPatientToDelete(null)} disabled={deleting}>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
+                              <AlertDialogCancel
+                                onClick={() => setPatientToDelete(null)}
+                                disabled={deleting}
+                              >
+                                Annuler
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="bg-destructive text-destructive-foreground"
+                              >
                                 Supprimer
                               </AlertDialogAction>
                             </AlertDialogFooter>

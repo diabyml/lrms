@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { extractId } from "@/lib/utils";
 
 // Define types
 type Patient = Tables<"patient">;
@@ -298,7 +299,11 @@ const PatientDetailPage: React.FC = () => {
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               {renderDetailItem(User, "Nom Complet", patient.full_name)}
-              {renderDetailItem(Info, "ID Unique", patient.patient_unique_id)}
+              {renderDetailItem(
+                Info,
+                "ID Unique",
+                extractId(patient.patient_unique_id)
+              )}
               {renderDetailItem(
                 CalendarDays,
                 "Date de Naissance",

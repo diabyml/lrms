@@ -32,3 +32,17 @@ export type Enums<T extends keyof Database["public"]["Enums"]> =
   Database["public"]["Enums"][T];
 
 // Add types for Views, Functions etc. if needed in the same way
+
+export interface AbbreModel {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
+export interface TestType {
+  id: string;
+  name: string;
+  // Add other fields if you need them elsewhere, but for this task, name is key
+  created_at: string;
+}

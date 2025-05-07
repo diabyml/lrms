@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
-import { cn } from "@/lib/utils"; // Adjust path if needed
+import { cn, extractTestTypeName } from "@/lib/utils"; // Adjust path if needed
 import { useDebounce } from "../hooks/useDebounce"; // Adjust path if needed
 
 // --- Shadcn/ui Imports ---
@@ -645,6 +645,82 @@ const ResultFormPage: React.FC = () => {
     }
   };
 
+  function handleRapidSelectionTestTypeSubmit(e: FormEvent) {
+    e.preventDefault();
+
+    // Add all filtered test types to selectedTestTypes
+    setSelectedTestTypes((prevMap) => {
+      const newMap = new Map(prevMap);
+      filteredTestTypes.forEach((testType) => {
+        newMap.set(testType.id, {
+          ...testType,
+          parameters: [],
+          loadingParams: true,
+          errorLoadingParams: false,
+        });
+      });
+      return newMap;
+    });
+
+    // Start loading parameters for all added test types
+    filteredTestTypes.forEach(async (testType) => {
+      try {
+        const { data, error } = await supabase
+          .from("test_parameter")
+          .select(`*, test_type:test_type_id(id, name), order`)
+          .eq("test_type_id", testType.id)
+          .order("order");
+
+        if (error) throw error;
+
+        setSelectedTestTypes((currentMap) => {
+          const finalMap = new Map(currentMap);
+          const entry = finalMap.get(testType.id);
+          if (entry) {
+            const mergedParams = (data || []).map((paramDef) => ({
+              ...paramDef,
+              resultValue: "",
+              isVisible: true,
+              originalValueId: null,
+            }));
+
+            const updatedEntry: SelectedTestType = {
+              ...entry,
+              parameters: mergedParams,
+              loadingParams: false,
+              errorLoadingParams: false,
+            };
+            finalMap.set(testType.id, updatedEntry);
+            return finalMap;
+          }
+          return currentMap;
+        });
+      } catch (err: any) {
+        console.error(
+          `Erreur chargement paramètres pour ${testType.name}:`,
+          err
+        );
+        setSelectedTestTypes((currentMap) => {
+          const errorMap = new Map(currentMap);
+          const entry = errorMap.get(testType.id);
+          if (entry) {
+            const updatedEntry: SelectedTestType = {
+              ...entry,
+              loadingParams: false,
+              errorLoadingParams: true,
+            };
+            errorMap.set(testType.id, updatedEntry);
+            return errorMap;
+          }
+          return currentMap;
+        });
+      }
+    });
+
+    // Clear the search input
+    setTestTypeSearchTerm("");
+  }
+
   // --- Render Logic ---
   if (loadingInitialData) {
     // ... Skeleton ...
@@ -706,59 +782,57 @@ const ResultFormPage: React.FC = () => {
           )}
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
-            {/* Global Error Alert */}
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Erreur</AlertTitle>
-                <AlertDescription className="whitespace-pre-line">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
+        {/* <form onSubmit={handleSubmit}> */}
+        <CardContent className="space-y-6">
+          {/* Global Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erreur</AlertTitle>
+              <AlertDescription className="whitespace-pre-line">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
 
-            {/* Top Row: Doctor and Date */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Doctor Select */}
-              <div className="space-y-2">
-                <Label htmlFor="doctor" className="font-semibold">
-                  Médecin Prescripteur{" "}
-                  <span className="text-destructive">*</span>
-                </Label>
-                {/* doctor-select */}
-                <SearchableSelect
-                  name="doctor"
-                  options={
-                    doctors.length > 0
-                      ? doctors.map((doc) => ({
+          {/* Top Row: Doctor and Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Doctor Select */}
+            <div className="space-y-2">
+              <Label htmlFor="doctor" className="font-semibold">
+                Médecin Prescripteur <span className="text-destructive">*</span>
+              </Label>
+              {/* doctor-select */}
+              <SearchableSelect
+                name="doctor"
+                options={
+                  doctors.length > 0
+                    ? doctors.map((doc) => ({
+                        value: doc.id,
+                        label: doc.full_name,
+                      }))
+                    : []
+                }
+                value={
+                  doctors.length > 0
+                    ? doctors
+                        .map((doc) => ({
                           value: doc.id,
                           label: doc.full_name,
                         }))
-                      : []
-                  }
-                  value={
-                    doctors.length > 0
-                      ? doctors
-                          .map((doc) => ({
-                            value: doc.id,
-                            label: doc.full_name,
-                          }))
-                          .find(
-                            (option) => option.value === selectedDoctorId
-                          ) || null
-                      : null
-                  }
-                  onChange={(value) => setSelectedDoctorId(value?.value)}
-                  placeholder={
-                    doctors.length === 0 ? "Aucun médecin..." : "Rechercher..."
-                  }
-                  required
-                  isDisabled={loadingSubmit || doctors.length === 0}
-                />
+                        .find((option) => option.value === selectedDoctorId) ||
+                      null
+                    : null
+                }
+                onChange={(value) => setSelectedDoctorId(value?.value)}
+                placeholder={
+                  doctors.length === 0 ? "Aucun médecin..." : "Rechercher..."
+                }
+                required
+                isDisabled={loadingSubmit || doctors.length === 0}
+              />
 
-                {/* <Select
+              {/* <Select
                   name="doctor"
                   value={selectedDoctorId}
                   onValueChange={(value) => setSelectedDoctorId(value)}
@@ -788,140 +862,142 @@ const ResultFormPage: React.FC = () => {
                     )}
                   </SelectContent>
                 </Select> */}
-              </div>
-              {/* Result Date */}
-              <div className="space-y-2">
-                <Label htmlFor="resultDate" className="font-semibold">
-                  Date du Résultat <span className="text-destructive">*</span>
-                </Label>
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-10",
-                        !resultDate && "text-muted-foreground"
-                      )}
-                      disabled={loadingSubmit}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {resultDate ? (
-                        format(resultDate, "PPP", { locale: fr })
-                      ) : (
-                        <span>Choisir une date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={resultDate}
-                      onSelect={(date) => {
-                        setResultDate(date || new Date());
-                        setDatePickerOpen(false);
-                      }}
-                      initialFocus
-                      locale={fr}
-                      disabled={(date) => date > new Date()}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
             </div>
-            {/* Price Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="normal_price" className="font-semibold">
-                  Prix Normal
-                </Label>
-                <Input
-                  id="normal_price"
-                  name="normal_price"
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  placeholder="Prix normal du test (ex: 1000)"
-                  value={normalPrice}
-                  onChange={(e) => setNormalPrice(e.target.value)}
-                  disabled={loadingSubmit}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="insurance_price" className="font-semibold">
-                  Prix Assurance
-                </Label>
-                <Input
-                  id="insurance_price"
-                  name="insurance_price"
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  placeholder="Prix avec assurance (ex: 800)"
-                  value={insurancePrice}
-                  onChange={(e) => setInsurancePrice(e.target.value)}
-                  disabled={loadingSubmit}
-                />
-              </div>
-            </div>
-            {/* isFree Checkbox */}
-            <div className="flex items-center space-x-2 mt-2">
-              <Checkbox
-                id="isFree"
-                checked={isFree}
-                onCheckedChange={(checked) => setIsFree(!!checked)}
-                disabled={loadingSubmit}
-              />
-              <Label htmlFor="isFree" className="font-semibold">
-                Gratuit
+            {/* Result Date */}
+            <div className="space-y-2">
+              <Label htmlFor="resultDate" className="font-semibold">
+                Date du Résultat <span className="text-destructive">*</span>
               </Label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !resultDate && "text-muted-foreground"
+                    )}
+                    disabled={loadingSubmit}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {resultDate ? (
+                      format(resultDate, "PPP", { locale: fr })
+                    ) : (
+                      <span>Choisir une date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={resultDate}
+                    onSelect={(date) => {
+                      setResultDate(date || new Date());
+                      setDatePickerOpen(false);
+                    }}
+                    initialFocus
+                    locale={fr}
+                    disabled={(date) => date > new Date()}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-
-            {/* Notes Textarea */}
-            <div className="mt-4">
-              <Label htmlFor="notes" className="font-semibold">
-                Notes
+          </div>
+          {/* Price Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="normal_price" className="font-semibold">
+                Prix Normal
               </Label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="w-full border rounded-md p-2 mt-1 focus:outline-none focus:ring focus:border-blue-300"
-                placeholder="Ajouter des notes ou des commentaires..."
+              <Input
+                id="normal_price"
+                name="normal_price"
+                type="number"
+                required
+                min="0"
+                step="0.01"
+                placeholder="Prix normal du test (ex: 1000)"
+                value={normalPrice}
+                onChange={(e) => setNormalPrice(e.target.value)}
                 disabled={loadingSubmit}
               />
             </div>
-
-            {/* Category Filter */}
-            <div style={{ marginBottom: 16 }}>
-              <Label htmlFor="category-filter">Catégorie</Label>
-              <Select
-                value={selectedCategoryId ?? "all"}
-                onValueChange={(val) =>
-                  setSelectedCategoryId(val === "all" ? undefined : val)
-                }
-              >
-                <SelectTrigger id="category-filter">
-                  <SelectValue placeholder="Filtrer par catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les catégories</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Test Type Selection with Search */}
-            <div className="space-y-4">
-              <Label className="font-semibold text-base">
-                Types de Tests Inclus
+            <div className="space-y-2">
+              <Label htmlFor="insurance_price" className="font-semibold">
+                Prix Assurance
               </Label>
+              <Input
+                id="insurance_price"
+                name="insurance_price"
+                type="number"
+                required
+                min="0"
+                step="0.01"
+                placeholder="Prix avec assurance (ex: 800)"
+                value={insurancePrice}
+                onChange={(e) => setInsurancePrice(e.target.value)}
+                disabled={loadingSubmit}
+              />
+            </div>
+          </div>
+          {/* isFree Checkbox */}
+          <div className="flex items-center space-x-2 mt-2">
+            <Checkbox
+              id="isFree"
+              checked={isFree}
+              onCheckedChange={(checked) => setIsFree(!!checked)}
+              disabled={loadingSubmit}
+            />
+            <Label htmlFor="isFree" className="font-semibold">
+              Gratuit
+            </Label>
+          </div>
+
+          {/* Notes Textarea */}
+          <div className="mt-4">
+            <Label htmlFor="notes" className="font-semibold">
+              Notes
+            </Label>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="w-full border rounded-md p-2 mt-1 focus:outline-none focus:ring focus:border-blue-300"
+              placeholder="Ajouter des notes ou des commentaires..."
+              disabled={loadingSubmit}
+            />
+          </div>
+
+          {/* Category Filter */}
+          <div style={{ marginBottom: 16 }}>
+            <Label htmlFor="category-filter">Catégorie</Label>
+            <Select
+              value={selectedCategoryId ?? "all"}
+              onValueChange={(val) =>
+                setSelectedCategoryId(val === "all" ? undefined : val)
+              }
+            >
+              <SelectTrigger id="category-filter">
+                <SelectValue placeholder="Filtrer par catégorie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les catégories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Test Type Selection with Search */}
+          <div className="space-y-4">
+            <Label className="font-semibold text-base">
+              Types de Tests Inclus
+            </Label>
+
+            <form onSubmit={handleRapidSelectionTestTypeSubmit}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -929,191 +1005,194 @@ const ResultFormPage: React.FC = () => {
                   placeholder="Rechercher et ajouter un type de test..."
                   value={testTypeSearchTerm}
                   onChange={(e) => setTestTypeSearchTerm(e.target.value)}
-                  className="pl-10 w-full md:w-1/2 h-9"
+                  className="pl-10 w-full h-9"
                   disabled={availableTestTypes.length === 0}
                 />
               </div>
-              {availableTestTypes.length > 0 ? (
-                <div className="grid grid-cols-2 _sm:grid-cols-3 _md:grid-cols-4 gap-x-4 gap-y-3 rounded-md border p-4 max-h-80 overflow-y-auto">
-                  {filteredTestTypes.length > 0 ? (
-                    filteredTestTypes.map((tt) => (
-                      <div key={tt.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`test-type-${tt.id}`}
-                          checked={selectedTestTypes.has(tt.id)}
-                          onCheckedChange={(checked) =>
-                            handleTestTypeToggle(checked, tt.id)
+            </form>
+
+            {availableTestTypes.length > 0 ? (
+              <div className="grid grid-cols-2 _sm:grid-cols-3 _md:grid-cols-4 gap-x-4 gap-y-3 rounded-md border p-4 max-h-80 overflow-y-auto">
+                {filteredTestTypes.length > 0 ? (
+                  filteredTestTypes.map((tt) => (
+                    <div key={tt.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`test-type-${tt.id}`}
+                        checked={selectedTestTypes.has(tt.id)}
+                        onCheckedChange={(checked) =>
+                          handleTestTypeToggle(checked, tt.id)
+                        }
+                        disabled={loadingSubmit}
+                      />
+                      <label
+                        htmlFor={`test-type-${tt.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {extractTestTypeName(tt.name)}
+                      </label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="col-span-full text-sm text-muted-foreground text-center py-4">
+                    Aucun type de test ne correspond.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                Aucun type de test configuré.
+              </p>
+            )}
+          </div>
+
+          {/* Dynamically Rendered Parameter Inputs */}
+          {selectedTestTypes.size > 0 && <Separator />}
+          {Array.from(selectedTestTypes.values()).map((selectedType) => (
+            <div
+              key={selectedType.id}
+              className="space-y-4 py-4 border-b last:border-b-0"
+            >
+              <h3 className="text-lg font-semibold flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <Check className="h-5 w-5 text-green-600" />
+                  {extractTestTypeName(selectedType.name)}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                  onClick={() => handleTestTypeToggle(false, selectedType.id)}
+                  disabled={loadingSubmit}
+                >
+                  Retirer ce Test
+                </Button>
+              </h3>
+              {selectedType.loadingParams ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-7">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                </div>
+              ) : selectedType.errorLoadingParams ? (
+                <Alert variant="destructive" className="ml-7">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Erreur Paramètres</AlertTitle>
+                  <AlertDescription>
+                    Impossible de charger les paramètres pour ce test.
+                  </AlertDescription>
+                </Alert>
+              ) : selectedType.parameters.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 pl-7">
+                  {selectedType.parameters
+                    .filter((param) => param.isVisible !== false) // Filter visible
+                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) // Sort by order
+                    .map((param) => (
+                      <div key={param.id} className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <Label
+                            htmlFor={`param-${param.id}`}
+                            className="text-sm font-medium flex items-center gap-1"
+                          >
+                            {/* <span>{param.name}</span> */}
+                            <span
+                              dangerouslySetInnerHTML={{
+                                __html: param.name,
+                              }}
+                            ></span>
+                            {param.unit && (
+                              <span className="text-xs text-muted-foreground">
+                                ({param.unit})
+                              </span>
+                            )}
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() =>
+                              handleParameterRemove(selectedType.id, param.id)
+                            }
+                            disabled={loadingSubmit}
+                            aria-label={`Retirer ${param.name}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Input
+                          id={`param-${param.id}`}
+                          name={`param-${param.id}`}
+                          value={param.resultValue || ""}
+                          onChange={(e) =>
+                            handleParameterChange(
+                              selectedType.id,
+                              param.id,
+                              e.target.value
+                            )
                           }
+                          placeholder={`Valeur ${
+                            param.reference_range
+                              ? `(Réf: ${param.reference_range})`
+                              : ""
+                          }`}
                           disabled={loadingSubmit}
+                          className="h-9"
                         />
-                        <label
-                          htmlFor={`test-type-${tt.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {tt.name}
-                        </label>
+                        {param.description && (
+                          <p className="text-xs text-muted-foreground pt-1">
+                            {param.description}
+                          </p>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <p className="col-span-full text-sm text-muted-foreground text-center py-4">
-                      Aucun type de test ne correspond.
+                    ))}
+                  {selectedType.parameters.every(
+                    (p) => p.isVisible === false
+                  ) && (
+                    <p className="col-span-full text-sm text-muted-foreground italic">
+                      Tous les paramètres pour ce test sont masqués.
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  Aucun type de test configuré.
+                <p className="text-sm text-muted-foreground italic pl-7">
+                  Aucun paramètre défini pour ce type de test.
                 </p>
               )}
             </div>
+          ))}
+        </CardContent>
 
-            {/* Dynamically Rendered Parameter Inputs */}
-            {selectedTestTypes.size > 0 && <Separator />}
-            {Array.from(selectedTestTypes.values()).map((selectedType) => (
-              <div
-                key={selectedType.id}
-                className="space-y-4 py-4 border-b last:border-b-0"
-              >
-                <h3 className="text-lg font-semibold flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <Check className="h-5 w-5 text-green-600" />
-                    {selectedType.name}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs text-destructive hover:bg-destructive/10"
-                    onClick={() => handleTestTypeToggle(false, selectedType.id)}
-                    disabled={loadingSubmit}
-                  >
-                    Retirer ce Test
-                  </Button>
-                </h3>
-                {selectedType.loadingParams ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-7">
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-5 w-20" />
-                      <Skeleton className="h-9 w-full" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-5 w-20" />
-                      <Skeleton className="h-9 w-full" />
-                    </div>
-                  </div>
-                ) : selectedType.errorLoadingParams ? (
-                  <Alert variant="destructive" className="ml-7">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Erreur Paramètres</AlertTitle>
-                    <AlertDescription>
-                      Impossible de charger les paramètres pour ce test.
-                    </AlertDescription>
-                  </Alert>
-                ) : selectedType.parameters.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 pl-7">
-                    {selectedType.parameters
-                      .filter((param) => param.isVisible !== false) // Filter visible
-                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) // Sort by order
-                      .map((param) => (
-                        <div key={param.id} className="space-y-1.5">
-                          <div className="flex justify-between items-center">
-                            <Label
-                              htmlFor={`param-${param.id}`}
-                              className="text-sm font-medium flex items-center gap-1"
-                            >
-                              {/* <span>{param.name}</span> */}
-                              <span
-                                dangerouslySetInnerHTML={{
-                                  __html: param.name,
-                                }}
-                              ></span>
-                              {param.unit && (
-                                <span className="text-xs text-muted-foreground">
-                                  ({param.unit})
-                                </span>
-                              )}
-                            </Label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              onClick={() =>
-                                handleParameterRemove(selectedType.id, param.id)
-                              }
-                              disabled={loadingSubmit}
-                              aria-label={`Retirer ${param.name}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <Input
-                            id={`param-${param.id}`}
-                            name={`param-${param.id}`}
-                            value={param.resultValue || ""}
-                            onChange={(e) =>
-                              handleParameterChange(
-                                selectedType.id,
-                                param.id,
-                                e.target.value
-                              )
-                            }
-                            placeholder={`Valeur ${
-                              param.reference_range
-                                ? `(Réf: ${param.reference_range})`
-                                : ""
-                            }`}
-                            disabled={loadingSubmit}
-                            className="h-9"
-                          />
-                          {param.description && (
-                            <p className="text-xs text-muted-foreground pt-1">
-                              {param.description}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    {selectedType.parameters.every(
-                      (p) => p.isVisible === false
-                    ) && (
-                      <p className="col-span-full text-sm text-muted-foreground italic">
-                        Tous les paramètres pour ce test sont masqués.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic pl-7">
-                    Aucun paramètre défini pour ce type de test.
-                  </p>
-                )}
-              </div>
-            ))}
-          </CardContent>
-
-          {/* Card Footer */}
-          <CardFooter className="border-t px-6 py-4 flex justify-between">
-            <Button
-              type="submit"
-              disabled={loadingSubmit || loadingInitialData}
-            >
-              {loadingSubmit ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditMode ? "Mise à jour..." : "Enregistrement..."}
-                </>
-              ) : isEditMode ? (
-                "Mettre à jour le Résultat"
-              ) : (
-                "Enregistrer le Résultat"
-              )}
+        {/* Card Footer */}
+        <CardFooter className="border-t px-6 py-4 flex justify-between">
+          <Button
+            // type="submit"
+            disabled={loadingSubmit || loadingInitialData}
+            onClick={handleSubmit}
+          >
+            {loadingSubmit ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEditMode ? "Mise à jour..." : "Enregistrement..."}
+              </>
+            ) : isEditMode ? (
+              "Mettre à jour le Résultat"
+            ) : (
+              "Enregistrer le Résultat"
+            )}
+          </Button>
+          <Link to={cancelLinkTarget}>
+            <Button type="button" variant="outline" disabled={loadingSubmit}>
+              Annuler
             </Button>
-            <Link to={cancelLinkTarget}>
-              <Button type="button" variant="outline" disabled={loadingSubmit}>
-                Annuler
-              </Button>
-            </Link>
-          </CardFooter>
-        </form>
+          </Link>
+        </CardFooter>
+        {/* </form> */}
       </Card>
     </div>
   );

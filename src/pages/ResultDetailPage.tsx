@@ -2,7 +2,7 @@
 
 // no typescript check
 
-import { cn } from "@/lib/utils"; // Adjust path if needed
+import { cn, extractId, extractTestTypeName } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
@@ -1031,7 +1031,7 @@ const ResultDetailPage: React.FC = () => {
               {renderInfoItem(
                 Info,
                 "IDENTIFIANT Unique",
-                patientData?.patient_unique_id
+                extractId(patientData?.patient_unique_id)
               )}
               {renderInfoItem(
                 CalendarDays,
@@ -1254,7 +1254,11 @@ const ResultDetailPage: React.FC = () => {
               <User className="h-4 w-4" /> Patient
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
-            {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
+            {renderInfoItem(
+              Info,
+              "ID Unique",
+              extractId(patientData?.patient_unique_id as string)
+            )}
             {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* {renderInfoItem(
               CalendarDays,
@@ -1543,7 +1547,7 @@ const ResultDetailPage: React.FC = () => {
                                 handleTestTypeToggle(testTypeGroup.testType.id)
                               }
                             >
-                              {testTypeGroup.testType.name}
+                              {extractTestTypeName(testTypeGroup.testType.name)}
                             </TableCell>
                           </TableRow>
                         )}

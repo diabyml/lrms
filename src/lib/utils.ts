@@ -51,3 +51,23 @@ export function validateIdOnEdit(original: string, updated: string) {
   console.log("Only ID was changed.");
   return true;
 }
+
+export function extractId(input: string): string {
+  const index = input.indexOf("#");
+  if (index === -1) {
+    return input; // Return the whole string if no '#' is found
+  }
+  return input.substring(0, index);
+}
+
+// Example usage:
+// console.log(extractId("abc#123")); // Output: "abc"
+// console.log(extractId("no-hash")); // Output: "no-hash"
+
+export function extractTestTypeName(input: string): string {
+  const index = input.indexOf("#");
+  if (index === -1) {
+    return input; // Return the whole string if no '#' is found
+  }
+  return input.substring(0, index);
+}

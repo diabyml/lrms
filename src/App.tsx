@@ -36,6 +36,7 @@ import VHBPage from "./pages/VHBPage";
 import VIHPage from "./pages/VIHPage";
 import AnapathPage from "./pages/AnapathPage";
 import SpermogrammePage from "./pages/SpermogrammePage";
+import AbbreModels from "./pages/AbbreModels";
 // Import other placeholders as you create them
 
 function App() {
@@ -129,6 +130,7 @@ function App() {
               path="/spermogramme/:resultId"
               element={<SpermogrammePage />}
             />
+            <Route path="/abbreviations" element={<AbbreModels />} />
           </Route>
         </Route>
         {/* Catch-all route for 404 Not Found */}

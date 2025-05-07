@@ -74,6 +74,11 @@ const MainLayout: React.FC = () => {
       label: "Gestion ATBs",
       icon: Layers,
     },
+    {
+      to: "/abbreviations",
+      label: "Abbreviations",
+      icon: Layers,
+    },
     // Add other main navigation items here
   ];
 

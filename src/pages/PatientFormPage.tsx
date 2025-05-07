@@ -30,6 +30,9 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton"; // For loading state
 import { cn, generateId, validateId, validateIdOnEdit } from "@/lib/utils";
+import { v4 as uuidv4 } from "uuid";
+import { extractId } from "@/lib/utils";
+
 import {
   Calendar as CalendarIcon,
   AlertCircle,
@@ -208,7 +211,10 @@ const PatientFormPage: React.FC = () => {
         // Insert new patient
         const { error: insertError } = await supabase
           .from("patient")
-          .insert(dataPayload);
+          .insert({
+            ...dataPayload,
+            patient_unique_id: `${dataPayload.patient_unique_id}#${uuidv4()}`,
+          });
         responseError = insertError;
       }
 
