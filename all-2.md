@@ -1,25 +1,12 @@
-bucket: logos
-    - polici allow crud for all
-
-
-
+bucket: logos - polici allow crud for all.
 
 create account
 
-
-
 add ristourne-access-code
 
-
-
-in admin mode pwershell
-    - Set-ExecutionPolicy RemoteSigned
-
-
+in admin mode pwershell - Set-ExecutionPolicy RemoteSigned
 
 npm install --legacy-peer-deps
-
-
 
 cd into directory: match yours
 
@@ -34,7 +21,7 @@ echo Waiting for Docker to start...
 timeout /t 5 >nul
 docker info >nul 2>&1
 if errorlevel 1 (
-    goto waitDocker
+goto waitDocker
 )
 
 echo Docker is running.
