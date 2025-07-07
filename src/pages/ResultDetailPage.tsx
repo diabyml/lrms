@@ -152,6 +152,30 @@ const displayStatus = (status: ResultStatus | string | null): string => {
 };
 // --- End Helper Functions ---
 
+// commonDescriptions
+const commonDescriptions = [
+  {
+    id: "01",
+    content: "NB : Glycémie post-prandiale : VN : (7.1 – 11.1) mmol/l ",
+  },
+  {
+    id: "02",
+    content:
+      "NB : Charge virale du VHB et Electrophorèse des protides en cours…",
+  },
+  {
+    id: "03",
+    content: "NB : Charge virale du VHB en cours…",
+  },
+  {
+    id: "04",
+    content: "NB : Electrophorèse des protides en cours…",
+  },
+  {
+    id: "05",
+    content: "NB: ECBU+ATB en cours…",
+  },
+];
 // --- Component ---
 const ResultDetailPage: React.FC = () => {
   const { resultId } = useParams<{ resultId: string }>();
@@ -197,6 +221,7 @@ const ResultDetailPage: React.FC = () => {
   const [editingPrices, setEditingPrices] = useState(false);
   const [normalPrice, setNormalPrice] = useState<string>("");
   const [insurancePrice, setInsurancePrice] = useState<string>("");
+  const [unpaidAmount, setUnpaidAmount] = useState<string>("");
   const [savingPrices, setSavingPrices] = useState(false);
   const [pricesError, setPricesError] = useState<string | null>(null);
 
@@ -642,6 +667,9 @@ const ResultDetailPage: React.FC = () => {
         ? String(resultData.insurance_price)
         : ""
     );
+    setUnpaidAmount(
+      resultData?.unpaid_amount != null ? String(resultData.unpaid_amount) : ""
+    );
   }, [resultData]);
 
   // Save description with debounce
@@ -688,9 +716,11 @@ const ResultDetailPage: React.FC = () => {
     try {
       const normal = normalPrice !== "" ? Number(normalPrice) : null;
       const insurance = insurancePrice !== "" ? Number(insurancePrice) : null;
+      const unpaid = unpaidAmount !== "" ? Number(unpaidAmount) : null;
       if (
         (normalPrice !== "" && isNaN(normal)) ||
-        (insurancePrice !== "" && isNaN(insurance))
+        (insurancePrice !== "" && isNaN(insurance)) ||
+        (unpaidAmount !== "" && isNaN(unpaid))
       ) {
         setPricesError("Les prix doivent être des nombres valides.");
         setSavingPrices(false);
@@ -698,8 +728,12 @@ const ResultDetailPage: React.FC = () => {
       }
       const { error, data } = await supabase
         .from("patient_result")
-        .update({ normal_price: normal, insurance_price: insurance })
-        .eq("id", resultData.id)
+        .update({
+          normal_price: normal,
+          insurance_price: insurance,
+          unpaid_amount: unpaid,
+        })
+        .eq("id", resultData?.id)
         .select()
         .single();
       if (error) throw error;
@@ -841,7 +875,7 @@ const ResultDetailPage: React.FC = () => {
     return (
       <div className={cn("flex items-start space-x-3", className)}>
         <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0 print:h-4 print:w-4" />
-        <div>
+        <div className={className}>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {label}
           </p>
@@ -1088,8 +1122,30 @@ const ResultDetailPage: React.FC = () => {
                     })
                   : null
               )}
+
+              <div>
+                {renderInfoItem(
+                  Info,
+                  "Prix Normal",
+                  `${normalPrice} FCFA`,
+                  "flex items-center space-x-3"
+                )}
+                {renderInfoItem(
+                  Info,
+                  "Prix Assurance",
+                  `${insurancePrice} FCFA`,
+                  "flex items-center space-x-3"
+                )}
+                {renderInfoItem(
+                  Info,
+                  "Prix Restant",
+                  `${unpaidAmount} FCFA`,
+                  "flex items-center space-x-3"
+                )}
+              </div>
+
               {/* --- Price Fields (Screen Only, Not Print) --- */}
-              <div className="flex flex-col gap-2 mt-2">
+              {/* <div className="flex flex-col gap-2 mt-2">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="normal_price" className="text-xs font-medium">
                     Prix Normal
@@ -1145,7 +1201,35 @@ const ResultDetailPage: React.FC = () => {
                     />
                   )}
                 </div>
-                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="unpaid_amount"
+                    className="text-xs font-medium"
+                  >
+                    Restant
+                  </Label>
+                  {editingPrices ? (
+                    <input
+                      id="unpaid_amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="border rounded px-2 py-1 text-xs w-28"
+                      value={unpaidAmount}
+                      onChange={(e) => setUnpaidAmount(e.target.value)}
+                      disabled={savingPrices}
+                    />
+                  ) : (
+                    <input
+                      id="unpaid_amount"
+                      type="text"
+                      className="border-none bg-transparent text-xs w-28"
+                      value={unpaidAmount}
+                      disabled
+                      readOnly
+                    />
+                  )}
+                </div>
                 <div className="flex gap-2 mt-1">
                   {editingPrices ? (
                     <>
@@ -1182,7 +1266,7 @@ const ResultDetailPage: React.FC = () => {
                 {pricesError && (
                   <p className="text-xs text-destructive mt-1">{pricesError}</p>
                 )}
-              </div>
+              </div> */}
               {/* --- End Price Fields --- */}
               {/* Status Display */}
               <div className="flex items-start space-x-3">
@@ -1763,6 +1847,18 @@ const ResultDetailPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="relative">
+              <div className="py-2 print:hidden space-y-2">
+                {/* common description */}
+                {commonDescriptions.map((desc) => (
+                  <p
+                    className="cursor-pointer text-lg border bg-slate-100 text-slate-600 p-2 rounded spa"
+                    key={desc.id}
+                    onClick={() => setDescription(desc.content)}
+                  >
+                    {desc.content}
+                  </p>
+                ))}
+              </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -1816,12 +1912,11 @@ const ResultDetailPage: React.FC = () => {
                 Protidogramme
               </Button>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button onClick={() => navigate(`/atb/${resultId}`)}>ATB</Button>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button onClick={() => navigate(`/ecb/${resultId}`)}>ECB</Button>
-            </div>
+            {/* <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/antibiotique/${resultId}`)}>
+                ATB
+              </Button>
+            </div> */}
             <div className="flex items-center space-x-2">
               <Button onClick={() => navigate(`/vhb/${resultId}`)}>VHB</Button>
             </div>
@@ -1833,6 +1928,19 @@ const ResultDetailPage: React.FC = () => {
                 Anapath
               </Button>
             </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/ecb/${resultId}`)}>
+                BACTERIO
+              </Button>
+            </div>
+
+            {/* hemoculture */}
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/hemoculture/${resultId}`)}>
+                HEMOCULTURE
+              </Button>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Button onClick={() => navigate(`/spermogramme/${resultId}`)}>
                 Spermogramme

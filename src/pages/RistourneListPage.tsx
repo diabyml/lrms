@@ -1,6 +1,6 @@
 // src/pages/RistourneListPage.tsx
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useDebounce } from "../hooks/useDebounce";
@@ -25,9 +25,20 @@ import {
   AlertCircle,
   Banknote,
   Edit,
-  Trash2
+  Trash2,
+  FilterX,
+  RefreshCw,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Combobox } from "@/components/ui/combobox";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 // Define Types
 interface Doctor {
@@ -48,11 +59,12 @@ interface Ristourne {
 
 type RistourneStatus = "pending" | "approved" | "paid";
 
-const statusColors: Record<RistourneStatus, "default" | "warning" | "success"> = {
-  pending: "default",
-  approved: "warning",
-  paid: "success",
-};
+const statusColors: Record<RistourneStatus, "default" | "warning" | "success"> =
+  {
+    pending: "default",
+    approved: "warning",
+    paid: "success",
+  };
 
 const statusLabels: Record<RistourneStatus, string> = {
   pending: "En attente",
@@ -65,9 +77,14 @@ const PAGE_SIZE = 10;
 const RistourneListPage: React.FC = () => {
   // State
   const [ristournes, setRistournes] = useState<Ristourne[]>([]);
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string | undefined>(
+    undefined
+  );
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState<number>(1);
@@ -77,7 +94,9 @@ const RistourneListPage: React.FC = () => {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   // Add state for delete dialog
-  const [ristourneToDelete, setRistourneToDelete] = useState<Ristourne | null>(null);
+  const [ristourneToDelete, setRistourneToDelete] = useState<Ristourne | null>(
+    null
+  );
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -88,7 +107,9 @@ const RistourneListPage: React.FC = () => {
   });
   const [accessCodeInput, setAccessCodeInput] = useState("");
   const [accessCodeError, setAccessCodeError] = useState<string | null>(null);
-  const [ristourneAccessCode, setRistourneAccessCode] = useState<string | null>(null);
+  const [ristourneAccessCode, setRistourneAccessCode] = useState<string | null>(
+    null
+  );
   const [loadingAccessCode, setLoadingAccessCode] = useState(true);
 
   // Fetch ristourne_access_code from settings table
@@ -124,69 +145,113 @@ const RistourneListPage: React.FC = () => {
     }
   };
 
-  // Fetch Ristournes with pagination
-  const fetchData = async () => {
+  // Memoize doctor options for the combobox
+  const doctorOptions = useMemo(() => {
+    const options = allDoctors.map((doc) => ({
+      value: doc.id,
+      label: doc.full_name || "Nom Inconnu",
+    }));
+    // Add "Tous les médecins" option at the beginning
+    return [{ value: "ALL_DOCTORS", label: "Tous les médecins" }, ...options];
+  }, [allDoctors]);
+
+  // Update the Doctor interface to make hospital optional
+  interface Doctor {
+    id: string;
+    full_name: string;
+    hospital?: string | null;
+  }
+
+  // Fetch all doctors for the dropdown
+  const fetchDoctors = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("doctor")
+      .select("id, full_name")
+      .order("full_name");
+
+    if (error) {
+      console.error("Erreur lors du chargement des médecins:", error);
+      toast.error("Erreur de chargement des médecins", {
+        description: error.message,
+      });
+    } else {
+      setAllDoctors(data || []);
+    }
+  }, []);
+
+  // Fetch ristournes with server-side filtering and sorting
+  const fetchRistournes = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      // Get total count
-      const { count } = await supabase
+      // Build the base query with sorting (newest first)
+      let query = supabase
         .from("ristourne")
-        .select("id", { count: "exact", head: true });
-      setTotalCount(count || 0);
-
-      // Get paginated data (newest at top of page 1)
-      const from = (page - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      const { data, error: dbError } = await supabase
-        .from("ristourne")
-        .select(`
+        .select(
+          `
           *,
-          doctor:doctor_id (
-            id,
-            full_name,
-            hospital
-          )
-        `)
-        .order("created_date", { ascending: false })
-        .range(from, to);
+          doctor:doctor_id (id, full_name, hospital)
+        `,
+          { count: "exact" }
+        )
+        .order("created_date", { ascending: false });
 
-      if (dbError) throw dbError;
+      // Apply search filter if search term exists
+      // const trimmedSearchTerm = searchTerm.trim();
+      // if (trimmedSearchTerm !== "") {
+      //   query = query.ilike("doctor.full_name", `%${trimmedSearchTerm}%`);
+      // }
+
+      // Apply doctor filter if selected
+      if (selectedDoctorId && selectedDoctorId !== "ALL_DOCTORS") {
+        query = query.eq("doctor_id", selectedDoctorId);
+      }
+
+      // Apply status filter if showOnlyPending is true
+      if (showOnlyPending) {
+        query = query.eq("status", "pending");
+      }
+
+      // Execute the query with pagination
+      const {
+        data,
+        error: fetchError,
+        count,
+      } = await query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+      if (fetchError) throw fetchError;
+
+      // Data is already sorted by created_date in descending order (newest first)
       setRistournes(data || []);
-    } catch (err: unknown) {
-      console.error("Erreur lors de la récupération des ristournes:", err);
-      setError(
-        (err instanceof Error ? err.message : "") ||
-          "Une erreur est survenue lors du chargement des ristournes."
-      );
-      setRistournes([]);
+      setTotalCount(count || 0);
+    } catch (err) {
+      console.error("Error fetching ristournes:", err);
+      setError("Erreur lors du chargement des ristournes");
+      toast.error("Erreur lors du chargement des ristournes");
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, selectedDoctorId, showOnlyPending, page]);
 
-  // Fetch data on component mount
+  // Fetch data on mount and when dependencies change
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+    fetchDoctors();
+  }, [fetchDoctors]);
 
-  // Filter and sort ristournes based on search term (newest at top)
-  const filteredRistournes = useMemo(() => {
-    let filtered = ristournes;
-    if (debouncedSearchTerm) {
-      const lowerCaseSearch = debouncedSearchTerm.toLowerCase();
-      filtered = ristournes.filter(
-        (ristourne) =>
-          ristourne.doctor?.full_name.toLowerCase().includes(lowerCaseSearch) ||
-          (ristourne.doctor?.hospital &&
-            ristourne.doctor.hospital.toLowerCase().includes(lowerCaseSearch))
-      );
-    }
-    // Sort by created_date descending (newest first)
-    return filtered.slice().sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime());
-  }, [ristournes, debouncedSearchTerm]);
+  // Use debounced search term to reduce number of requests
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchRistournes();
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [fetchRistournes, debouncedSearchTerm, page]);
+
+  // We no longer need client-side filtering as it's now done on the server
+  const filteredRistournes = ristournes;
 
   // Pagination calculations
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -215,15 +280,26 @@ const RistourneListPage: React.FC = () => {
     setDeleting(true);
     setDeleteError(null);
     try {
-      const { error } = await supabase.from("ristourne").delete().eq("id", ristourneToDelete.id);
+      const { error } = await supabase
+        .from("ristourne")
+        .delete()
+        .eq("id", ristourneToDelete.id);
       if (error) throw error;
       setRistourneToDelete(null);
-      fetchData();
+      fetchRistournes();
     } catch (err: any) {
       setDeleteError(err.message || "Erreur lors de la suppression");
     } finally {
       setDeleting(false);
     }
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedDoctorId(undefined);
+    setShowOnlyPending(false);
+    setPage(1);
   };
 
   return (
@@ -251,7 +327,10 @@ const RistourneListPage: React.FC = () => {
               </Alert>
             )}
             <DialogFooter>
-              <Button type="submit" disabled={loadingAccessCode || !accessCodeInput}>
+              <Button
+                type="submit"
+                disabled={loadingAccessCode || !accessCodeInput}
+              >
                 {loadingAccessCode ? "Chargement..." : "Valider"}
               </Button>
             </DialogFooter>
@@ -276,17 +355,81 @@ const RistourneListPage: React.FC = () => {
             </Link>
           </div>
 
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Rechercher par médecin ou hôpital..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full md:w-1/3 h-10"
-              disabled={loading}
-            />
+          {/* Search and Filter */}
+          <div className="mb-6 p-4 border rounded-lg bg-slate-50 shadow">
+            <div className="flex  flex-col md:flex-row gap-4 items-center">
+              {/* <div className="w-full md:w-1/3 space-y-1">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Rechercher par nom de médecin..."
+                    className="pl-9 bg-white"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                  />
+                </div>
+              </div> */}
+
+              <div className="w-full md:w-1/3 space-y-1">
+                <Combobox
+                  options={doctorOptions}
+                  value={selectedDoctorId || "ALL_DOCTORS"}
+                  onValueChange={(value) => {
+                    setSelectedDoctorId(
+                      value === "ALL_DOCTORS" ? undefined : value
+                    );
+                    setPage(1);
+                  }}
+                  placeholder="Tous les médecins"
+                  searchPlaceholder="Rechercher un médecin..."
+                  emptyStateMessage="Aucun médecin trouvé."
+                  className="bg-white"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 w-full md:w-auto">
+                <Checkbox
+                  id="showPending"
+                  checked={showOnlyPending}
+                  onCheckedChange={(checked) =>
+                    setShowOnlyPending(checked as boolean)
+                  }
+                  className="border-gray-400"
+                />
+                <label
+                  htmlFor="showPending"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-700 whitespace-nowrap"
+                >
+                  Seulement en attente
+                </label>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                <Button
+                  onClick={fetchRistournes}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" /> Actualiser
+                </Button>
+                <Button
+                  onClick={clearFilters}
+                  variant="ghost"
+                  className="w-full text-slate-600 hover:text-slate-800"
+                >
+                  <FilterX className="mr-2 h-4 w-4" /> Effacer Filtres
+                </Button>
+                <Button asChild className="w-full">
+                  <Link to="/ristournes/nouveau">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Nouvelle Ristourne
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Loading State */}
@@ -310,7 +453,7 @@ const RistourneListPage: React.FC = () => {
                 {error}{" "}
                 <Button
                   variant="link"
-                  onClick={fetchData}
+                  onClick={fetchRistournes}
                   className="p-0 h-auto text-destructive-foreground underline"
                 >
                   Réessayer
@@ -410,27 +553,39 @@ const RistourneListPage: React.FC = () => {
                   Page {page} sur {totalPages}
                 </div>
                 <div className="space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => setPage(page - 1)} disabled={!canPrev}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPage(page - 1)}
+                    disabled={!canPrev}
+                  >
                     Précédent
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setPage(page + 1)} disabled={!canNext}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPage(page + 1)}
+                    disabled={!canNext}
+                  >
                     Suivant
                   </Button>
                 </div>
-                <div>
-                  {totalCount} résultats
-                </div>
+                <div>{totalCount} résultats</div>
               </div>
             </div>
           )}
           {/* Delete confirmation dialog */}
-          <Dialog open={!!ristourneToDelete} onOpenChange={() => setRistourneToDelete(null)}>
+          <Dialog
+            open={!!ristourneToDelete}
+            onOpenChange={() => setRistourneToDelete(null)}
+          >
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Confirmer la suppression</DialogTitle>
               </DialogHeader>
               <div>
-                Voulez-vous vraiment supprimer cette ristourne ? Cette action est irréversible.
+                Voulez-vous vraiment supprimer cette ristourne ? Cette action
+                est irréversible.
                 {deleteError && (
                   <Alert variant="destructive" className="mt-2">
                     <AlertCircle className="h-4 w-4" />
@@ -440,10 +595,18 @@ const RistourneListPage: React.FC = () => {
                 )}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setRistourneToDelete(null)} disabled={deleting}>
+                <Button
+                  variant="outline"
+                  onClick={() => setRistourneToDelete(null)}
+                  disabled={deleting}
+                >
                   Annuler
                 </Button>
-                <Button variant="destructive" onClick={handleDelete} loading={deleting}>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  loading={deleting}
+                >
                   Supprimer
                 </Button>
               </DialogFooter>

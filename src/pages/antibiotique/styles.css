@@ -1,0 +1,64 @@
+@media print {
+    /* body * {
+      visibility: hidden;
+    } */
+    .printable-antibiogram, .printable-antibiogram * {
+      visibility: visible;
+    }
+    .printable-antibiogram {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%; /* Ensure it takes full width */
+      margin: 0;
+      padding: 10px; /* Add some padding for print */
+      font-size: 10pt; /* Adjust font size for print */
+    }
+    .printable-antibiogram .no-print {
+      display: none !important; /* Hide elements marked with no-print */
+    }
+    .printable-antibiogram table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+    }
+    .printable-antibiogram th, .printable-antibiogram td {
+      border: 1px solid #ccc !important; /* Add borders for print table */
+      padding: 4px !important;
+      text-align: left;
+    }
+    .printable-antibiogram th.sir-column, .printable-antibiogram td.sir-column {
+      text-align: center !important;
+      width: 30px !important; /* Fixed width for S/I/R columns */
+    }
+    .printable-antibiogram .print-header {
+      margin-bottom: 15px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 10px;
+    }
+    .printable-antibiogram .print-title {
+      font-size: 16pt;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 5px;
+    }
+     .printable-antibiogram .print-subtitle {
+      font-size: 12pt;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .printable-antibiogram .print-model-name {
+      font-size: 11pt;
+      font-weight: bold;
+      margin-top: 15px;
+      margin-bottom: 5px;
+    }
+     .printable-antibiogram .print-model-description {
+      font-size: 10pt;
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+    .printable-antibiogram .print-legend {
+      margin-top: 10px;
+      font-size: 9pt;
+    }
+  }

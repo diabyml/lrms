@@ -2,7 +2,7 @@
 
 // no typescript check
 
-import { cn } from "@/lib/utils"; // Adjust path if needed
+import { cn, extractId } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
@@ -624,14 +624,14 @@ const ATBPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header Row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 print:hidden">
-        <div>
+        {/* <div>
           <Link to={patientData ? `/patients/${patientData.id}` : "/patients"}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Retour {patientData ? `à ${patientData.full_name}` : "à la liste"}
             </Button>
           </Link>
-        </div>
+        </div> */}
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2 order-first sm:order-none">
           <FileText className="h-6 w-6 text-primary" />
           Détails du Résultat
@@ -689,7 +689,7 @@ const ATBPage: React.FC = () => {
               {renderInfoItem(
                 Info,
                 "IDENTIFIANT Unique",
-                patientData?.patient_unique_id
+                extractId(patientData?.patient_unique_id as string)
               )}
               {renderInfoItem(
                 CalendarDays,
@@ -747,7 +747,7 @@ const ATBPage: React.FC = () => {
                   : null
               )}
               {/* --- Price Fields (Screen Only, Not Print) --- */}
-              <div className="flex flex-col gap-2 mt-2">
+              {/* <div className="flex flex-col gap-2 mt-2">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="normal_price" className="text-xs font-medium">
                     Prix Normal
@@ -803,7 +803,7 @@ const ATBPage: React.FC = () => {
                     />
                   )}
                 </div>
-                {/* Action Buttons */}
+                
                 <div className="flex gap-2 mt-1">
                   {editingPrices ? (
                     <>
@@ -840,7 +840,7 @@ const ATBPage: React.FC = () => {
                 {pricesError && (
                   <p className="text-xs text-destructive mt-1">{pricesError}</p>
                 )}
-              </div>
+              </div> */}
               {/* --- End Price Fields --- */}
               {/* Status Display */}
               <div className="flex items-start space-x-3">
@@ -912,7 +912,11 @@ const ATBPage: React.FC = () => {
               Patient
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
-            {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
+            {renderInfoItem(
+              Info,
+              "ID Unique",
+              extractId(patientData?.patient_unique_id as string)
+            )}
             {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
             {/* <div className="hidden print:block">
               {renderInfoItem(
@@ -1027,7 +1031,10 @@ const ATBPage: React.FC = () => {
   );
 };
 
-const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
+export const AntibiogramTable: React.FC<AntibiogramTableProps> = ({
+  resultId,
+}) => {
+  const [visibleAtbs, setVisibleAtbs] = useState<string[]>();
   const [atbs, setAtbs] = useState<{ id: string; name: string }[]>([]);
   const [atbsResultId, setAtbsResultId] = useState<string | null>(null);
   const [atbsResultATBs, setAtbsResultATBs] = useState<any[]>([]);
@@ -1088,6 +1095,12 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
     fetchData();
   }, [resultId]);
 
+  useEffect(() => {
+    if (atbs) {
+      setVisibleAtbs(atbs.map((atb) => atb.id));
+    }
+  }, [atbs]);
+
   // Checkbox handler
   const handleCheckbox = (atbId: string, type: "S" | "I" | "R") => {
     setLocalSIR((prev) => ({
@@ -1144,6 +1157,15 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
       </div>
     );
 
+  function atbVisiblityToggle(atbId: string) {
+    if (!visibleAtbs) return;
+    if (visibleAtbs.includes(atbId)) {
+      setVisibleAtbs(visibleAtbs.filter((id) => id !== atbId));
+    } else {
+      setVisibleAtbs([...visibleAtbs, atbId]);
+    }
+  }
+
   return (
     <div className="overflow-x-auto">
       <div className="flex gap-4 w-full justify-center">
@@ -1178,19 +1200,28 @@ const AntibiogramTable: React.FC<AntibiogramTableProps> = ({ resultId }) => {
       <ShadTable>
         <TableHeader>
           <TableRow>
-            <TableHead className="text-left">Dénomination</TableHead>
-            <TableHead className="text-center">S</TableHead>
-            <TableHead className="text-center">I</TableHead>
-            <TableHead className="text-center">R</TableHead>
+            <TableHead className="text-left w-[45%]">Dénomination</TableHead>
+            <TableHead className="text-center w-[15%]">S</TableHead>
+            <TableHead className="text-center w-[15%]">I</TableHead>
+            <TableHead className="text-center w-[15%]">R</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {atbs.map((atb, idx) => (
             <TableRow
               key={atb.id}
-              className={idx % 2 === 0 ? "bg-muted/50" : ""}
+              className={`    ${idx % 2 === 0 ? "bg-muted/50" : ""} ${
+                !visibleAtbs?.find((id) => id === atb.id)
+                  ? "bg-red-400  print:hidden"
+                  : " "
+              } `}
             >
-              <TableCell>{atb.name}</TableCell>
+              <TableCell
+                className="cursor-pointer"
+                onClick={() => atbVisiblityToggle(atb.id)}
+              >
+                {atb.name}
+              </TableCell>
               <TableCell className="text-center">
                 <Checkbox
                   className="print:hidden"

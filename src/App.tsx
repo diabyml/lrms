@@ -37,6 +37,14 @@ import VIHPage from "./pages/VIHPage";
 import AnapathPage from "./pages/AnapathPage";
 import SpermogrammePage from "./pages/SpermogrammePage";
 import AbbreModels from "./pages/AbbreModels";
+import ExpenseTrackingPage from "./pages/expende-tracking/ExpenseTrackingPage";
+import ExpenseTrackingForm from "./pages/expende-tracking/ExpenseTrackingForm";
+import ResultsPricesPage from "./pages/ResultsPricesPage";
+import { DataInsightsPage } from "./pages/StatsPage";
+import { ManageAntibiotiqueModelsPage } from "./pages/antibiotique/ManageAntibiotiqueModelsPage";
+import Antibiotique from "./pages/antibiotique/AntibiotiquePage";
+import HemoculturePage from "./pages/hemoculture/HemoculturePage";
+import { ManageHemocultureObservationModelsPage } from "./pages/hemoculture/ManageHemocultureObservationModelsPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -131,6 +139,36 @@ function App() {
               element={<SpermogrammePage />}
             />
             <Route path="/abbreviations" element={<AbbreModels />} />
+            {/* expense tracking routes index, new(create) and edit */}
+            <Route path="/gestion-depenses" element={<ExpenseTrackingPage />} />
+            <Route
+              path="/gestion-depenses/creer"
+              element={<ExpenseTrackingForm />}
+            />
+            <Route
+              path="/gestion-depenses/:recordId"
+              element={<ExpenseTrackingForm />}
+            />
+            {/* results prices */}
+            <Route path="/results-prices" element={<ResultsPricesPage />} />
+            {/* stats */}
+            <Route path="/stats" element={<DataInsightsPage />} />
+            {/* antibiotique models */}
+            <Route
+              path="/antibiotique-models"
+              element={<ManageAntibiotiqueModelsPage />}
+            />
+            <Route path="/antibiotique/:resultId" element={<Antibiotique />} />
+            {/* hemoculture */}
+            <Route
+              path="/hemoculture/:resultId"
+              element={<HemoculturePage />}
+            />
+            {/* hemoculture models */}
+            <Route
+              path="/hemoculture-models"
+              element={<ManageHemocultureObservationModelsPage />}
+            />
           </Route>
         </Route>
         {/* Catch-all route for 404 Not Found */}

@@ -307,101 +307,105 @@ const RistourneFormPage: React.FC = () => {
   const loadPatientResults = async (
     doctorId: string,
     config: DoctorFeeConfig,
-    existingResultsParam?: PatientResultWithFee[]
+    existingResults?: PatientResultWithFee[]
   ) => {
-    // Get IDs of results that should be included regardless of status
-    const existingResults = existingResultsParam || [];
-    const idsToInclude = existingResults.map((r) => r.id);
-    const idsToIncludeSet = new Set(idsToInclude);
-
-    // First, get all the IDs that should be excluded
-    let excludeResultIds: Set<string> = new Set();
-
-    try {
-      // First, fetch all unpaid results for this doctor
-      let query = supabase
-        .from("patient_result")
-        .select("*, patient:patient_id(*)")
-        .eq("isFree", false)
-        .eq("doctor_id", doctorId);
-
-      // In edit mode, include both unpaid and already selected results
-      if (idsToInclude.length > 0) {
-        query = query.or("paid_status.eq.unpaid,paid_status.eq.paid");
-      } else {
-        // In create mode: only include unpaid
-        query = query.eq("paid_status", "unpaid");
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Error fetching patient results:", error);
-        setError("Erreur lors du chargement des résultats");
-        return;
-      }
-
-      // Get the list of result IDs we need to exclude
-      if (isEditMode && ristourneId) {
-        // In edit mode, exclude results that are in other paid/pending ristournes
-        const { data: lockedResults, error: lockedError } = await supabase
-          .from("ristourne_patient_result")
-          .select("patient_result_id, ristourne!inner(status, id)")
-          .not("ristourne.id", "eq", ristourneId)
-          .in("ristourne.status", ["paid", "pending"]);
-
-        if (!lockedError && Array.isArray(lockedResults)) {
-          lockedResults.forEach((r: any) => excludeResultIds.add(r.patient_result_id));
-        }
-      } else {
-        // In create mode, exclude all paid/pending results
-        const { data: lockedResults, error: lockedError } = await supabase
-          .from("ristourne_patient_result")
-          .select("patient_result_id, ristourne:ristourne_id!inner(status)")
-          .in("ristourne.status", ["paid", "pending"]);
-
-        if (!lockedError && Array.isArray(lockedResults)) {
-          lockedResults.forEach((r: any) => excludeResultIds.add(r.patient_result_id));
-        }
-      }
-
-      // Process results with client-side filtering
-      const existingResultsMap = new Map(existingResults.map((r) => [r.id, r]));
-
-      const resultsWithFee = (data || [])
-        // Filter out excluded results (unless they're in our include list)
-        .filter(result => !excludeResultIds.has(result.id) || idsToIncludeSet.has(result.id))
-        .map((result) => {
-          const existingResult = existingResultsMap.get(result.id);
-
-          // Create a proper PatientResult object with all required fields
-          const patientResult: any = {
-            ...result,
-            patient: result.patient,
-            unpaid_amount: result.unpaid_amount || 0,
-          };
-
-          return {
-            ...patientResult,
-            calculatedFee:
-              existingResult?.calculatedFee ||
-              calculateFee(patientResult, config),
-            isSelected: existingResultsMap.has(result.id),
-            isSelectedInitial: existingResultsMap.has(result.id),
-          } as PatientResultWithFee;
-        });
-
-      setPatientResults(resultsWithFee);
-
-      // Calculate total for selected results
-      const total = resultsWithFee
-        .filter((r) => r.isSelected)
-        .reduce((sum, r) => sum + r.calculatedFee, 0);
-      setTotalFee(total);
-    } catch (error) {
-      console.error("Error in loadPatientResults:", error);
-      setError("Une erreur est survenue lors du chargement des résultats");
+    let idsToInclude: string[] = [];
+    if (existingResults && existingResults.length > 0) {
+      idsToInclude = existingResults.map((r) => r.id);
     }
+
+    // --- NEW LOGIC: Find results that are paid or pending in other ristournes ---
+    let excludeResultIds: string[] = [];
+    if (isEditMode && ristourneId) {
+      // Fetch all patient_result_ids that are paid/pending in other ristournes
+      const { data: lockedResults, error: lockedError } = await supabase
+        .from("ristourne_patient_result")
+        .select("patient_result_id, ristourne(status, id)");
+      if (!lockedError && Array.isArray(lockedResults)) {
+        excludeResultIds = lockedResults
+          .filter(
+            (r: any) =>
+              r.ristourne &&
+              ["paid", "pending"].includes(r.ristourne.status) &&
+              r.ristourne.id !== ristourneId
+          )
+          .map((r: any) => r.patient_result_id);
+      }
+    } else {
+      // In create mode, exclude all paid/pending results
+      const { data: lockedResults, error: lockedError } = await supabase
+        .from("ristourne_patient_result")
+        .select("patient_result_id, ristourne(status)");
+      if (!lockedError && Array.isArray(lockedResults)) {
+        excludeResultIds = lockedResults
+          .filter(
+            (r: any) =>
+              r.ristourne && ["paid", "pending"].includes(r.ristourne.status)
+          )
+          .map((r: any) => r.patient_result_id);
+      }
+    }
+
+    // Fetch all unpaid results, and also any paid results that are part of the current ristourne
+    let query = supabase
+      .from("patient_result")
+      .select("*, patient:patient_id(*)");
+
+    // exclude patient_result where isFree is true
+    query = query.eq("isFree", false);
+
+    if (idsToInclude.length > 0) {
+      // In edit mode: unpaid OR (paid AND id in selected)
+      query = query.or(
+        `paid_status.eq.unpaid,or(paid_status.eq.paid,id.in.(${idsToInclude.join(
+          ","
+        )}))`
+      );
+      query = query.eq("doctor_id", doctorId);
+    } else {
+      // In create mode: only unpaid
+      query = query.eq("doctor_id", doctorId).eq("paid_status", "unpaid");
+    }
+
+    if (excludeResultIds.length > 0) {
+      // Always allow those already selected in this ristourne (idsToInclude)
+      const idsToReallyExclude = excludeResultIds.filter(
+        (id) => !idsToInclude.includes(id)
+      );
+      if (idsToReallyExclude.length > 0) {
+        query = query.not("id", "in", `(${idsToReallyExclude.join(",")})`);
+      }
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      setError("Erreur lors du chargement des résultats");
+      console.error("Error fetching patient results:", error);
+      return;
+    }
+
+    // Create a map of existing results for quick lookup
+    const existingResultsMap = new Map(
+      existingResults?.map((r) => [r.id, r]) || []
+    );
+
+    const resultsWithFee = (data || []).map((result) => {
+      const existingResult = existingResultsMap.get(result.id);
+      return {
+        ...result,
+        calculatedFee:
+          existingResult?.calculatedFee || calculateFee(result, config),
+        isSelected: Boolean(existingResult),
+      };
+    });
+
+    setPatientResults(resultsWithFee);
+    // Calculate total for selected results
+    const total = resultsWithFee
+      .filter((r) => r.isSelected)
+      .reduce((sum, r) => sum + r.calculatedFee, 0);
+    setTotalFee(total);
   };
 
   useEffect(() => {

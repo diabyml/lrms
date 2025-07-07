@@ -132,7 +132,7 @@ const PatientFormPage: React.FC = () => {
   // Re-add handlers here for completeness
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
   };
 
   function handleIdGeneration() {
@@ -192,7 +192,7 @@ const PatientFormPage: React.FC = () => {
       // Prepare data for Supabase (ensure optional fields are null if empty/undefined)
       const dataPayload = {
         patient_unique_id: formData.patient_unique_id.trim(),
-        full_name: formData.full_name.trim(),
+        full_name: formData.full_name.trim().toUpperCase(),
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
         phone: formData.phone?.trim() || null,
@@ -209,12 +209,10 @@ const PatientFormPage: React.FC = () => {
         responseError = updateError;
       } else {
         // Insert new patient
-        const { error: insertError } = await supabase
-          .from("patient")
-          .insert({
-            ...dataPayload,
-            patient_unique_id: `${dataPayload.patient_unique_id}#${uuidv4()}`,
-          });
+        const { error: insertError } = await supabase.from("patient").insert({
+          ...dataPayload,
+          patient_unique_id: `${dataPayload.patient_unique_id}#${uuidv4()}`,
+        });
         responseError = insertError;
       }
 

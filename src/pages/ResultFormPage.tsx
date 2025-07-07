@@ -128,6 +128,8 @@ const ResultFormPage: React.FC = () => {
   const [insurancePrice, setInsurancePrice] = useState<number | "" | undefined>(
     ""
   );
+  // unpaid amount state
+  const [unpaidAmount, setUnpaidAmount] = useState<number | "" | undefined>("");
   // --- End State ---
 
   const debouncedTestTypeSearch = useDebounce(testTypeSearchTerm, 250);
@@ -172,6 +174,7 @@ const ResultFormPage: React.FC = () => {
       setCurrentPatientId(resultRes.data.patient_id);
       setOriginalResultValues(valuesRes.data || []);
       setNormalPrice(resultRes.data.normal_price ?? "");
+      setUnpaidAmount(resultRes.data.unpaid_amount ?? "");
       setInsurancePrice(resultRes.data.insurance_price ?? "");
       setIsFree(!!resultRes.data.isFree);
       setNotes(resultRes.data.notes ?? "");
@@ -274,6 +277,7 @@ const ResultFormPage: React.FC = () => {
       setAvailableTestTypes(testTypesRes.data || []);
       setNormalPrice("");
       setInsurancePrice("");
+      setUnpaidAmount("");
     } catch (err: any) {
       /* ... error handling ... */
       console.error("Erreur chargement données pour création:", err);
@@ -474,27 +478,28 @@ const ResultFormPage: React.FC = () => {
     // Validation
     if (!currentPatientId) {
       setError("Erreur: ID du patient non défini.");
+      // alert("Erreur: ID du patient non défini.");
       return;
     }
     if (!selectedDoctorId) {
       setError("Veuillez sélectionner un médecin prescripteur.");
+      // alert("Veuillez sélectionner un médecin prescripteur.");
       return;
     }
     if (!resultDate) {
       setError("Veuillez sélectionner la date du résultat.");
+      // alert("Veuillez sélectionner la date du résultat.");
       return;
     }
     if (selectedTestTypes.size === 0 && !isEditMode) {
       setError("Veuillez sélectionner au moins un type de test.");
+      // alert("Veuillez sélectionner au moins un type de test.");
       return;
     }
     // Validate prices
-    if (normalPrice !== "" && isNaN(Number(normalPrice))) {
-      setError("Le prix normal doit être un nombre valide.");
-      return;
-    }
-    if (insurancePrice !== "" && isNaN(Number(insurancePrice))) {
-      setError("Le prix assurance doit être un nombre valide.");
+    if (normalPrice === "" || insurancePrice === "" || unpaidAmount === "") {
+      setError("Veuillez remplir les prix correctement.");
+      // alert("Veuillez remplir les prix correctement.");
       return;
     }
 
@@ -511,6 +516,8 @@ const ResultFormPage: React.FC = () => {
       if (normalPrice !== "") resultSaveData.normal_price = Number(normalPrice);
       if (insurancePrice !== "")
         resultSaveData.insurance_price = Number(insurancePrice);
+      if (unpaidAmount !== "")
+        resultSaveData.unpaid_amount = Number(unpaidAmount);
       resultSaveData.isFree = isFree;
       resultSaveData.notes = notes;
 
@@ -915,10 +922,11 @@ const ResultFormPage: React.FC = () => {
                 required
                 min="0"
                 step="0.01"
-                placeholder="Prix normal du test (ex: 1000)"
+                placeholder="Prix normal"
                 value={normalPrice}
                 onChange={(e) => setNormalPrice(e.target.value)}
                 disabled={loadingSubmit}
+                className="!text-4xl placeholder:text-[16px]"
               />
             </div>
             <div className="space-y-2">
@@ -932,10 +940,30 @@ const ResultFormPage: React.FC = () => {
                 required
                 min="0"
                 step="0.01"
-                placeholder="Prix avec assurance (ex: 800)"
+                placeholder="Prix assurance"
                 value={insurancePrice}
                 onChange={(e) => setInsurancePrice(e.target.value)}
                 disabled={loadingSubmit}
+                className="!text-4xl placeholder:text-[16px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unpaid_amount" className="font-semibold">
+                {" "}
+                Restant{" "}
+              </Label>
+              <Input
+                id="unpaid_amount"
+                name="unpaid_amount"
+                type="number"
+                required
+                min="0"
+                step="0.01"
+                placeholder="Restant"
+                value={unpaidAmount}
+                onChange={(e) => setUnpaidAmount(e.target.value)}
+                disabled={loadingSubmit}
+                className="!text-4xl placeholder:text-[16px]"
               />
             </div>
           </div>

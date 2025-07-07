@@ -132,7 +132,8 @@ body {
 }
 
 /* Ensure out-of-range background prints */
-.result-out-of-range {
+.result-out-of-range,
+.print-ecb-abnormal-cell {
   background-color: rgba(254, 226, 226, 0.7) !important;
   background-color: rgba(187, 177, 177, 0.7) !important;
   /* color: #991b1b !important; */ /* if text color is set */
@@ -313,3 +314,6 @@ body {
     rgba(6, 24, 44, 0.65) 0px 4px 6px -1px,
     rgba(255, 255, 255, 0.08) 0px 1px 0px inset;
 }
+
+
+

@@ -130,12 +130,12 @@ const DoctorListPage: React.FC = () => {
           <Stethoscope className="h-6 w-6" />
           Gestion des Médecins
         </h1>
-        <Link to="/doctors/new">
+        {/* <Link to="/doctors/new">
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" />
             Ajouter un Médecin
           </Button>
-        </Link>
+        </Link> */}
       </div>
 
       {/* Search Input */}
@@ -238,14 +238,26 @@ const DoctorListPage: React.FC = () => {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer ce médecin ?</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              Supprimer ce médecin ?
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Cette action est irréversible. Voulez-vous vraiment supprimer ce médecin ?
+                              Cette action est irréversible. Voulez-vous
+                              vraiment supprimer ce médecin ?
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setDoctorToDelete(null)} disabled={deleting}>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground">
+                            <AlertDialogCancel
+                              onClick={() => setDoctorToDelete(null)}
+                              disabled={deleting}
+                            >
+                              Annuler
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleDelete}
+                              disabled={deleting}
+                              className="bg-destructive text-destructive-foreground"
+                            >
                               Supprimer
                             </AlertDialogAction>
                           </AlertDialogFooter>

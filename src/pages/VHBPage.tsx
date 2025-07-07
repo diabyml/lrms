@@ -2,7 +2,7 @@
 
 // no typescript check
 
-import { cn } from "@/lib/utils"; // Adjust path if needed
+import { cn, extractId } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
@@ -504,7 +504,7 @@ const PlaceholderPage: React.FC = () => {
               {renderInfoItem(
                 Info,
                 "IDENTIFIANT Unique",
-                patientData?.patient_unique_id
+                extractId(patientData?.patient_unique_id as string)
               )}
               {renderInfoItem(
                 CalendarDays,
@@ -562,7 +562,7 @@ const PlaceholderPage: React.FC = () => {
                   : null
               )}
               {/* --- Price Fields (Screen Only, Not Print) --- */}
-              <div className="flex flex-col gap-2 mt-2">
+              {/* <div className="flex flex-col gap-2 mt-2">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="normal_price" className="text-xs font-medium">
                     Prix Normal
@@ -618,7 +618,7 @@ const PlaceholderPage: React.FC = () => {
                     />
                   )}
                 </div>
-                {/* Action Buttons */}
+               
                 <div className="flex gap-2 mt-1">
                   {editingPrices ? (
                     <>
@@ -655,7 +655,7 @@ const PlaceholderPage: React.FC = () => {
                 {pricesError && (
                   <p className="text-xs text-destructive mt-1">{pricesError}</p>
                 )}
-              </div>
+              </div> */}
               {/* --- End Price Fields --- */}
               {/* Status Display */}
               <div className="flex items-start space-x-3">
@@ -728,8 +728,16 @@ const PlaceholderPage: React.FC = () => {
               Patient
             </div>
             {renderInfoItem(Info, "NOM PRENOM", patientData?.full_name)}
-            {renderInfoItem(Info, "ID Unique", patientData?.patient_unique_id)}
-            {renderInfoItem(Phone, "Téléphone", patientData?.phone)}
+            {renderInfoItem(
+              Info,
+              "ID Unique",
+              extractId(patientData?.patient_unique_id as string)
+            )}
+            {renderInfoItem(
+              Phone,
+              "Téléphone",
+              extractId(patientData?.patient_unique_id as string)
+            )}
             {/* <div className="hidden print:block">
               {renderInfoItem(
                 CalendarDays,

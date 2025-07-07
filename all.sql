@@ -894,3 +894,1074 @@ COMMENT ON COLUMN public.abbre_models.created_at IS 'Timestamp of when the abbre
 -- Allow admin role to delete
 -- CREATE POLICY "Allow admin delete" ON public.abbre_models
 -- FOR DELETE USING (auth.role() = 'service_role' OR (SELECT current_user_is_admin()));
+
+
+
+
+
+
+-- expense tracking
+-- Enable UUID extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- -----------------------------------------------------------------------------
+-- PRE-EXISTING TABLE (Assumed Structure for patient_result)
+-- You DO NOT need to run this if your patient_result table already exists.
+-- This is just for context of how the 'incomes' table will reference it.
+-- -----------------------------------------------------------------------------
+
+-- CREATE TABLE IF NOT EXISTS public.patient_result (
+--     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--     patient_id UUID NOT NULL, -- Assuming this FKs to a 'patients' table
+--     normal_price DECIMAL(10, 2) NOT NULL,
+--     insurance_price DECIMAL(10, 2),
+--     -- other existing fields ...
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+-- -- Example: If patient_id references a patients table
+-- -- ALTER TABLE public.patient_result
+-- --   ADD CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES public.patients(id);
+
+-- -- Disable RLS for patient_result if it's not already
+-- -- ALTER TABLE public.patient_result DISABLE ROW LEVEL SECURITY;
+
+
+-- -----------------------------------------------------------------------------
+-- NEW TABLES
+-- -----------------------------------------------------------------------------
+
+-- Helper function to automatically update 'updated_at' timestamps
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 1. Agents Table
+CREATE TABLE IF NOT EXISTS public.agents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    code TEXT UNIQUE NOT NULL, -- Agent code should be unique
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+ALTER TABLE public.agents DISABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER set_timestamp_agents
+BEFORE UPDATE ON public.agents
+FOR EACH ROW
+EXECUTE PROCEDURE public.update_updated_at_column();
+
+COMMENT ON TABLE public.agents IS 'Stores information about agents who record income/expenses.';
+COMMENT ON COLUMN public.agents.name IS 'Full name of the agent.';
+COMMENT ON COLUMN public.agents.code IS 'Unique identifying code for the agent.';
+
+-- 2. Income/Expense Records Table (Overall Record by an Agent)
+CREATE TABLE IF NOT EXISTS public.income_expense_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE RESTRICT, -- Prevent deleting an agent if they have records
+    record_date DATE DEFAULT CURRENT_DATE NOT NULL, -- Date the record pertains to
+    notes TEXT, -- Optional notes for the overall record
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+ALTER TABLE public.income_expense_records DISABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_income_expense_records_agent_id ON public.income_expense_records(agent_id);
+CREATE INDEX idx_income_expense_records_record_date ON public.income_expense_records(record_date);
+
+CREATE TRIGGER set_timestamp_income_expense_records
+BEFORE UPDATE ON public.income_expense_records
+FOR EACH ROW
+EXECUTE PROCEDURE public.update_updated_at_column();
+
+COMMENT ON TABLE public.income_expense_records IS 'A container for a set of incomes and expenses recorded by an agent for a specific period/event.';
+COMMENT ON COLUMN public.income_expense_records.agent_id IS 'The agent who created this record.';
+COMMENT ON COLUMN public.income_expense_records.record_date IS 'The date this income/expense record pertains to.';
+
+-- 3. Incomes Table
+CREATE TABLE IF NOT EXISTS public.incomes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    income_expense_record_id UUID NOT NULL REFERENCES public.income_expense_records(id) ON DELETE CASCADE, -- If record is deleted, incomes associated are deleted
+    patient_result_id UUID NOT NULL REFERENCES public.patient_result(id) ON DELETE RESTRICT, -- Prevent deleting patient_result if linked to an income
+    -- The actual income amount will be derived from patient_result.normal_price or patient_result.insurance_price
+    -- You might add a column here to specify WHICH price was used, e.g., 'price_type' (ENUM: 'normal', 'insurance')
+    -- or just decide this at the application level. For simplicity, I'm omitting it.
+    notes TEXT, -- Optional notes specific to this income item
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+ALTER TABLE public.incomes DISABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_incomes_record_id ON public.incomes(income_expense_record_id);
+CREATE INDEX idx_incomes_patient_result_id ON public.incomes(patient_result_id);
+
+CREATE TRIGGER set_timestamp_incomes
+BEFORE UPDATE ON public.incomes
+FOR EACH ROW
+EXECUTE PROCEDURE public.update_updated_at_column();
+
+COMMENT ON TABLE public.incomes IS 'Individual income items, linked to a patient result.';
+COMMENT ON COLUMN public.incomes.income_expense_record_id IS 'The parent income/expense record this income belongs to.';
+COMMENT ON COLUMN public.incomes.patient_result_id IS 'The patient result that generated this income.';
+
+-- 4. Expenses Table
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    income_expense_record_id UUID NOT NULL REFERENCES public.income_expense_records(id) ON DELETE CASCADE, -- If record is deleted, expenses associated are deleted
+    name TEXT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0), -- Price of the expense
+    expense_date DATE DEFAULT CURRENT_DATE NOT NULL, -- Date the expense was incurred
+    notes TEXT, -- Optional notes specific to this expense item
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+ALTER TABLE public.expenses DISABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_expenses_record_id ON public.expenses(income_expense_record_id);
+
+CREATE TRIGGER set_timestamp_expenses
+BEFORE UPDATE ON public.expenses
+FOR EACH ROW
+EXECUTE PROCEDURE public.update_updated_at_column();
+
+COMMENT ON TABLE public.expenses IS 'Individual expense items.';
+COMMENT ON COLUMN public.expenses.income_expense_record_id IS 'The parent income/expense record this expense belongs to.';
+COMMENT ON COLUMN public.expenses.name IS 'Description of the expense.';
+COMMENT ON COLUMN public.expenses.price IS 'Cost of the expense.';
+COMMENT ON COLUMN public.expenses.expense_date IS 'Date the expense was incurred.';
+
+-- -----------------------------------------------------------------------------
+-- Example Usage (Conceptual - Not part of the DDL)
+-- -----------------------------------------------------------------------------
+
+-- -- 1. Assume patient_result with id '...' exists and has normal_price = 100.00
+-- -- INSERT INTO public.patient_result (id, patient_id, normal_price, insurance_price) VALUES
+-- -- ('your-patient-result-id-1', 'patient-uuid-1', 100.00, 80.00),
+-- -- ('your-patient-result-id-2', 'patient-uuid-2', 150.00, 120.00);
+
+-- -- 2. Create an Agent
+-- -- INSERT INTO public.agents (name, code) VALUES ('John Doe', 'AGENT001') RETURNING id;
+-- -- Let's say this returns agent_id 'agent-john-doe-uuid'
+
+-- -- 3. Agent creates an Income/Expense Record
+-- -- INSERT INTO public.income_expense_records (agent_id, record_date, notes)
+-- -- VALUES ('agent-john-doe-uuid', '2023-10-27', 'Daily takings and expenses for clinic A') RETURNING id;
+-- -- Let's say this returns income_expense_record_id 'record-xyz-uuid'
+
+-- -- 4. Add Incomes to that record
+-- -- (The application would decide whether to use normal_price or insurance_price from patient_result)
+-- -- INSERT INTO public.incomes (income_expense_record_id, patient_result_id, notes)
+-- -- VALUES ('record-xyz-uuid', 'your-patient-result-id-1', 'Consultation fee');
+
+-- -- INSERT INTO public.incomes (income_expense_record_id, patient_result_id, notes)
+-- -- VALUES ('record-xyz-uuid', 'your-patient-result-id-2', 'Lab test fee');
+
+-- -- 5. Add Expenses to that record
+-- -- INSERT INTO public.expenses (income_expense_record_id, name, price, expense_date, notes)
+-- -- VALUES ('record-xyz-uuid', 'Office Supplies', 25.50, '2023-10-27', 'Stationery purchase');
+
+-- -- INSERT INTO public.expenses (income_expense_record_id, name, price, expense_date, notes)
+-- -- VALUES ('record-xyz-uuid', 'Coffee for staff', 15.00, '2023-10-27', '');
+
+-- -- To calculate net for 'record-xyz-uuid':
+-- -- SELECT
+-- --     SUM(pr.normal_price) AS total_income -- Or pr.insurance_price, or a COALESCE(pr.insurance_price, pr.normal_price)
+-- -- FROM public.incomes i
+-- -- JOIN public.patient_result pr ON i.patient_result_id = pr.id
+-- -- WHERE i.income_expense_record_id = 'record-xyz-uuid';
+
+-- -- SELECT
+-- --     SUM(e.price) AS total_expense
+-- -- FROM public.expenses e
+-- -- WHERE e.income_expense_record_id = 'record-xyz-uuid';
+
+-- First, DROP the existing view if it exists, to replace it
+DROP VIEW IF EXISTS public.income_expense_record_summary;
+
+-- Then, CREATE OR REPLACE the new version of the view
+CREATE OR REPLACE VIEW public.income_expense_record_summary AS
+SELECT
+    ier.id,
+    ier.agent_id,
+    a.name AS agent_name,
+    a.code AS agent_code,
+    ier.record_date,
+    ier.notes,
+    ier.created_at,
+    ier.updated_at,
+    COALESCE(
+        (SELECT SUM(
+            -- Income is normal_price + insurance_price
+            (COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0))
+         )
+         FROM public.incomes inc
+         JOIN public.patient_result pr ON inc.patient_result_id = pr.id
+         WHERE inc.income_expense_record_id = ier.id),
+        0
+    ) AS total_income,
+    COALESCE(
+        (SELECT SUM(exp.price)
+         FROM public.expenses exp
+         WHERE exp.income_expense_record_id = ier.id),
+        0
+    ) AS total_expense,
+    -- Calculate Net Income (Remaining Income)
+    (
+        COALESCE(
+            (SELECT SUM( (COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)) )
+             FROM public.incomes inc
+             JOIN public.patient_result pr ON inc.patient_result_id = pr.id
+             WHERE inc.income_expense_record_id = ier.id),
+            0
+        )
+        -
+        COALESCE(
+            (SELECT SUM(exp.price)
+             FROM public.expenses exp
+             WHERE exp.income_expense_record_id = ier.id),
+            0
+        )
+    ) AS net_income -- Or remaining_income
+FROM
+    public.income_expense_records ier
+JOIN
+    public.agents a ON ier.agent_id = a.id;
+
+-- Ensure the role querying the view has SELECT permission
+GRANT SELECT ON public.income_expense_record_summary TO authenticated;
+-- (And on underlying tables, though if RLS is disabled on them, this might already be covered)
+
+-- Set the owner (optional, but good practice)
+ALTER VIEW public.income_expense_record_summary OWNER TO postgres;
+
+
+-- 1. Make patient_result_id nullable
+ALTER TABLE public.incomes
+  ALTER COLUMN patient_result_id DROP NOT NULL;
+
+-- 2. Add columns for manual income details
+ALTER TABLE public.incomes
+  ADD COLUMN IF NOT EXISTS manual_income_name TEXT,
+  ADD COLUMN IF NOT EXISTS manual_income_amount DECIMAL(10, 2);
+
+-- (Optional: Add a check constraint to ensure one type of income is provided)
+-- ALTER TABLE public.incomes
+--   ADD CONSTRAINT chk_income_source CHECK (
+--     (patient_result_id IS NOT NULL AND manual_income_name IS NULL AND manual_income_amount IS NULL) OR
+--     (patient_result_id IS NULL AND manual_income_name IS NOT NULL AND manual_income_amount IS NOT NULL)
+--   );
+-- Be careful with existing data if you add this check constraint immediately.
+
+-- 3. Update the Supabase View 'income_expense_record_summary'
+DROP VIEW IF EXISTS public.income_expense_record_summary; -- Drop if exists
+
+CREATE OR REPLACE VIEW public.income_expense_record_summary AS
+SELECT
+    ier.id,
+    ier.agent_id,
+    a.name AS agent_name,
+    a.code AS agent_code,
+    ier.record_date,
+    ier.notes,
+    ier.created_at,
+    ier.updated_at,
+    -- Updated total_income calculation
+    COALESCE(
+        (SELECT SUM(
+            CASE
+                WHEN inc.patient_result_id IS NOT NULL THEN (COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0))
+                ELSE COALESCE(inc.manual_income_amount, 0)
+            END
+         )
+         FROM public.incomes inc
+         LEFT JOIN public.patient_result pr ON inc.patient_result_id = pr.id -- Use LEFT JOIN now
+         WHERE inc.income_expense_record_id = ier.id),
+        0
+    ) AS total_income,
+    COALESCE(
+        (SELECT SUM(exp.price)
+         FROM public.expenses exp
+         WHERE exp.income_expense_record_id = ier.id),
+        0
+    ) AS total_expense,
+    -- Updated net_income calculation
+    (
+        COALESCE(
+            (SELECT SUM(
+                CASE
+                    WHEN inc.patient_result_id IS NOT NULL THEN (COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0))
+                    ELSE COALESCE(inc.manual_income_amount, 0)
+                END
+             )
+             FROM public.incomes inc
+             LEFT JOIN public.patient_result pr ON inc.patient_result_id = pr.id
+             WHERE inc.income_expense_record_id = ier.id),
+            0
+        )
+        -
+        COALESCE(
+            (SELECT SUM(exp.price)
+             FROM public.expenses exp
+             WHERE exp.income_expense_record_id = ier.id),
+            0
+        )
+    ) AS net_income
+FROM
+    public.income_expense_records ier
+JOIN
+    public.agents a ON ier.agent_id = a.id;
+
+GRANT SELECT ON public.income_expense_record_summary TO authenticated;
+ALTER VIEW public.income_expense_record_summary OWNER TO postgres;
+
+
+
+ALTER TABLE public.incomes
+ADD CONSTRAINT chk_income_type
+CHECK (
+    (patient_result_id IS NOT NULL AND manual_income_name IS NULL AND manual_income_amount IS NULL)
+    OR
+    (patient_result_id IS NULL AND manual_income_name IS NOT NULL AND manual_income_amount IS NOT NULL)
+);
+
+
+
+
+
+
+
+-- unpaid column add
+
+ALTER TABLE public.patient_result 
+ADD COLUMN unpaid_amount decimal(10,2) NULL;
+
+
+
+
+
+-- ===============================================stats
+-- ====================================================================
+-- STEP 1: Drop all existing helper and insight functions (if they exist)
+-- This ensures a clean slate if signatures changed.
+-- ====================================================================
+
+DROP FUNCTION IF EXISTS public.get_daily_insights(date);
+DROP FUNCTION IF EXISTS public.get_monthly_insights(integer, integer);
+DROP FUNCTION IF EXISTS public.get_yearly_insights(integer);
+
+-- Drop helper functions as well, in case their return types or definitions need updating
+DROP FUNCTION IF EXISTS public.get_day_bounds(date);
+DROP FUNCTION IF EXISTS public.get_month_bounds(integer, integer);
+DROP FUNCTION IF EXISTS public.get_year_bounds(integer);
+
+-- ====================================================================
+-- STEP 2: Recreate Helper Functions
+-- ====================================================================
+
+-- Helper to get start and end of a day
+CREATE OR REPLACE FUNCTION get_day_bounds(target_date DATE)
+RETURNS TABLE(start_time timestamptz, end_time timestamptz) AS $$
+BEGIN
+    RETURN QUERY SELECT
+        target_date::timestamptz,
+        (target_date + INTERVAL '1 day' - INTERVAL '1 microsecond')::timestamptz;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper to get start and end of a month
+CREATE OR REPLACE FUNCTION get_month_bounds(year_num INT, month_num INT)
+RETURNS TABLE(start_time timestamptz, end_time timestamptz) AS $$
+DECLARE
+    first_day_of_month DATE;
+BEGIN
+    first_day_of_month := MAKE_DATE(year_num, month_num, 1);
+    RETURN QUERY SELECT
+        first_day_of_month::timestamptz,
+        (DATE_TRUNC('month', first_day_of_month) + INTERVAL '1 month' - INTERVAL '1 microsecond')::timestamptz;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper to get start and end of a year
+CREATE OR REPLACE FUNCTION get_year_bounds(year_num INT)
+RETURNS TABLE(start_time timestamptz, end_time timestamptz) AS $$
+DECLARE
+    first_day_of_year DATE;
+BEGIN
+    first_day_of_year := MAKE_DATE(year_num, 1, 1);
+    RETURN QUERY SELECT
+        first_day_of_year::timestamptz,
+        (DATE_TRUNC('year', first_day_of_year) + INTERVAL '1 year' - INTERVAL '1 microsecond')::timestamptz;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Function for Daily Stats
+CREATE OR REPLACE FUNCTION get_daily_insights(target_date DATE)
+RETURNS TABLE (
+    bilan_count BIGINT,
+    total_revenue NUMERIC,
+    total_normal_price NUMERIC,
+    total_insurance_price NUMERIC
+)
+AS $$
+DECLARE
+    v_start_time timestamptz;
+    v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_day_bounds(target_date);
+
+    RETURN QUERY
+    SELECT
+        COUNT(pr.id) AS bilan_count,
+        COALESCE(SUM(COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)), 0) AS total_revenue,
+        COALESCE(SUM(pr.normal_price), 0) AS total_normal_price,
+        COALESCE(SUM(pr.insurance_price), 0) AS total_insurance_price
+    FROM public.patient_result pr
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for Monthly Stats
+CREATE OR REPLACE FUNCTION get_monthly_insights(year_num INT, month_num INT)
+RETURNS TABLE (
+    bilan_count BIGINT,
+    total_revenue NUMERIC,
+    total_normal_price NUMERIC,
+    total_insurance_price NUMERIC
+)
+AS $$
+DECLARE
+    v_start_time timestamptz;
+    v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_month_bounds(year_num, month_num);
+
+    RETURN QUERY
+    SELECT
+        COUNT(pr.id) AS bilan_count,
+        COALESCE(SUM(COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)), 0) AS total_revenue,
+        COALESCE(SUM(pr.normal_price), 0) AS total_normal_price,
+        COALESCE(SUM(pr.insurance_price), 0) AS total_insurance_price
+    FROM public.patient_result pr
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for Yearly Stats
+CREATE OR REPLACE FUNCTION get_yearly_insights(year_num INT)
+RETURNS TABLE (
+    bilan_count BIGINT,
+    total_revenue NUMERIC,
+    total_normal_price NUMERIC,
+    total_insurance_price NUMERIC
+)
+AS $$
+DECLARE
+    v_start_time timestamptz;
+    v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_year_bounds(year_num);
+
+    RETURN QUERY
+    SELECT
+        COUNT(pr.id) AS bilan_count,
+        COALESCE(SUM(COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)), 0) AS total_revenue,
+        COALESCE(SUM(pr.normal_price), 0) AS total_normal_price,
+        COALESCE(SUM(pr.insurance_price), 0) AS total_insurance_price
+    FROM public.patient_result pr
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+-- Function for Daily Unpaid Total
+CREATE OR REPLACE FUNCTION get_daily_unpaid_total(target_date DATE)
+RETURNS TABLE (
+    total_unpaid_amount NUMERIC
+)
+AS $$
+DECLARE
+    v_start_time timestamptz;
+    v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_day_bounds(target_date);
+
+    RETURN QUERY
+    SELECT
+        COALESCE(SUM(pr.unpaid_amount), 0) AS total_unpaid_amount
+    FROM public.patient_result pr
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+      AND pr.unpaid_amount > 0; -- Only sum actual unpaid amounts
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for Monthly Unpaid Total
+CREATE OR REPLACE FUNCTION get_monthly_unpaid_total(year_num INT, month_num INT)
+RETURNS TABLE (
+    total_unpaid_amount NUMERIC
+)
+AS $$
+DECLARE
+    v_start_time timestamptz;
+    v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_month_bounds(year_num, month_num);
+
+    RETURN QUERY
+    SELECT
+        COALESCE(SUM(pr.unpaid_amount), 0) AS total_unpaid_amount
+    FROM public.patient_result pr
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+      AND pr.unpaid_amount > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for Yearly Unpaid Total
+CREATE OR REPLACE FUNCTION get_yearly_unpaid_total(year_num INT)
+RETURNS TABLE (
+    total_unpaid_amount NUMERIC
+)
+AS $$
+DECLARE
+    v_start_time timestamptz;
+    v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_year_bounds(year_num);
+
+    RETURN QUERY
+    SELECT
+        COALESCE(SUM(pr.unpaid_amount), 0) AS total_unpaid_amount
+    FROM public.patient_result pr
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+      AND pr.unpaid_amount > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+-- ================================================================================================
+-- PATIENTS REGISTERED (NEWLY CREATED IN PERIOD)
+-- ================================================================================================
+CREATE OR REPLACE FUNCTION get_daily_new_patients_count(target_date DATE)
+RETURNS TABLE (new_patient_count BIGINT) AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_day_bounds(target_date);
+    RETURN QUERY SELECT COUNT(id) FROM public.patient WHERE created_at >= v_start_time AND created_at <= v_end_time;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_monthly_new_patients_count(year_num INT, month_num INT)
+RETURNS TABLE (new_patient_count BIGINT) AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_month_bounds(year_num, month_num);
+    RETURN QUERY SELECT COUNT(id) FROM public.patient WHERE created_at >= v_start_time AND created_at <= v_end_time;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_yearly_new_patients_count(year_num INT)
+RETURNS TABLE (new_patient_count BIGINT) AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_year_bounds(year_num);
+    RETURN QUERY SELECT COUNT(id) FROM public.patient WHERE created_at >= v_start_time AND created_at <= v_end_time;
+END; $$ LANGUAGE plpgsql;
+
+-- ================================================================================================
+-- BILANS PER DOCTOR (TOP N)
+-- ================================================================================================
+-- We'll need a custom type for the return
+CREATE TYPE doctor_bilan_stat AS (
+    doctor_id UUID,
+    doctor_full_name TEXT,
+    bilan_count BIGINT
+);
+
+CREATE OR REPLACE FUNCTION get_daily_bilans_per_doctor(target_date DATE, top_n INT DEFAULT 5)
+RETURNS SETOF doctor_bilan_stat AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_day_bounds(target_date);
+    RETURN QUERY
+    SELECT pr.doctor_id, d.full_name AS doctor_full_name, COUNT(pr.id) AS bilan_count
+    FROM public.patient_result pr
+    JOIN public.doctor d ON pr.doctor_id = d.id
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+    GROUP BY pr.doctor_id, d.full_name
+    ORDER BY bilan_count DESC
+    LIMIT top_n;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_monthly_bilans_per_doctor(year_num INT, month_num INT, top_n INT DEFAULT 5)
+RETURNS SETOF doctor_bilan_stat AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_month_bounds(year_num, month_num);
+     RETURN QUERY
+    SELECT pr.doctor_id, d.full_name AS doctor_full_name, COUNT(pr.id) AS bilan_count
+    FROM public.patient_result pr
+    JOIN public.doctor d ON pr.doctor_id = d.id
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+    GROUP BY pr.doctor_id, d.full_name
+    ORDER BY bilan_count DESC
+    LIMIT top_n;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_yearly_bilans_per_doctor(year_num INT, top_n INT DEFAULT 5)
+RETURNS SETOF doctor_bilan_stat AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_year_bounds(year_num);
+     RETURN QUERY
+    SELECT pr.doctor_id, d.full_name AS doctor_full_name, COUNT(pr.id) AS bilan_count
+    FROM public.patient_result pr
+    JOIN public.doctor d ON pr.doctor_id = d.id
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+    GROUP BY pr.doctor_id, d.full_name
+    ORDER BY bilan_count DESC
+    LIMIT top_n;
+END; $$ LANGUAGE plpgsql;
+
+-- ================================================================================================
+-- MOST COMMON TEST TYPES (TOP N)
+-- This one is a bit more complex as it involves patient_result -> result_value -> test_parameter -> test_type
+-- ================================================================================================
+CREATE TYPE test_type_stat AS (
+    test_type_id UUID,
+    test_type_name TEXT,
+    usage_count BIGINT
+);
+
+CREATE OR REPLACE FUNCTION get_daily_common_test_types(target_date DATE, top_n INT DEFAULT 5)
+RETURNS SETOF test_type_stat AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_day_bounds(target_date);
+    RETURN QUERY
+    SELECT tt.id AS test_type_id, tt.name AS test_type_name, COUNT(DISTINCT pr.id) AS usage_count
+    FROM public.patient_result pr
+    JOIN public.result_value rv ON pr.id = rv.patient_result_id
+    JOIN public.test_parameter tp ON rv.test_parameter_id = tp.id
+    JOIN public.test_type tt ON tp.test_type_id = tt.id
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+    GROUP BY tt.id, tt.name
+    ORDER BY usage_count DESC
+    LIMIT top_n;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_monthly_common_test_types(year_num INT, month_num INT, top_n INT DEFAULT 5)
+RETURNS SETOF test_type_stat AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_month_bounds(year_num, month_num);
+    RETURN QUERY
+    SELECT tt.id AS test_type_id, tt.name AS test_type_name, COUNT(DISTINCT pr.id) AS usage_count
+    FROM public.patient_result pr
+    JOIN public.result_value rv ON pr.id = rv.patient_result_id
+    JOIN public.test_parameter tp ON rv.test_parameter_id = tp.id
+    JOIN public.test_type tt ON tp.test_type_id = tt.id
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+    GROUP BY tt.id, tt.name
+    ORDER BY usage_count DESC
+    LIMIT top_n;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_yearly_common_test_types(year_num INT, top_n INT DEFAULT 5)
+RETURNS SETOF test_type_stat AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_year_bounds(year_num);
+     RETURN QUERY
+    SELECT tt.id AS test_type_id, tt.name AS test_type_name, COUNT(DISTINCT pr.id) AS usage_count
+    FROM public.patient_result pr
+    JOIN public.result_value rv ON pr.id = rv.patient_result_id
+    JOIN public.test_parameter tp ON rv.test_parameter_id = tp.id
+    JOIN public.test_type tt ON tp.test_type_id = tt.id
+    WHERE pr.created_at >= v_start_time AND pr.created_at <= v_end_time
+    GROUP BY tt.id, tt.name
+    ORDER BY usage_count DESC
+    LIMIT top_n;
+END; $$ LANGUAGE plpgsql;
+
+
+-- ================================================================================================
+-- RISTOURNE (REFERRAL FEES) GENERATED
+-- This assumes ristourne.total_fee is the value for a *processed* ristourne.
+-- We'll sum total_fee of ristournes created in the period.
+-- ================================================================================================
+CREATE OR REPLACE FUNCTION get_daily_ristourne_generated(target_date DATE)
+RETURNS TABLE (total_ristourne_fee NUMERIC) AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_day_bounds(target_date);
+    RETURN QUERY SELECT COALESCE(SUM(total_fee), 0) FROM public.ristourne
+    WHERE created_at >= v_start_time AND created_at <= v_end_time;
+    -- AND status = 'paid' -- Optional: if you only want to count paid ristournes
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_monthly_ristourne_generated(year_num INT, month_num INT)
+RETURNS TABLE (total_ristourne_fee NUMERIC) AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_month_bounds(year_num, month_num);
+    RETURN QUERY SELECT COALESCE(SUM(total_fee), 0) FROM public.ristourne
+    WHERE created_at >= v_start_time AND created_at <= v_end_time;
+END; $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_yearly_ristourne_generated(year_num INT)
+RETURNS TABLE (total_ristourne_fee NUMERIC) AS $$
+DECLARE v_start_time timestamptz; v_end_time timestamptz;
+BEGIN
+    SELECT start_time, end_time INTO v_start_time, v_end_time FROM get_year_bounds(year_num);
+    RETURN QUERY SELECT COALESCE(SUM(total_fee), 0) FROM public.ristourne
+    WHERE created_at >= v_start_time AND created_at <= v_end_time;
+END; $$ LANGUAGE plpgsql;
+
+
+
+-- ================================================================================================
+-- INCOME VS. EXPENSES (Based on income_expense_records.record_date)
+-- ================================================================================================
+-- We need a return type for this
+CREATE TYPE income_expense_summary_stat AS (
+    total_period_income NUMERIC,
+    total_period_expenses NUMERIC,
+    net_period_profit NUMERIC
+);
+
+-- Function for Daily Income/Expense Summary
+CREATE OR REPLACE FUNCTION get_daily_income_expense_summary(target_date DATE)
+RETURNS SETOF income_expense_summary_stat AS $$
+DECLARE
+    v_start_date DATE := target_date;
+    v_end_date DATE := target_date; -- For daily, start and end are the same for record_date
+BEGIN
+    RETURN QUERY
+    WITH period_records AS (
+        SELECT id FROM public.income_expense_records
+        WHERE record_date >= v_start_date AND record_date <= v_end_date
+    ),
+    period_incomes AS (
+        SELECT
+            COALESCE(SUM(
+                CASE
+                    WHEN i.patient_result_id IS NOT NULL THEN COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)
+                    ELSE COALESCE(i.manual_income_amount, 0)
+                END
+            ), 0) AS total_income
+        FROM public.incomes i
+        LEFT JOIN public.patient_result pr ON i.patient_result_id = pr.id
+        WHERE i.income_expense_record_id IN (SELECT id FROM period_records)
+    ),
+    period_expenses AS (
+        SELECT
+            COALESCE(SUM(e.price), 0) AS total_expenses
+        FROM public.expenses e
+        WHERE e.income_expense_record_id IN (SELECT id FROM period_records)
+    )
+    SELECT
+        pi.total_income AS total_period_income,
+        pe.total_expenses AS total_period_expenses,
+        (pi.total_income - pe.total_expenses) AS net_period_profit
+    FROM period_incomes pi, period_expenses pe;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for Monthly Income/Expense Summary
+CREATE OR REPLACE FUNCTION get_monthly_income_expense_summary(year_num INT, month_num INT)
+RETURNS SETOF income_expense_summary_stat AS $$
+DECLARE
+    v_start_date DATE := MAKE_DATE(year_num, month_num, 1);
+    v_end_date DATE := (DATE_TRUNC('month', v_start_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
+BEGIN
+    RETURN QUERY
+    WITH period_records AS (
+        SELECT id FROM public.income_expense_records
+        WHERE record_date >= v_start_date AND record_date <= v_end_date
+    ),
+    period_incomes AS (
+        SELECT
+            COALESCE(SUM(
+                CASE
+                    WHEN i.patient_result_id IS NOT NULL THEN COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)
+                    ELSE COALESCE(i.manual_income_amount, 0)
+                END
+            ), 0) AS total_income
+        FROM public.incomes i
+        LEFT JOIN public.patient_result pr ON i.patient_result_id = pr.id
+        WHERE i.income_expense_record_id IN (SELECT id FROM period_records)
+    ),
+    period_expenses AS (
+        SELECT
+            COALESCE(SUM(e.price), 0) AS total_expenses
+        FROM public.expenses e
+        WHERE e.income_expense_record_id IN (SELECT id FROM period_records)
+    )
+    SELECT
+        pi.total_income AS total_period_income,
+        pe.total_expenses AS total_period_expenses,
+        (pi.total_income - pe.total_expenses) AS net_period_profit
+    FROM period_incomes pi, period_expenses pe;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for Yearly Income/Expense Summary
+CREATE OR REPLACE FUNCTION get_yearly_income_expense_summary(year_num INT)
+RETURNS SETOF income_expense_summary_stat AS $$
+DECLARE
+    v_start_date DATE := MAKE_DATE(year_num, 1, 1);
+    v_end_date DATE := MAKE_DATE(year_num, 12, 31);
+BEGIN
+    RETURN QUERY
+    WITH period_records AS (
+        SELECT id FROM public.income_expense_records
+        WHERE record_date >= v_start_date AND record_date <= v_end_date
+    ),
+    period_incomes AS (
+        SELECT
+            COALESCE(SUM(
+                CASE
+                    WHEN i.patient_result_id IS NOT NULL THEN COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)
+                    ELSE COALESCE(i.manual_income_amount, 0)
+                END
+            ), 0) AS total_income
+        FROM public.incomes i
+        LEFT JOIN public.patient_result pr ON i.patient_result_id = pr.id
+        WHERE i.income_expense_record_id IN (SELECT id FROM period_records)
+    ),
+    period_expenses AS (
+        SELECT
+            COALESCE(SUM(e.price), 0) AS total_expenses
+        FROM public.expenses e
+        WHERE e.income_expense_record_id IN (SELECT id FROM period_records)
+    )
+    SELECT
+        pi.total_income AS total_period_income,
+        pe.total_expenses AS total_period_expenses,
+        (pi.total_income - pe.total_expenses) AS net_period_profit
+    FROM period_incomes pi, period_expenses pe;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+
+
+
+
+
+
+
+-- ===============================================================================================
+-- antibiotique
+-- --------------------------------------------------
+-- Table: antibiotique_model
+-- (As defined in the previous message - includes 'antibiotiques' JSONB with default s, i, r states)
+-- --------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.antibiotique_model (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text UNIQUE NOT NULL,
+    description text NULL,
+    antibiotiques jsonb DEFAULT '[]'::jsonb NOT NULL, -- [{"id":"u1","name":"DrugA","order":0,"s":true,"i":false,"r":false}, ...]
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+-- ... (triggers and RLS as before) ...
+DROP TRIGGER IF EXISTS set_timestamp_antibiotique_model ON public.antibiotique_model;
+CREATE TRIGGER set_timestamp_antibiotique_model
+BEFORE UPDATE ON public.antibiotique_model
+FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+ALTER TABLE public.antibiotique_model ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.antibiotique_model;
+CREATE POLICY "Allow all access for authenticated users" ON public.antibiotique_model
+FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+
+
+-- --------------------------------------------------
+-- Table: patient_antibiogram_set
+-- Each row represents results from ONE antibiotique_model applied to ONE patient_result.
+-- --------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.patient_antibiogram_set (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_result_id uuid NOT NULL REFERENCES public.patient_result(id) ON DELETE CASCADE,
+    source_antibiotique_model_id uuid NOT NULL REFERENCES public.antibiotique_model(id) ON DELETE RESTRICT,
+    -- results_json will store:
+    -- [{"id":"u1","name":"DrugA","order":0,"s":true,"i":false,"r":false}, {"id":"u2","name":"DrugB","order":1,"s":false,"i":false,"r":true}, ...]
+    -- where s, i, r are the PATIENT'S ACTUAL results for that drug from that model set.
+    results_json jsonb DEFAULT '[]'::jsonb NOT NULL,
+    notes text NULL, -- Overall notes for this specific set of antibiogram results
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    -- This UNIQUE constraint ensures a patient_result can only have results from a specific model applied ONCE.
+    -- If you re-apply the same model, you'd update the existing record.
+    UNIQUE (patient_result_id, source_antibiotique_model_id)
+);
+-- ... (comments, indexes, triggers, RLS as before) ...
+COMMENT ON TABLE public.patient_antibiogram_set IS 'Stores a complete set of antibiotic S/I/R results for a patient_result FOR A SPECIFIC MODEL, as a JSONB array, templated from an antibiotique_model.';
+DROP INDEX IF EXISTS idx_patient_antibiogram_set_pr_id;
+DROP INDEX IF EXISTS idx_patient_antibiogram_set_model_id;
+CREATE INDEX idx_patient_antibiogram_set_pr_id ON public.patient_antibiogram_set(patient_result_id);
+CREATE INDEX idx_patient_antibiogram_set_model_id ON public.patient_antibiogram_set(source_antibiotique_model_id);
+DROP TRIGGER IF EXISTS set_timestamp_patient_antibiogram_set ON public.patient_antibiogram_set;
+CREATE TRIGGER set_timestamp_patient_antibiogram_set
+BEFORE UPDATE ON public.patient_antibiogram_set
+FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+ALTER TABLE public.patient_antibiogram_set ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.patient_antibiogram_set;
+CREATE POLICY "Allow all access for authenticated users" ON public.patient_antibiogram_set
+FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+
+
+-- The patient_result.selected_antibiotique_model_id column becomes less important
+-- if you always manage selections through patient_antibiogram_set.
+-- You might keep it as a "primary" or "first selected" model for quick display,
+-- or remove it if the UI will always present a list of applied models.
+-- For now, I'll leave it as it doesn't hurt, but its role diminishes.
+ALTER TABLE public.patient_result
+ADD COLUMN IF NOT EXISTS selected_antibiotique_model_id uuid NULL REFERENCES public.antibiotique_model(id) ON DELETE SET NULL;
+
+
+-- First, DROP the existing view if it exists, to replace it
+DROP VIEW IF EXISTS public.income_expense_record_summary;
+
+-- Then, CREATE OR REPLACE the new version of the view
+CREATE OR REPLACE VIEW public.income_expense_record_summary AS
+SELECT
+    ier.id,
+    ier.agent_id,
+    a.name AS agent_name,
+    a.code AS agent_code,
+    ier.record_date,
+    ier.notes,
+    ier.created_at,
+    ier.updated_at,
+    COALESCE(
+        (SELECT SUM(
+            -- Income is normal_price + insurance_price
+            (COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)) - coalesce(pr.unpaid_amount)
+         )
+         FROM public.incomes inc
+         JOIN public.patient_result pr ON inc.patient_result_id = pr.id
+         WHERE inc.income_expense_record_id = ier.id),
+        0
+    ) AS total_income,
+    COALESCE(
+        (SELECT SUM(exp.price)
+         FROM public.expenses exp
+         WHERE exp.income_expense_record_id = ier.id),
+        0
+    ) AS total_expense,
+    -- Calculate Net Income (Remaining Income)
+    (
+        COALESCE(
+            (SELECT SUM( (COALESCE(pr.normal_price, 0) + COALESCE(pr.insurance_price, 0)) - coalesce(pr.unpaid_amount) )
+             FROM public.incomes inc
+             JOIN public.patient_result pr ON inc.patient_result_id = pr.id
+             WHERE inc.income_expense_record_id = ier.id),
+            0
+        )
+        -
+        COALESCE(
+            (SELECT SUM(exp.price)
+             FROM public.expenses exp
+             WHERE exp.income_expense_record_id = ier.id),
+            0
+        )
+    ) AS net_income -- Or remaining_income
+FROM
+    public.income_expense_records ier
+JOIN
+    public.agents a ON ier.agent_id = a.id;
+
+-- Ensure the role querying the view has SELECT permission
+GRANT SELECT ON public.income_expense_record_summary TO authenticated;
+-- (And on underlying tables, though if RLS is disabled on them, this might already be covered)
+
+-- Set the owner (optional, but good practice)
+ALTER VIEW public.income_expense_record_summary OWNER TO postgres;
+
+
+ALTER TABLE public.patient_antibiogram_set
+ADD COLUMN IF NOT EXISTS description text NULL;
+
+COMMENT ON COLUMN public.patient_antibiogram_set.description IS 'Instance-specific description for this antibiogram set, initially copied from the source model but can be overridden.';
+
+
+
+-- hemoculture
+-- --------------------------------------------------
+-- Table: hemoculture_observation_model
+-- Description: Defines a named template for Hémoculture observation/culture fields.
+-- --------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.hemoculture_observation_model (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text UNIQUE NOT NULL,
+    description text NULL,
+    -- JSONB array defining fields: [{"id":"uuid","label":"Aspect du Bouillon","type":"textarea","order":0, "defaultValue":""}, ...]
+    fields_json jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+COMMENT ON TABLE public.hemoculture_observation_model IS 'Templates for Hémoculture observation/culture structured text fields.';
+COMMENT ON COLUMN public.hemoculture_observation_model.fields_json IS 'Defines the fields: [{"id":"uuid", "label":"Field Name", "type":"textarea", "order":0, "defaultValue":""}, ...]';
+
+-- Trigger & RLS
+DROP TRIGGER IF EXISTS set_timestamp_hemoculture_observation_model ON public.hemoculture_observation_model;
+CREATE TRIGGER set_timestamp_hemoculture_observation_model
+BEFORE UPDATE ON public.hemoculture_observation_model
+FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+ALTER TABLE public.hemoculture_observation_model ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.hemoculture_observation_model;
+CREATE POLICY "Allow all access for authenticated users" ON public.hemoculture_observation_model
+FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+
+
+-- --------------------------------------------------
+-- Table: patient_hemoculture_observation
+-- Description: Stores the actual observation/culture text values for a patient_result,
+--              based on a selected hemoculture_observation_model.
+-- --------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.patient_hemoculture_observation (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), -- This is the ID of this specific observation set
+    patient_result_id uuid NOT NULL REFERENCES public.patient_result(id) ON DELETE CASCADE,
+    source_model_id uuid NOT NULL REFERENCES public.hemoculture_observation_model(id) ON DELETE RESTRICT,
+    -- JSONB array storing values: [{"field_id":"uuid_from_model","label":"Aspect...","value":"Trouble","order":0}, ...]
+    results_json jsonb DEFAULT '[]'::jsonb NOT NULL,
+    overall_notes text NULL, -- General notes for this observation set
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    UNIQUE (patient_result_id) -- Typically, one set of Hémoculture observations per patient_result. Adjust if multiple are possible.
+);
+
+COMMENT ON TABLE public.patient_hemoculture_observation IS 'Stores structured text results for Hémoculture observation/culture part.';
+COMMENT ON COLUMN public.patient_hemoculture_observation.source_model_id IS 'The hemoculture_observation_model used as a template.';
+COMMENT ON COLUMN public.patient_hemoculture_observation.results_json IS 'Actual values for the fields defined in the source model.';
+
+-- Indexes
+DROP INDEX IF EXISTS idx_patient_hemoculture_observation_pr_id;
+DROP INDEX IF EXISTS idx_patient_hemoculture_observation_model_id;
+CREATE INDEX idx_patient_hemoculture_observation_pr_id ON public.patient_hemoculture_observation(patient_result_id);
+CREATE INDEX idx_patient_hemoculture_observation_model_id ON public.patient_hemoculture_observation(source_model_id);
+
+-- Trigger & RLS
+DROP TRIGGER IF EXISTS set_timestamp_patient_hemoculture_observation ON public.patient_hemoculture_observation;
+CREATE TRIGGER set_timestamp_patient_hemoculture_observation
+BEFORE UPDATE ON public.patient_hemoculture_observation
+FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+ALTER TABLE public.patient_hemoculture_observation ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.patient_hemoculture_observation;
+CREATE POLICY "Allow all access for authenticated users" ON public.patient_hemoculture_observation
+FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');

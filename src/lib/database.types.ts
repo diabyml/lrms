@@ -442,6 +442,147 @@ export type Database = {
         }
         Relationships: []
       }
+      hemoculture_observation_model: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          fields_json: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          fields_json?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          fields_json?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      patient_hemoculture_observation: {
+        Row: {
+          id: string
+          patient_result_id: string
+          source_model_id: string
+          results_json: Json
+          overall_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          patient_result_id: string
+          source_model_id: string
+          results_json?: Json
+          overall_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          patient_result_id?: string
+          source_model_id?: string
+          results_json?: Json
+          overall_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_hemoculture_observation_patient_result_id_fkey"
+            columns: ["patient_result_id"]
+            isOneToOne: false
+            referencedRelation: "patient_result"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hemoculture_observation_source_model_id_fkey"
+            columns: ["source_model_id"]
+            isOneToOne: false
+            referencedRelation: "hemoculture_observation_model"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      antibiotique_model: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      patient_antibiogram_set: {
+        Row: {
+          id: string
+          patient_result_id: string
+          source_antibiotique_model_id: string
+          results_json: Json
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          patient_result_id: string
+          source_antibiotique_model_id: string
+          results_json?: Json
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          patient_result_id?: string
+          source_antibiotique_model_id?: string
+          results_json?: Json
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_antibiogram_set_patient_result_id_fkey"
+            columns: ["patient_result_id"]
+            isOneToOne: false
+            referencedRelation: "patient_result"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_antibiogram_set_source_antibiotique_model_id_fkey"
+            columns: ["source_antibiotique_model_id"]
+            isOneToOne: false
+            referencedRelation: "antibiotique_model"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

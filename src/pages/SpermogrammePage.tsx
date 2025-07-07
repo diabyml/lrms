@@ -4,7 +4,7 @@
 
 import "./Spermogramme.css";
 
-import { cn } from "@/lib/utils"; // Adjust path if needed
+import { cn, extractId } from "@/lib/utils"; // Adjust path if needed
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
@@ -482,7 +482,7 @@ const PlaceholderPage: React.FC = () => {
               {renderInfoItem(
                 Info,
                 "IDENTIFIANT Unique",
-                patientData?.patient_unique_id
+                extractId(patientData?.patient_unique_id as string)
               )}
               {renderInfoItem(
                 CalendarDays,
@@ -540,100 +540,7 @@ const PlaceholderPage: React.FC = () => {
                   : null
               )}
               {/* --- Price Fields (Screen Only, Not Print) --- */}
-              <div className="flex flex-col gap-2 mt-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="normal_price" className="text-xs font-medium">
-                    Prix Normal
-                  </Label>
-                  {editingPrices ? (
-                    <input
-                      id="normal_price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="border rounded px-2 py-1 text-xs w-28"
-                      value={normalPrice}
-                      onChange={(e) => setNormalPrice(e.target.value)}
-                      disabled={savingPrices}
-                    />
-                  ) : (
-                    <input
-                      id="normal_price"
-                      type="text"
-                      className="border-none bg-transparent text-xs w-28"
-                      value={normalPrice}
-                      disabled
-                      readOnly
-                    />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label
-                    htmlFor="insurance_price"
-                    className="text-xs font-medium"
-                  >
-                    Prix Assurance
-                  </Label>
-                  {editingPrices ? (
-                    <input
-                      id="insurance_price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="border rounded px-2 py-1 text-xs w-28"
-                      value={insurancePrice}
-                      onChange={(e) => setInsurancePrice(e.target.value)}
-                      disabled={savingPrices}
-                    />
-                  ) : (
-                    <input
-                      id="insurance_price"
-                      type="text"
-                      className="border-none bg-transparent text-xs w-28"
-                      value={insurancePrice}
-                      disabled
-                      readOnly
-                    />
-                  )}
-                </div>
-                {/* Action Buttons */}
-                <div className="flex gap-2 mt-1">
-                  {editingPrices ? (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        onClick={savePrices}
-                        disabled={savingPrices}
-                      >
-                        {savingPrices ? (
-                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        ) : null}
-                        Sauvegarder
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() => setEditingPrices(false)}
-                        disabled={savingPrices}
-                      >
-                        Annuler
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => setEditingPrices(true)}
-                    >
-                      Modifier Prix
-                    </Button>
-                  )}
-                </div>
-                {pricesError && (
-                  <p className="text-xs text-destructive mt-1">{pricesError}</p>
-                )}
-              </div>
+
               {/* --- End Price Fields --- */}
               {/* Status Display */}
               <div className="flex items-start space-x-3">

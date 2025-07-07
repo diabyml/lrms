@@ -4,6 +4,9 @@ import { NavLink, Outlet } from "react-router-dom"; // Use NavLink for active st
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 
+import { useState } from "react";
+import { CreateDoctorDialog } from "@/components/app/doctors/CreateDoctorDialog"; // Adjust path
+
 // Import shadcn/ui components and icons
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,8 @@ import {
   Stethoscope, // App Logo Icon
   Users,
   Banknote,
+  Wallet,
+  BarChart,
 } from "lucide-react";
 
 import { Settings, FileText } from "lucide-react"; // Example icons
@@ -49,10 +54,26 @@ const MainLayout: React.FC = () => {
   // Define navigation items
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
+
+    // results prices
+    {
+      to: "/results-prices",
+      label: "Bilans - Prix -  Restants ",
+      icon: Layers,
+    },
+
+    { to: "/ristournes", label: "Ristournes", icon: Banknote }, // Add ristourne management
+
+    // expense tracking
+    { to: "/gestion-depenses", label: "Suivi des dépenses", icon: Wallet },
+
     { to: "/doctors", label: "Médecins", icon: Stethoscope }, // Doctors in French
+
+    { to: "/stats", label: "Statistiques", icon: BarChart },
+
     { to: "/test-types", label: "Types de Tests", icon: ClipboardList }, // Test Types in French
     { to: "/categories", label: "Catégories", icon: Layers }, // Add this item
-    { to: "/ristournes", label: "Ristournes", icon: Banknote }, // Add ristourne management
+
     {
       to: "/settings/print-header",
       label: "En-tête Impression",
@@ -69,6 +90,19 @@ const MainLayout: React.FC = () => {
       label: "Modèles ECB",
       icon: Layers,
     },
+
+    {
+      to: "/hemoculture-models",
+      label: "Modèles Hémoculture",
+      icon: Layers,
+    },
+
+    {
+      to: "/antibiotique-models",
+      label: "Modèles Antibiotiques",
+      icon: Layers,
+    },
+
     {
       to: "/atbs",
       label: "Gestion ATBs",
@@ -108,6 +142,18 @@ const MainLayout: React.FC = () => {
     </nav>
   );
 
+  const [isCreateDoctorDialogOpen, setIsCreateDoctorDialogOpen] =
+    useState(false);
+
+  const handleDoctorCreated = () => {
+    console.log("Doctor created successfully!");
+    // Option 1: Reload the window as requested
+    window.location.reload();
+
+    // Option 2: Or, if you have a local state for doctors, re-fetch them
+    // fetchDoctorsList();
+  };
+
   return (
     <div className="flex h-screen w-full bg-muted/40">
       {/* Sidebar (Desktop) - Hidden on smaller screens */}
@@ -143,7 +189,16 @@ const MainLayout: React.FC = () => {
           </div>
 
           {/* Placeholder for potential breadcrumbs or search bar */}
-          <div className="flex-1"></div>
+          <div className="flex-1 justify-between">
+            <div></div>
+            <Button
+              onClick={() => setIsCreateDoctorDialogOpen(true)}
+              className="ml-auto"
+              variant={"default"}
+            >
+              Ajouter un Médecin
+            </Button>
+          </div>
 
           {/* User Menu */}
           <DropdownMenu>
@@ -195,6 +250,12 @@ const MainLayout: React.FC = () => {
           </main>
         </TooltipProvider>
       </div>
+
+      <CreateDoctorDialog
+        open={isCreateDoctorDialogOpen}
+        onOpenChange={setIsCreateDoctorDialogOpen}
+        onDoctorCreated={handleDoctorCreated}
+      />
     </div>
   );
 };
