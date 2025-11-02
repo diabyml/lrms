@@ -16,6 +16,7 @@ import DoctorListPage from "./pages/DoctorListPage";
 // import TestTypeCreateEditPage from './pages/TestTypeCreateEditPage'; // Add later
 // import ResultDetailPage from './pages/ResultDetailPage'; // Add later
 import NotFoundPage from "./pages/NotFoundPage";
+import PatientRistourneSearch from "./pages/PatientRistourneSearch";
 import PatientFormPage from "./pages/PatientFormPage";
 import ResultDetailPage from "./pages/ResultDetailPage";
 import ResultFormPage from "./pages/ResultFormPage";
@@ -115,6 +116,12 @@ function App() {
               path="/ristournes/:ristourneId"
               element={<RistourneFormPage />}
             />
+            {/* patient ristourne search */}
+            <Route
+              path="/patient-ristourne-search"
+              element={<PatientRistourneSearch />}
+            />
+            {/* print header design */}
             <Route
               path="/settings/print-header"
               element={<PrintHeaderDesignPage />}

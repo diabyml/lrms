@@ -55,6 +55,13 @@ const MainLayout: React.FC = () => {
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
 
+    // PatientRistourneSearch
+    {
+      to: "/patient-ristourne-search",
+      label: "Recherche Ristournes",
+      icon: Banknote,
+    },
+
     // results prices
     {
       to: "/results-prices",
@@ -158,7 +165,7 @@ const MainLayout: React.FC = () => {
     <div className="flex h-screen w-full bg-muted/40">
       {/* Sidebar (Desktop) - Hidden on smaller screens */}
       <aside className="hidden sm:flex flex-col w-64 border-r bg-background">
-        <div className="flex items-center gap-2 h-16 border-b px-6">
+        <div className="flex items-center gap-2 h-16 border-b p-6">
           <FlaskConical className="h-6 w-6 text-primary" />
           <span className="font-semibold tracking-tight">LRMS</span>
         </div>
