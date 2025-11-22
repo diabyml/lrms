@@ -1921,6 +1921,9 @@ const ResultDetailPage: React.FC = () => {
               <Button onClick={() => navigate(`/vhb/${resultId}`)}>VHB</Button>
             </div>
             <div className="flex items-center space-x-2">
+              <Button onClick={() => navigate(`/vhc/${resultId}`)}>VHC</Button>
+            </div>
+            <div className="flex items-center space-x-2">
               <Button onClick={() => navigate(`/vih/${resultId}`)}>VIH</Button>
             </div>
             <div className="flex items-center space-x-2">

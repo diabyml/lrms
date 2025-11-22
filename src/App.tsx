@@ -34,6 +34,7 @@ import ATBManagementPage from "./pages/ATBManagementPage";
 import ECBPage from "./pages/ECBPage";
 import ECBModelManagementPage from "./pages/ECBModelManagementPage";
 import VHBPage from "./pages/VHBPage";
+import VHCPage from "./pages/VHCPage";
 import VIHPage from "./pages/VIHPage";
 import AnapathPage from "./pages/AnapathPage";
 import SpermogrammePage from "./pages/SpermogrammePage";
@@ -139,6 +140,7 @@ function App() {
             <Route path="/ecb/:resultId" element={<ECBPage />} />
             <Route path="/ecb-models" element={<ECBModelManagementPage />} />
             <Route path="/vhb/:resultId" element={<VHBPage />} />
+            <Route path="/vhc/:resultId" element={<VHCPage />} />
             <Route path="/vih/:resultId" element={<VIHPage />} />
             <Route path="/anapath/:resultId" element={<AnapathPage />} />
             <Route

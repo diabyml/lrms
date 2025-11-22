@@ -1704,6 +1704,17 @@ CREATE TABLE IF NOT EXISTS "public"."vhb" (
 
 ALTER TABLE "public"."vhb" OWNER TO "postgres";
 
+CREATE TABLE IF NOT EXISTS "public"."vhc" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "result_id" "uuid" NOT NULL,
+    "value" "text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."vhc" OWNER TO "postgres";
+
 
 CREATE TABLE IF NOT EXISTS "public"."vih" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
