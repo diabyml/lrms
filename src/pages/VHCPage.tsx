@@ -721,6 +721,15 @@ const PlaceholderPage: React.FC = () => {
         </div>
         {/* print info grid for print only*/}
         <div className="grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6  print:grid-cols-2 hidden print:grid ">
+          {/* Doctor Info */}
+          <div className="flex flex-col gap-1 rounded-lg border border-slate-600  bg-white/90 p-3 print:border print:shadow-lg print:bg-white print:rounded-md print:p-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <Stethoscope className="h-4 w-4" /> Médecin
+            </div>
+            {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
+            {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
+            {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
+          </div>
           {/* Patient Info */}
           <div className="flex flex-col gap-1 rounded-lg border border-slate-600 print:shadow-lg bg-white/90 p-3 print:border  print:bg-white print:rounded-md print:p-2 text-xs">
             <div className="flex items-center gap-2 font-semibold mb-1">
@@ -747,16 +756,6 @@ const PlaceholderPage: React.FC = () => {
                   : null
               )}
             </div> */}
-          </div>
-
-          {/* Doctor Info */}
-          <div className="flex flex-col gap-1 rounded-lg border border-slate-600  bg-white/90 p-3 print:border print:shadow-lg print:bg-white print:rounded-md print:p-2 text-xs">
-            <div className="flex items-center gap-2 font-semibold mb-1">
-              <Stethoscope className="h-4 w-4" /> Médecin
-            </div>
-            {renderInfoItem(User, "NOM PRENOM", doctorData?.full_name)}
-            {renderInfoItem(Phone, "Téléphone", doctorData?.phone)}
-            {renderInfoItem(Info, "Hôpital", doctorData?.hospital)}
           </div>
         </div>
 
