@@ -745,7 +745,7 @@ const PlaceholderPage: React.FC = () => {
             {renderInfoItem(
               Phone,
               "Téléphone",
-              extractId(patientData?.patient_unique_id as string)
+              patientData?.phone
             )}
             {/* <div className="hidden print:block">
               {renderInfoItem(
