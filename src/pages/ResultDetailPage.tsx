@@ -507,6 +507,8 @@ const ResultDetailPage: React.FC = () => {
       if (!result) throw new Error("Résultat non trouvé.");
       setResultData(result);
 
+      // console.log('Result Data: ',result)
+
       // 2. Fetch related Patient and Doctor data concurrently
       const [patientRes, doctorRes, headerRes] = await Promise.all([
         supabase
@@ -554,6 +556,8 @@ const ResultDetailPage: React.FC = () => {
         .eq("patient_result_id", resultId);
 
       if (valuesError) throw valuesError;
+
+      // console.log('RESULT VALUES=============== ',valuesData)
 
       // 4. Process and group the fetched values by CATEGORY, then by Test Type
       const categoryMap = new Map<string, GroupedCategoryResult>();
@@ -1375,6 +1379,14 @@ const ResultDetailPage: React.FC = () => {
         </div>
 
         {/* --- Category Reorder Buttons (UPDATED with DND) --- */}
+        <div className="p-6 flex items-center justify-center print:hidden">
+          <p className="text-3xl font-bold">Nombre total d'examens : {' '}
+            {groupedResults.reduce(
+  (sum, item) => sum + item.testTypes.length,
+  0
+)}
+          </p>
+        </div>
         {groupedResults.length > 1 && (
           <div className="my-6 print:hidden">
             <Label className="text-sm font-medium text-muted-foreground mb-2 block">

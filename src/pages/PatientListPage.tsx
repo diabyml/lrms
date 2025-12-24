@@ -92,6 +92,8 @@ const PatientListPage: React.FC = () => {
         query = query.or(
           `full_name.ilike.${searchPattern},patient_unique_id.ilike.${searchPattern}`
         );
+
+  
       }
 
       // Apply doctor filter if selected (indirectly via patient_result)
