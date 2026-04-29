@@ -60,11 +60,11 @@ interface Ristourne {
 type RistourneStatus = "pending" | "approved" | "paid";
 
 const statusColors: Record<RistourneStatus, "default" | "warning" | "success"> =
-  {
-    pending: "default",
-    approved: "warning",
-    paid: "success",
-  };
+{
+  pending: "default",
+  approved: "warning",
+  paid: "success",
+};
 
 const statusLabels: Record<RistourneStatus, string> = {
   pending: "En attente",
@@ -509,7 +509,10 @@ const RistourneListPage: React.FC = () => {
                               <span className="sm:hidden">Éditer</span>
                             </Button>
                           </Link>
-                          <Button
+                          {
+                            /*
+                            
+                            <Button
                             variant="destructive"
                             size="sm"
                             className="ml-2"
@@ -520,6 +523,10 @@ const RistourneListPage: React.FC = () => {
                             <span className="hidden sm:inline">Supprimer</span>
                             <span className="sm:hidden">Del</span>
                           </Button>
+                            
+                            
+                            */
+                          }
                         </TableCell>
                       </TableRow>
                     ))

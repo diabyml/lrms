@@ -102,7 +102,7 @@ const RistourneFormPage: React.FC = () => {
   );
   const [notes, setNotes] = useState<string>("");
   const [totalFee, setTotalFee] = useState<number>(0);
-  const [status, setStatus] = useState<string>("pending");
+  const [status, setStatus] = useState<string>("paid");
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -114,8 +114,8 @@ const RistourneFormPage: React.FC = () => {
 
   // --- Status Options ---
   const statusOptions = [
-    { value: "pending", label: "En attente" },
     { value: "paid", label: "Payé" },
+    // { value: "pending", label: "En attente" },
     // { value: "cancelled", label: "Annulé" }
   ];
 
@@ -297,7 +297,7 @@ const RistourneFormPage: React.FC = () => {
       console.error("Error saving fee config:", err);
       setError(
         err.message ||
-          "Une erreur est survenue lors de la sauvegarde de la configuration"
+        "Une erreur est survenue lors de la sauvegarde de la configuration"
       );
     } finally {
       setSavingFeeConfig(false);
@@ -498,9 +498,8 @@ const RistourneFormPage: React.FC = () => {
       // Navigate back to list with success message
       navigate("/ristournes", {
         state: {
-          message: `Ristourne ${
-            isEditMode ? "modifiée" : "créée"
-          } avec succès.`,
+          message: `Ristourne ${isEditMode ? "modifiée" : "créée"
+            } avec succès.`,
         },
       });
     } catch (err: any) {
@@ -840,9 +839,9 @@ const RistourneFormPage: React.FC = () => {
                           <TableCell>
                             {result.result_date
                               ? format(
-                                  new Date(result.result_date),
-                                  "dd/MM/yyyy"
-                                )
+                                new Date(result.result_date),
+                                "dd/MM/yyyy"
+                              )
                               : ""}
                           </TableCell>
                           <TableCell>
@@ -854,22 +853,22 @@ const RistourneFormPage: React.FC = () => {
 
                           <TableCell
                             className="print:hidden cursor-pointer"
-                            // onClick={() =>
-                            //   handleEdit({
-                            //     id: result.id,
-                            //     patient_id: result.patient_id,
-                            //     doctor_id: result.doctor_id,
-                            //     result_date: result.result_date,
-                            //     normal_price: result.normal_price,
-                            //     insurance_price: result.insurance_price,
-                            //     unpaid_amount: result.unpaid_amount,
-                            //     calculatedFee: result.calculatedFee,
-                            //     status: result.status,
-                            //     paid_status: result.paid_status,
-                            //     created_at: result.created_at,
-                            //     updated_at: result.updated_at,
-                            //   })
-                            // }
+                          // onClick={() =>
+                          //   handleEdit({
+                          //     id: result.id,
+                          //     patient_id: result.patient_id,
+                          //     doctor_id: result.doctor_id,
+                          //     result_date: result.result_date,
+                          //     normal_price: result.normal_price,
+                          //     insurance_price: result.insurance_price,
+                          //     unpaid_amount: result.unpaid_amount,
+                          //     calculatedFee: result.calculatedFee,
+                          //     status: result.status,
+                          //     paid_status: result.paid_status,
+                          //     created_at: result.created_at,
+                          //     updated_at: result.updated_at,
+                          //   })
+                          // }
                           >
                             {result.unpaid_amount ? (
                               <span className="text-red-600">

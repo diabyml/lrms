@@ -133,14 +133,13 @@ const MainLayout: React.FC = () => {
           to={item.to}
           // Use a function to conditionally apply classes based on `isActive`
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-primary text-primary-foreground" // Active state style
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground" // Inactive state style
+            `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive
+              ? "bg-primary text-primary-foreground" // Active state style
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground" // Inactive state style
             }`
           }
-          // Optionally end prop if you only want exact matches
-          // end
+        // Optionally end prop if you only want exact matches
+        // end
         >
           <item.icon className="h-5 w-5" />
           <span>{item.label}</span>
