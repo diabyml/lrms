@@ -470,6 +470,29 @@ const ResultFormPage: React.FC = () => {
     });
   };
 
+  const handleResultValueKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key !== "Enter" && event.key !== "Tab") return;
+
+    const inputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        'input[data-result-value-input="true"]:not(:disabled)'
+      )
+    ).filter((input) => input.offsetParent !== null);
+    const currentIndex = inputs.indexOf(event.currentTarget);
+    const direction = event.key === "Tab" && event.shiftKey ? -1 : 1;
+    const nextInput = inputs[currentIndex + direction];
+
+    if (nextInput) {
+      event.preventDefault();
+      nextInput.focus();
+      nextInput.select();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+    }
+  };
+
   // --- Handle Form Submission ---
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -1156,6 +1179,7 @@ const ResultFormPage: React.FC = () => {
                         <Input
                           id={`param-${param.id}`}
                           name={`param-${param.id}`}
+                          data-result-value-input="true"
                           value={param.resultValue || ""}
                           onChange={(e) =>
                             handleParameterChange(
@@ -1164,6 +1188,7 @@ const ResultFormPage: React.FC = () => {
                               e.target.value
                             )
                           }
+                          onKeyDown={handleResultValueKeyDown}
                           placeholder={`Valeur ${
                             param.reference_range
                               ? `(Réf: ${param.reference_range})`

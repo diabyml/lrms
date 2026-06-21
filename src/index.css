@@ -302,6 +302,17 @@ body {
       padding-top: 1rem !important;
       margin-top: 0 !important; /* Reset any default margin */
     }
+
+    .amo-bulk-report + .amo-bulk-report {
+      break-before: page !important;
+      page-break-before: always !important;
+    }
+
+    .amo-report-identity,
+    .amo-report-category > h2 {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
   }
 }
 

@@ -31,6 +31,7 @@ import {
   Banknote,
   Wallet,
   BarChart,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Settings, FileText } from "lucide-react"; // Example icons
@@ -67,6 +68,11 @@ const MainLayout: React.FC = () => {
       to: "/results-prices",
       label: "Bilans - Prix -  Restants ",
       icon: Layers,
+    },
+    {
+      to: "/bilan-amo",
+      label: "Bilan AMO",
+      icon: ShieldCheck,
     },
 
     { to: "/ristournes", label: "Ristournes", icon: Banknote }, // Add ristourne management
