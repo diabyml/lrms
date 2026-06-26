@@ -87,8 +87,8 @@ declare
   v_invoice_id uuid;
   v_test_type public.test_type%rowtype;
   v_param record;
-  v_param_id uuid;
   v_param_count integer;
+  v_pending_test_names text[] := array[]::text[];
   v_normal_total numeric(10,2) := 0;
   v_insurance_total numeric(10,2) := 0;
   v_subtotal numeric(10,2) := 0;
@@ -252,12 +252,7 @@ begin
     where test_type_id = v_test_type.id;
 
     if v_param_count = 0 then
-      insert into public.test_parameter (test_type_id, name, "order")
-      values (v_test_type.id, v_test_type.name, 0)
-      returning id into v_param_id;
-
-      insert into public.result_value (patient_result_id, test_parameter_id, value)
-      values (v_patient_result_id, v_param_id, '0');
+      v_pending_test_names := array_append(v_pending_test_names, v_test_type.name);
     else
       for v_param in
         select id
@@ -270,6 +265,12 @@ begin
       end loop;
     end if;
   end loop;
+
+  if array_length(v_pending_test_names, 1) is not null then
+    update public.patient_result
+    set description = 'NB: ' || array_to_string(v_pending_test_names, ', ') || ' en cours...'
+    where id = v_patient_result_id;
+  end if;
 
   return v_invoice_id;
 end;

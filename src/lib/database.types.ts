@@ -754,6 +754,34 @@ export type Database = {
         }
         Returns: string
       }
+      get_patient_detail: {
+        Args: {
+          p_patient_id: string
+        }
+        Returns: Json
+      }
+      get_patient_result_detail: {
+        Args: {
+          p_result_id: string
+        }
+        Returns: Json
+      }
+      get_result_form_bootstrap: {
+        Args: {
+          p_patient_id?: string | null
+          p_result_id?: string | null
+        }
+        Returns: Json
+      }
+      get_patients_page: {
+        Args: {
+          p_search?: string | null
+          p_doctor_id?: string | null
+          p_page?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
       save_patient_result_with_values: {
         Args: {
           p_result_id?: string | null

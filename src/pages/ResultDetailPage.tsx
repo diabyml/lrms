@@ -120,6 +120,20 @@ interface GroupedCategoryResult {
   category: Category;
   testTypes: GroupedTestType[];
 }
+type ResultDetailPayload = {
+  result: PatientResult;
+  patient: Patient | null;
+  doctor: Doctor | null;
+  headerConfig: PrintConfig | null;
+  columnWidths: {
+    param_width?: number | null;
+    value_width?: number | null;
+    unit_width?: number | null;
+    ref_width?: number | null;
+  } | null;
+  skipRangeCheck: { value: string; type: string }[];
+  groupedResults: GroupedCategoryResult[];
+};
 type ResultStatus = "attente" | "en cours" | "fini";
 // --- End Types ---
 
@@ -230,19 +244,6 @@ const ResultDetailPage: React.FC = () => {
     { value: string; type: string }[]
   >([]);
 
-  useEffect(() => {
-    // Fetch skip_range_check values from Supabase
-    const fetchSkipRangeCheck = async () => {
-      const { data, error } = await supabase
-        .from("skip_range_check")
-        .select("value, type");
-      if (!error && data) {
-        setSkipRangeCheckValues(data);
-      }
-    };
-    fetchSkipRangeCheck();
-  }, []);
-
   // Add state for margin top control
   const [marginTop, setMarginTop] = useState(5); // default to 20
 
@@ -252,26 +253,6 @@ const ResultDetailPage: React.FC = () => {
   const [unitWidth, setUnitWidth] = useState(10);
   const [refWidth, setRefWidth] = useState(35);
 
-  // Load column widths from Supabase on mount
-  useEffect(() => {
-    async function fetchColumnWidths() {
-      const { data, error } = await supabase
-        .from("result_column_widths")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .single();
-      if (data) {
-        setParamWidth(data.param_width);
-        setValueWidth(data.value_width);
-        setUnitWidth(data.unit_width);
-        setRefWidth(data.ref_width);
-      }
-      // If not found or error, keep defaults
-    }
-    fetchColumnWidths();
-  }, []);
-
   // --- Print Category Selection State ---
   const [categoriesToPrint, setCategoriesToPrint] = useState<string[]>([]);
   const [parametersToPrint, setParametersToPrint] = useState<string[]>([]);
@@ -280,48 +261,6 @@ const ResultDetailPage: React.FC = () => {
     []
   );
   const [categoriesRefToShow, setCategoriesRefToShow] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (groupedResults.length > 0) {
-      setCategoriesToPrint((prev) => {
-        if (prev.length === 0) {
-          return groupedResults.map((g) => g.category.id);
-        }
-        const currentSet = new Set(prev);
-        groupedResults.forEach((g) => currentSet.add(g.category.id));
-        return Array.from(currentSet);
-      });
-    }
-  }, [groupedResults]);
-
-  // changes this to handle categoriesUnitToShow and categoriesRefToShow
-  useEffect(() => {
-    if (groupedResults.length > 0) {
-      setCategoriesUnitToShow((prev) => {
-        if (prev.length === 0) {
-          return groupedResults.map((g) => g.category.id);
-        }
-        const currentSet = new Set(prev);
-        groupedResults.forEach((g) => currentSet.add(g.category.id));
-        return Array.from(currentSet);
-      });
-    }
-    console.log("categoriesUnitToShow:", categoriesUnitToShow);
-  }, [groupedResults]);
-
-  useEffect(() => {
-    if (groupedResults.length > 0) {
-      setCategoriesRefToShow((prev) => {
-        if (prev.length === 0) {
-          return groupedResults.map((g) => g.category.id);
-        }
-        const currentSet = new Set(prev);
-        groupedResults.forEach((g) => currentSet.add(g.category.id));
-        return Array.from(currentSet);
-      });
-    }
-    console.log("categoriesRefToShow:", categoriesRefToShow);
-  }, [groupedResults]);
 
   // handle for categoriesUnitToShow and categoriesRefToShow
   const handleCategoriesUnitToShowToggle = (categoryId: string) => {
@@ -354,62 +293,6 @@ const ResultDetailPage: React.FC = () => {
     });
   };
 
-  // useEffect for parameters to print when groupedResults changes : parameters are in groupedResults>testTypes>parameters
-  useEffect(() => {
-    if (groupedResults.length > 0) {
-      console.log("groupedResults:", groupedResults);
-      /*
-        here is how data is stored:
-        [
-    {
-        "category": {
-            "id": "fe8e35c5-5bec-43c5-9476-75781712634d",
-            "name": "SEROLOGIE-IMMUNOLOGIE",
-            "created_at": "",
-            "updated_at": ""
-        },
-        "testTypes": [
-            {
-                "testType": {
-                    "id": "d0f8bb0a-d70b-42a1-82fe-cc4baecddfa5",
-                    "name": "Ac ANTI DNA NATIF",
-                    "category": null,
-                    "created_at": "2025-04-01T17:43:56.866062+00:00",
-                    "updated_at": "2025-04-01T17:43:56.866062+00:00",
-                    "category_id": "fe8e35c5-5bec-43c5-9476-75781712634d",
-                    "description": null
-                },
-                "parameters": [
-                    {
-                        "id": "a2790671-1911-4880-b5e3-ea0a8cba2f94",
-                        "name": "Ac ANTI DNA NATIF",
-                        "unit": "-",
-                        "order": 0,
-                        "test_type": null,
-                        "created_at": "2025-04-01T17:43:57.32109+00:00",
-                        "updated_at": "2025-04-01T17:43:57.32109+00:00",
-                        "description": null,
-                        "test_type_id": "d0f8bb0a-d70b-42a1-82fe-cc4baecddfa5",
-                        "reference_range": "NEGATIF: < 3; DOUTEUX: 30 - 50; PROBABLE: 50 - 300; POSITIF: > 300",
-                        "resultValue": "87"
-                    }
-                ]
-            }
-        ]
-    }
-]
-      */
-      //  using data structure above, we need to get all parameters id in the array
-      const parametersIds = groupedResults.flatMap((category) =>
-        category.testTypes.flatMap((testType) =>
-          testType.parameters.map((p) => p.id)
-        )
-      );
-      console.log("parametersIds:", parametersIds);
-      // setParametersToPrint(parametersIds);
-    }
-  }, [groupedResults]);
-
   // handle parameters to print toggle
   const handleParameterToggle = (parameterId: string) => {
     setParametersToPrint((prev) => {
@@ -420,18 +303,6 @@ const ResultDetailPage: React.FC = () => {
       }
     });
   };
-
-  // useEffect for testTypesToPrint extract all category names in to the array
-  useEffect(() => {
-    if (groupedResults.length > 0) {
-      const testTypesIds = groupedResults.flatMap(
-        (category) => category.category.id
-      );
-      console.log("testTypesIds:", testTypesIds);
-      setTestTypesToPrint(testTypesIds);
-    }
-    console.log("testTypesToPrint:", testTypesToPrint);
-  }, [groupedResults]);
 
   // handle testTypes to print toggle
   const handleTestTypeToggle = (testTypeId: string) => {
@@ -494,160 +365,57 @@ const ResultDetailPage: React.FC = () => {
     setDoctorData(null);
     setGroupedResults([]);
     setHeaderConfig(null); // Reset header config
+    setLoadingHeader(true);
+    setCategoriesToPrint([]);
+    setParametersToPrint([]);
+    setTestTypesToPrint([]);
+    setCategoriesUnitToShow([]);
+    setCategoriesRefToShow([]);
+    setForceBreakBefore({});
+    setHighlightOverrides({});
 
     try {
-      // 1. Fetch the main result record
-      const { data: result, error: resultError } = await supabase
-        .from("patient_result")
-        .select("*")
-        .eq("id", resultId)
-        .single();
-
-      if (resultError) throw resultError;
-      if (!result) throw new Error("Résultat non trouvé.");
-      setResultData(result);
-
-      // console.log('Result Data: ',result)
-
-      // 2. Fetch related Patient and Doctor data concurrently
-      const [patientRes, doctorRes, headerRes] = await Promise.all([
-        supabase
-          .from("patient")
-          .select("*")
-          .eq("id", result.patient_id)
-          .single(),
-        supabase.from("doctor").select("*").eq("id", result.doctor_id).single(),
-        supabase.from("print_header_config").select("*").limit(1).maybeSingle(), // Fetch header config
-      ]);
-
-      if (patientRes.error)
-        console.warn("Erreur chargement patient:", patientRes.error.message);
-
-      if (doctorRes.error)
-        console.warn("Erreur chargement médecin:", doctorRes.error.message);
-
-      setPatientData(patientRes.data);
-      setDoctorData(doctorRes.data);
-
-      // --- Handle Header Config ---
-      if (headerRes.error)
-        console.warn(
-          "Erreur chargement config en-tête:",
-          headerRes.error.message
-        ); // Warn but continue
-      setHeaderConfig(headerRes.data); // Set header config (can be null)
-      setLoadingHeader(false); // Header loading done
-
-      // 3. Fetch Result Values joined with Parameter, Test Type, and CATEGORY details
-      const { data: valuesData, error: valuesError } = await supabase
-        .from("result_value")
-        .select(
-          `
-                    value,
-                    test_parameter: test_parameter_id (
-                        *,
-                        test_type: test_type_id (
-                            *,
-                            category: category_id (id, name)
-                        )
-                    )
-                `
-        )
-        .eq("patient_result_id", resultId);
-
-      if (valuesError) throw valuesError;
-
-      // console.log('RESULT VALUES=============== ',valuesData)
-
-      // 4. Process and group the fetched values by CATEGORY, then by Test Type
-      const categoryMap = new Map<string, GroupedCategoryResult>();
-
-      (valuesData || []).forEach((rv) => {
-        // Type assertion might be needed based on Supabase client version/typing
-        const param = rv.test_parameter as
-          | (TestParameter & {
-              test_type: (TestType & { category: Category | null }) | null;
-            })
-          | null;
-
-        if (param && param.test_type && param.test_type.category) {
-          const categoryId = param.test_type.category.id;
-          const categoryName = param.test_type.category.name;
-          const testTypeId = param.test_type.id;
-          const testTypeName = param.test_type.name;
-
-          // Ensure Category Group exists
-          if (!categoryMap.has(categoryId)) {
-            categoryMap.set(categoryId, {
-              category: {
-                ...param.test_type.category,
-                created_at: "",
-                updated_at: "",
-              }, // Reconstruct Category
-              testTypes: [],
-            });
-          }
-          const categoryGroup = categoryMap.get(categoryId)!;
-
-          // Find or create Test Type Group within the Category Group
-          let testTypeGroup = categoryGroup.testTypes.find(
-            (ttg) => ttg.testType.id === testTypeId
-          );
-          if (!testTypeGroup) {
-            testTypeGroup = {
-              // Reconstruct TestType, ensure category_id is included
-              testType: {
-                ...param.test_type,
-                category_id: categoryId,
-                category: null,
-              }, // Remove nested category here if needed
-              parameters: [],
-            };
-            categoryGroup.testTypes.push(testTypeGroup);
-          }
-
-          // Add parameter details
-          testTypeGroup.parameters.push({
-            ...param, // Spread the raw parameter details
-            resultValue: rv.value, // Add the actual result value
-            // remove nested test_type from param spread if causing issues
-            test_type: null, // We handle test type at the group level
-          });
-        } else {
-          console.warn(
-            "Données de paramètre/type/catégorie manquantes pour une valeur:",
-            rv
-          );
-        }
-      });
-
-      // Sort parameters, test types, and categories
-      categoryMap.forEach((categoryGroup) => {
-        categoryGroup.testTypes.forEach((testTypeGroup) => {
-          testTypeGroup.parameters.sort((a, b) => {
-            // First sort by order
-            if (a.order !== b.order) {
-              return a.order - b.order;
-            }
-            // If orders are equal, fallback to sorting by name
-            return a.name.localeCompare(b.name);
-          });
-        });
-        categoryGroup.testTypes.sort((a, b) =>
-          a.testType.name.localeCompare(b.testType.name)
-        );
-      });
-      const sortedGroupedResults = Array.from(categoryMap.values()).sort(
-        (a, b) => a.category.name.localeCompare(b.category.name)
+      const { data, error: detailError } = await supabase.rpc(
+        "get_patient_result_detail",
+        { p_result_id: resultId }
       );
 
-      setGroupedResults(sortedGroupedResults);
+      if (detailError) throw detailError;
+      if (!data) throw new Error("Résultat non trouvé.");
+
+      const detail = data as ResultDetailPayload;
+      const grouped = detail.groupedResults || [];
+      const categoryIds = grouped.map((group) => group.category.id);
+
+      setResultData(detail.result);
+      setPatientData(detail.patient);
+      setDoctorData(detail.doctor);
+      setHeaderConfig(detail.headerConfig);
+      setGroupedResults(grouped);
+      setCategoriesToPrint(categoryIds);
+      setCategoriesUnitToShow(categoryIds);
+      setCategoriesRefToShow(categoryIds);
+      setTestTypesToPrint([]);
+      setSkipRangeCheckValues(detail.skipRangeCheck || []);
+
+      if (detail.columnWidths) {
+        setParamWidth(detail.columnWidths.param_width ?? 40);
+        setValueWidth(detail.columnWidths.value_width ?? 15);
+        setUnitWidth(detail.columnWidths.unit_width ?? 10);
+        setRefWidth(detail.columnWidths.ref_width ?? 35);
+      } else {
+        setParamWidth(40);
+        setValueWidth(15);
+        setUnitWidth(10);
+        setRefWidth(35);
+      }
     } catch (err: any) {
       console.error("Erreur chargement détails du résultat:", err);
       setError(
         err.message || "Une erreur est survenue lors du chargement du résultat."
       );
     } finally {
+      setLoadingHeader(false);
       setLoading(false);
     }
   }, [resultId]);
@@ -708,10 +476,6 @@ const ResultDetailPage: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [description, resultData?.description, saveDescription]);
-
-  useEffect(() => {
-    console.log("Grouped results: ", groupedResults);
-  }, [groupedResults]);
 
   // Save prices
   const savePrices = useCallback(async () => {

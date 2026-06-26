@@ -58,6 +58,7 @@ import {
   Search,
   X,
   Edit as EditIcon,
+  RefreshCw,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns"; // Added isValid
 import { fr } from "date-fns/locale";
@@ -85,6 +86,15 @@ interface SelectedTestType extends TestType {
   loadingParams: boolean;
   errorLoadingParams?: boolean;
 }
+type ResultFormBootstrapPayload = {
+  patient: Patient;
+  doctors: Doctor[];
+  categories: Category[];
+  testTypes: TestType[];
+  result: PatientResult | null;
+  selectedTestTypes: SelectedTestType[];
+  originalResultValues: ResultValue[];
+};
 // --- End Types ---
 
 const ResultFormPage: React.FC = () => {
@@ -135,182 +145,75 @@ const ResultFormPage: React.FC = () => {
   const debouncedTestTypeSearch = useDebounce(testTypeSearchTerm, 250);
 
   // --- Data Fetching ---
-  const fetchEditData = useCallback(async () => {
-    if (!resultId) return;
+  const fetchBootstrapData = useCallback(async () => {
+    if (!patientIdFromRoute && !resultId) {
+      setError("ID du patient ou du résultat manquant.");
+      setLoadingInitialData(false);
+      return;
+    }
+
     setLoadingInitialData(true);
     setError(null);
     try {
-      const [resultRes, valuesRes, doctorsRes, allTestTypesRes] =
-        await Promise.all([
-          supabase
-            .from("patient_result")
-            .select("*")
-            .eq("id", resultId)
-            .single(),
-          supabase
-            .from("result_value")
-            .select(
-              `id, value, test_parameter_id, test_parameter:test_parameter_id(test_type_id, test_type:test_type_id(id, name))`
-            )
-            .eq("patient_result_id", resultId), // Fetch FKs needed for grouping
-          supabase.from("doctor").select("id, full_name").order("full_name"),
-          supabase
-            .from("test_type")
-            .select("id, name, category_id")
-            .order("name"),
-        ]);
-
-      // Handle Main Result
-      if (resultRes.error) throw resultRes.error;
-      if (!resultRes.data) throw new Error("Résultat non trouvé.");
-      const resultData = resultRes.data;
-      setPatient(resultRes.data.patient);
-      setSelectedDoctorId(resultRes.data.doctor_id);
-      setResultDate(
-        resultRes.data.result_date
-          ? new Date(resultRes.data.result_date)
-          : undefined
+      const { data, error: bootstrapError } = await supabase.rpc(
+        "get_result_form_bootstrap",
+        {
+          p_patient_id: isEditMode ? null : patientIdFromRoute || null,
+          p_result_id: isEditMode ? resultId || null : null,
+        }
       );
-      setCurrentPatientId(resultRes.data.patient_id);
-      setOriginalResultValues(valuesRes.data || []);
-      setNormalPrice(resultRes.data.normal_price ?? "");
-      setUnpaidAmount(resultRes.data.unpaid_amount ?? "");
-      setInsurancePrice(resultRes.data.insurance_price ?? "");
-      setIsFree(!!resultRes.data.isFree);
-      setNotes(resultRes.data.notes ?? "");
 
-      // Handle Doctors and All Test Types
-      if (doctorsRes.error) throw doctorsRes.error;
-      if (allTestTypesRes.error) throw allTestTypesRes.error;
-      setDoctors(doctorsRes.data || []);
-      setAvailableTestTypes(allTestTypesRes.data || []);
+      if (bootstrapError) throw bootstrapError;
+      if (!data) throw new Error("Impossible de charger le formulaire.");
 
-      // Handle Existing Values & Populate State
-      if (valuesRes.error) throw valuesRes.error;
-      const existingValues = valuesRes.data || [];
+      const payload = data as ResultFormBootstrapPayload;
+      const resultData = payload.result;
       const initialSelectedTypes = new Map<string, SelectedTestType>();
-      const involvedTestTypeIds = [
-        ...new Set(
-          existingValues
-            .map((v) => (v.test_parameter as any)?.test_type?.id)
-            .filter(Boolean)
-        ),
-      ];
 
-      // Fetch ALL parameters for involved types
-      const { data: allParamsData, error: paramsError } = await supabase
-        .from("test_parameter")
-        .select(`*, test_type:test_type_id(id, name), order`) // Ensure 'order' is fetched
-        .in("test_type_id", involvedTestTypeIds);
-      if (paramsError) throw paramsError;
-
-      involvedTestTypeIds.forEach((testTypeId) => {
-        const firstValue = existingValues.find(
-          (v) => (v.test_parameter as any)?.test_type?.id === testTypeId
-        );
-        const testTypeName =
-          (firstValue?.test_parameter as any)?.test_type?.name ||
-          "Type Inconnu";
-        const relevantParams = (allParamsData || []).filter(
-          (p) => p.test_type_id === testTypeId
-        );
-
-        initialSelectedTypes.set(testTypeId, {
-          id: testTypeId,
-          name: testTypeName,
-          category_id: relevantParams[0]?.test_type_id || "",
-          created_at: "",
-          updated_at: "",
-          parameters: relevantParams.map((paramDef) => {
-            const existingVal = existingValues.find(
-              (val) => val.test_parameter_id === paramDef.id
-            );
-            return {
-              ...paramDef,
-              resultValue: existingVal?.value || "",
-              isVisible: true,
-              originalValueId: existingVal?.id || null,
-            };
-          }),
+      (payload.selectedTestTypes || []).forEach((testType) => {
+        initialSelectedTypes.set(testType.id, {
+          ...testType,
+          parameters: (testType.parameters || []).map((parameter) => ({
+            ...parameter,
+            resultValue: parameter.resultValue || "",
+            isVisible: parameter.isVisible !== false,
+            originalValueId: parameter.originalValueId || null,
+          })),
           loadingParams: false,
           errorLoadingParams: false,
         });
       });
-      setSelectedTestTypes(initialSelectedTypes);
-    } catch (err: any) {
-      /* ... error handling ... */
-      console.error("Erreur chargement données pour modification:", err);
-      setError(
-        err.message || "Impossible de charger les données pour la modification."
-      );
-    } finally {
-      setLoadingInitialData(false);
-    }
-  }, [resultId]);
 
-  const fetchCreateData = useCallback(async () => {
-    if (!patientIdFromRoute) return;
-    setLoadingInitialData(true);
-    setError(null);
-    try {
-      /* ... fetch patient, doctors, test types ... */
-      const [patientRes, doctorsRes, testTypesRes] = await Promise.all([
-        supabase
-          .from("patient")
-          .select("*")
-          .eq("id", patientIdFromRoute)
-          .single(),
-        supabase.from("doctor").select("id, full_name").order("full_name"),
-        supabase
-          .from("test_type")
-          .select("id, name, category_id")
-          .order("name"),
-      ]);
-      if (patientRes.error) throw patientRes.error;
-      if (!patientRes.data)
-        throw new Error("Patient non trouvé pour la création.");
-      if (doctorsRes.error) throw doctorsRes.error;
-      if (testTypesRes.error) throw testTypesRes.error;
-      setPatient(patientRes.data);
-      setCurrentPatientId(patientIdFromRoute);
-      setDoctors(doctorsRes.data || []);
-      setAvailableTestTypes(testTypesRes.data || []);
-      setNormalPrice("");
-      setInsurancePrice("");
-      setUnpaidAmount("");
+      setPatient(payload.patient);
+      setCurrentPatientId(resultData?.patient_id || payload.patient.id);
+      setDoctors(payload.doctors || []);
+      setCategories(payload.categories || []);
+      setAvailableTestTypes(payload.testTypes || []);
+      setOriginalResultValues(payload.originalResultValues || []);
+      setSelectedTestTypes(initialSelectedTypes);
+      setSelectedDoctorId(resultData?.doctor_id || undefined);
+      setResultDate(
+        resultData?.result_date ? new Date(resultData.result_date) : new Date()
+      );
+      setNormalPrice(resultData?.normal_price ?? "");
+      setUnpaidAmount(resultData?.unpaid_amount ?? "");
+      setInsurancePrice(resultData?.insurance_price ?? "");
+      setIsFree(!!resultData?.isFree);
+      setNotes(resultData?.notes ?? "");
     } catch (err: any) {
       /* ... error handling ... */
-      console.error("Erreur chargement données pour création:", err);
+      console.error("Erreur chargement données du formulaire:", err);
       setError(
         err.message || "Impossible de charger les informations nécessaires."
       );
     } finally {
       setLoadingInitialData(false);
     }
-  }, [patientIdFromRoute]);
+  }, [isEditMode, patientIdFromRoute, resultId]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const { data, error } = await supabase
-        .from("category")
-        .select("id, name")
-        .order("name");
-      if (error) {
-        setError("Erreur lors du chargement des catégories");
-        return;
-      }
-      setCategories(data || []);
-    };
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    if (isEditMode) {
-      fetchEditData();
-    } else {
-      fetchCreateData();
-    }
-  }, [isEditMode, fetchEditData, fetchCreateData]);
+    fetchBootstrapData();
+  }, [fetchBootstrapData]);
   // --- End Data Fetching ---
 
   // Filter available test types based on search term
@@ -328,6 +231,81 @@ const ResultFormPage: React.FC = () => {
     }
   }, [availableTestTypes, debouncedTestTypeSearch, selectedCategoryId]);
 
+  const loadParametersForTestType = useCallback(
+    async (testTypeId: string) => {
+      const testType = availableTestTypes.find((tt) => tt.id === testTypeId);
+      if (!testType) return;
+
+      setSelectedTestTypes((prevMap) => {
+        const newMap = new Map(prevMap);
+        const existingEntry = newMap.get(testTypeId);
+        const newSelectedType: SelectedTestType = {
+          ...(existingEntry || testType),
+          parameters: existingEntry?.parameters || [],
+          loadingParams: true,
+          errorLoadingParams: false,
+        };
+        newMap.set(testTypeId, newSelectedType);
+        return newMap;
+      });
+
+      try {
+        const { data, error } = await supabase
+          .from("test_parameter")
+          .select(`*, test_type:test_type_id(id, name), order`)
+          .eq("test_type_id", testTypeId)
+          .order("order");
+
+        if (error) throw error;
+
+        setSelectedTestTypes((currentMap) => {
+          const finalMap = new Map(currentMap);
+          const entry = finalMap.get(testTypeId);
+          if (entry) {
+            const existingParamsMap = new Map(
+              entry.parameters.map((p) => [p.id, p])
+            );
+            const mergedParams = (data || []).map((paramDef) => {
+              const existingParamState = existingParamsMap.get(paramDef.id);
+              return {
+                ...paramDef,
+                resultValue: existingParamState?.resultValue || "",
+                isVisible: existingParamState?.isVisible !== false,
+                originalValueId: existingParamState?.originalValueId || null,
+              };
+            });
+            const updatedEntry: SelectedTestType = {
+              ...entry,
+              parameters: mergedParams,
+              loadingParams: false,
+              errorLoadingParams: false,
+            };
+            finalMap.set(testTypeId, updatedEntry);
+            return finalMap;
+          }
+          return currentMap;
+        });
+      } catch (err: any) {
+        console.error(`Erreur chargement paramètres pour ${testType.name}:`, err);
+        setSelectedTestTypes((currentMap) => {
+          const errorMap = new Map(currentMap);
+          const entry = errorMap.get(testTypeId);
+          if (entry) {
+            const updatedEntry: SelectedTestType = {
+              ...entry,
+              loadingParams: false,
+              errorLoadingParams: true,
+            };
+            errorMap.set(testTypeId, updatedEntry);
+            return errorMap;
+          }
+          return currentMap;
+        });
+      }
+    },
+    [availableTestTypes]
+  );
+
   // --- handleTestTypeToggle ---
   const handleTestTypeToggle = useCallback(
     async (checked: boolean | "indeterminate", testTypeId: string) => {
@@ -335,82 +313,7 @@ const ResultFormPage: React.FC = () => {
       if (!testType) return;
 
       if (checked === true) {
-        setSelectedTestTypes((prevMap) => {
-          /* ... add/update with loading ... */
-          const newMap = new Map(prevMap);
-          const existingEntry = newMap.get(testTypeId);
-          const newSelectedType: SelectedTestType = {
-            ...(existingEntry || testType),
-            parameters: existingEntry?.parameters || [],
-            loadingParams: true,
-            errorLoadingParams: false,
-          };
-          newMap.set(testTypeId, newSelectedType);
-          return newMap;
-        });
-
-        try {
-          /* ... fetch params ... */
-          const { data, error } = await supabase
-            .from("test_parameter")
-            .select(`*, test_type:test_type_id(id, name), order`) // Ensure 'order' is fetched
-            .eq("test_type_id", testTypeId)
-            .order("order"); // Order by 'order'
-          if (error) throw error;
-          setSelectedTestTypes((currentMap) => {
-            /* ... update with fetched params, merge values ... */
-            const finalMap = new Map(currentMap);
-            const entry = finalMap.get(testTypeId);
-            if (entry) {
-              const existingParamsMap = new Map(
-                entry.parameters.map((p) => [p.id, p])
-              );
-              const mergedParams = (data || []).map((paramDef) => {
-                const existingParamState = existingParamsMap.get(paramDef.id);
-                return {
-                  ...paramDef,
-                  resultValue: existingParamState?.resultValue || "",
-                  isVisible: existingParamState?.isVisible !== false,
-                  originalValueId: existingParamState?.originalValueId || null,
-                };
-              });
-              const updatedEntry: SelectedTestType = {
-                ...entry,
-                parameters: mergedParams,
-                loadingParams: false,
-                errorLoadingParams: false,
-              };
-              finalMap.set(testTypeId, updatedEntry);
-              return finalMap;
-            }
-            return currentMap;
-          });
-        } catch (err: any) {
-          /* ... error handling ... */
-          console.error(
-            `Erreur chargement paramètres pour ${testType.name}:`,
-            err
-          );
-          setSelectedTestTypes((currentMap) => {
-            const errorMap = new Map(currentMap);
-            const entry = errorMap.get(testTypeId);
-            if (entry) {
-              const updatedEntry: SelectedTestType = {
-                ...entry,
-                loadingParams: false,
-                errorLoadingParams: true,
-              };
-              errorMap.set(testTypeId, updatedEntry);
-              return errorMap;
-            }
-            return currentMap;
-          });
-          setError((prev) =>
-            prev
-              ? `${prev}\nImpossible de charger les paramètres pour ${testType.name}.`
-              : `Impossible de charger les paramètres pour ${testType.name}.`
-          );
-        }
+        await loadParametersForTestType(testTypeId);
       } else {
         // Unchecked
         setSelectedTestTypes((prevMap) => {
@@ -421,7 +324,7 @@ const ResultFormPage: React.FC = () => {
         });
       }
     },
-    [availableTestTypes]
+    [availableTestTypes, loadParametersForTestType]
   ); // Dependency: availableTestTypes
 
   // --- handleParameterChange ---
@@ -649,58 +552,8 @@ const ResultFormPage: React.FC = () => {
     });
 
     // Start loading parameters for all added test types
-    filteredTestTypes.forEach(async (testType) => {
-      try {
-        const { data, error } = await supabase
-          .from("test_parameter")
-          .select(`*, test_type:test_type_id(id, name), order`)
-          .eq("test_type_id", testType.id)
-          .order("order");
-
-        if (error) throw error;
-
-        setSelectedTestTypes((currentMap) => {
-          const finalMap = new Map(currentMap);
-          const entry = finalMap.get(testType.id);
-          if (entry) {
-            const mergedParams = (data || []).map((paramDef) => ({
-              ...paramDef,
-              resultValue: "",
-              isVisible: true,
-              originalValueId: null,
-            }));
-
-            const updatedEntry: SelectedTestType = {
-              ...entry,
-              parameters: mergedParams,
-              loadingParams: false,
-              errorLoadingParams: false,
-            };
-            finalMap.set(testType.id, updatedEntry);
-            return finalMap;
-          }
-          return currentMap;
-        });
-      } catch (err: any) {
-        console.error(
-          `Erreur chargement paramètres pour ${testType.name}:`,
-          err
-        );
-        setSelectedTestTypes((currentMap) => {
-          const errorMap = new Map(currentMap);
-          const entry = errorMap.get(testType.id);
-          if (entry) {
-            const updatedEntry: SelectedTestType = {
-              ...entry,
-              loadingParams: false,
-              errorLoadingParams: true,
-            };
-            errorMap.set(testType.id, updatedEntry);
-            return errorMap;
-          }
-          return currentMap;
-        });
-      }
+    filteredTestTypes.forEach((testType) => {
+      void loadParametersForTestType(testType.id);
     });
 
     // Clear the search input
@@ -709,23 +562,75 @@ const ResultFormPage: React.FC = () => {
 
   // --- Render Logic ---
   if (loadingInitialData) {
-    // ... Skeleton ...
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <Skeleton className="h-8 w-32" />
-        <Card>
+        <Card className="shadow-md">
           <CardHeader>
-            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-7 w-1/2" />
+            <Skeleton className="h-4 w-3/4" />
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+            <Skeleton className="h-24 w-full" />
             <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-20 w-full" />
+            <div className="grid grid-cols-2 gap-3 rounded-md border p-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="border-t px-6 py-4">
             <Skeleton className="h-10 w-32" />
+            <Skeleton className="ml-auto h-10 w-24" />
           </CardFooter>
         </Card>
+      </div>
+    );
+  }
+
+  if (error && !patient) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Link to={isEditMode && resultId ? `/results/${resultId}` : "/patients"}>
+          <Button variant="outline" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+        </Link>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erreur de chargement</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{error}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={fetchBootstrapData}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Réessayer
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -1090,8 +995,18 @@ const ResultFormPage: React.FC = () => {
                 <Alert variant="destructive" className="ml-7">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Erreur Paramètres</AlertTitle>
-                  <AlertDescription>
-                    Impossible de charger les paramètres pour ce test.
+                  <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span>Impossible de charger les paramètres pour ce test.</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadParametersForTestType(selectedType.id)}
+                      disabled={loadingSubmit}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Réessayer
+                    </Button>
                   </AlertDescription>
                 </Alert>
               ) : selectedType.parameters.length > 0 ? (

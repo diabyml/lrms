@@ -57,6 +57,10 @@ type PatientResultWithDoctor = Pick<
 > & {
   doctor: Pick<Tables<"doctor">, "full_name"> | null; // Allow doctor to be null if join fails? Handle defensively
 };
+type PatientDetailPayload = {
+  patient: Patient;
+  results: PatientResultWithDoctor[];
+};
 
 // Helper function to format status with appropriate badge variant
 const getStatusBadgeVariant = (
@@ -90,64 +94,34 @@ const PatientDetailPage: React.FC = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
 
-  // Fetch patient details
+  // Fetch patient details and result history
   const fetchPatientDetails = useCallback(async () => {
     if (!patientId) return;
     setLoadingPatient(true);
+    setLoadingResults(true);
+    setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from("patient")
-        .select("*")
-        .eq("id", patientId)
-        .single();
+      const { data, error: fetchError } = await supabase.rpc(
+        "get_patient_detail",
+        { p_patient_id: patientId }
+      );
 
       if (fetchError) throw fetchError;
       if (!data) throw new Error("Patient non trouvé.");
 
-      setPatient(data);
+      const payload = data as PatientDetailPayload;
+      setPatient(payload.patient);
+      setResults(payload.results || []);
     } catch (err: unknown) {
       console.error("Erreur chargement détails patient:", err);
       setError(
-        (prev) =>
-          prev ||
-          (err instanceof Error ? err.message : "Erreur inconnue") ||
+        (err instanceof Error ? err.message : "Erreur inconnue") ||
           "Impossible de charger les détails du patient."
-      ); // Set error only if not already set by other fetch
+      );
+      setPatient(null);
+      setResults([]);
     } finally {
       setLoadingPatient(false);
-    }
-  }, [patientId]);
-
-  // Fetch patient results with doctor name
-  const fetchPatientResults = useCallback(async () => {
-    if (!patientId) return;
-    setLoadingResults(true);
-    try {
-      const { data, error: fetchError } = await supabase
-        .from("patient_result")
-        .select(
-          `
-          id,
-          result_date,
-          status,
-          doctor:doctor_id ( full_name )
-        `
-        )
-        .eq("patient_id", patientId)
-        .order("result_date", { ascending: false }); // Newest first
-
-      if (fetchError) throw fetchError;
-
-      setResults(data || []);
-    } catch (err: unknown) {
-      console.error("Erreur chargement résultats patient:", err);
-      setError(
-        (prev) =>
-          prev ||
-          (err instanceof Error ? err.message : "Erreur inconnue") ||
-          "Impossible de charger les résultats du patient."
-      );
-    } finally {
       setLoadingResults(false);
     }
   }, [patientId]);
@@ -167,7 +141,7 @@ const PatientDetailPage: React.FC = () => {
       if (error) throw error;
 
       // Refresh the data after deletion
-      fetchPatientResults();
+      fetchPatientDetails();
 
       // Close the dialog
       setIsDeleteDialogOpen(false);
@@ -180,7 +154,7 @@ const PatientDetailPage: React.FC = () => {
     } finally {
       setDeleteLoading(false);
     }
-  }, [selectedResultId, fetchPatientResults]);
+  }, [selectedResultId, fetchPatientDetails]);
 
   // Fetch both on mount / patientId change
   useEffect(() => {
@@ -191,11 +165,10 @@ const PatientDetailPage: React.FC = () => {
       setResults([]);
       setLoadingPatient(true);
       setLoadingResults(true);
-      // Fetch concurrently
-      await Promise.all([fetchPatientDetails(), fetchPatientResults()]);
+      await fetchPatientDetails();
     };
     loadData();
-  }, [fetchPatientDetails, fetchPatientResults]); // Depend on the memoized fetch functions
+  }, [fetchPatientDetails]); // Depend on the memoized fetch function
 
   // --- Render Logic ---
 
@@ -277,7 +250,6 @@ const PatientDetailPage: React.FC = () => {
                   variant="link"
                   onClick={() => {
                     fetchPatientDetails();
-                    fetchPatientResults();
                   }}
                   className="p-0 h-auto text-destructive-foreground underline"
                 >

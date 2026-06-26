@@ -43,17 +43,33 @@ import { Label } from "@/components/ui/label";
 import { extractId } from "@/lib/utils";
 
 type Patient = Tables<"patient">;
+type PatientListRow = Pick<
+  Patient,
+  | "id"
+  | "patient_unique_id"
+  | "full_name"
+  | "date_of_birth"
+  | "gender"
+  | "phone"
+  | "created_at"
+>;
 type Doctor = Tables<"doctor">;
-const ITEMS_PER_PAGE = 10; // Define how many items per page
+type PatientsPagePayload = {
+  patients: PatientListRow[];
+  totalCount: number;
+};
+const ITEMS_PER_PAGE = 20; // Define how many items per page
 
 const PatientListPage: React.FC = () => {
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<PatientListRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [patientToDelete, setPatientToDelete] = useState<PatientListRow | null>(
+    null
+  );
   const [deleting, setDeleting] = useState(false);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorFilter, setDoctorFilter] = useState<string>("");
@@ -81,49 +97,15 @@ const PatientListPage: React.FC = () => {
     setError(null);
 
     try {
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      let query = supabase.from("patient").select("*", { count: "exact" }); // Request total count
-
-      // Apply search filter if debouncedSearchTerm exists
-      if (debouncedSearchTerm) {
-        const searchPattern = `%${debouncedSearchTerm}%`; // Prepare pattern for ILIKE
-        query = query.or(
-          `full_name.ilike.${searchPattern},patient_unique_id.ilike.${searchPattern}`
-        );
-
-  
-      }
-
-      // Apply doctor filter if selected (indirectly via patient_result)
-      if (doctorFilter) {
-        // 1. Get all patient_ids for this doctor from patient_result
-        const { data: resultRows, error: resultError } = await supabase
-          .from("patient_result")
-          .select("patient_id")
-          .eq("doctor_id", doctorFilter);
-        if (resultError) {
-          console.error(
-            "Supabase error while fetching patient_result:",
-            resultError
-          );
-          throw resultError;
+      const { data, error: dbError } = await supabase.rpc(
+        "get_patients_page",
+        {
+          p_search: debouncedSearchTerm || null,
+          p_doctor_id: doctorFilter || null,
+          p_page: currentPage,
+          p_page_size: ITEMS_PER_PAGE,
         }
-        const patientIds = (resultRows || []).map((row) => row.patient_id);
-        if (patientIds.length === 0) {
-          setPatients([]);
-          setTotalCount(0);
-          setLoading(false);
-          return;
-        }
-        query = query.in("id", patientIds);
-      }
-
-      // Apply ordering and pagination range
-      query = query.order("created_at", { ascending: false }).range(from, to);
-
-      const { data, error: dbError, count } = await query;
+      );
 
       if (dbError) {
         // Log error for debugging
@@ -131,8 +113,9 @@ const PatientListPage: React.FC = () => {
         throw dbError;
       }
 
-      setPatients(data || []);
-      setTotalCount(count ?? 0); // Update total count
+      const payload = data as PatientsPagePayload | null;
+      setPatients(payload?.patients || []);
+      setTotalCount(payload?.totalCount ?? 0); // Update total count
     } catch (err: unknown) {
       console.error("Erreur lors de la récupération des patients:", err);
       setError(
@@ -216,7 +199,7 @@ const PatientListPage: React.FC = () => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Rechercher par nom ou ID unique..."
+          placeholder="Rechercher par nom, ID unique ou téléphone..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 w-full md:w-1/3"

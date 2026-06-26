@@ -323,7 +323,10 @@ const RistourneFormPage: React.FC = () => {
         .from("patient_result")
         .select("*, patient:patient_id(*)")
         .eq("isFree", false)
-        .eq("doctor_id", doctorId);
+        .eq("doctor_id", doctorId)
+        .order("result_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
 
       // In edit mode, include both unpaid and already selected results
       if (idsToInclude.length > 0) {
