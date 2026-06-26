@@ -49,6 +49,9 @@ import HemoculturePage from "./pages/hemoculture/HemoculturePage";
 import { ManageHemocultureObservationModelsPage } from "./pages/hemoculture/ManageHemocultureObservationModelsPage";
 import BilanAmoPage from "./pages/BilanAmoPage";
 import BilanAmoPrintPage from "./pages/BilanAmoPrintPage";
+import FactureListPage from "./pages/FactureListPage";
+import FactureFormPage from "./pages/FactureFormPage";
+import FactureDetailPage from "./pages/FactureDetailPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -164,6 +167,9 @@ function App() {
             <Route path="/results-prices" element={<ResultsPricesPage />} />
             <Route path="/bilan-amo" element={<BilanAmoPage />} />
             <Route path="/bilan-amo/print" element={<BilanAmoPrintPage />} />
+            <Route path="/factures" element={<FactureListPage />} />
+            <Route path="/factures/new" element={<FactureFormPage />} />
+            <Route path="/factures/:invoiceId" element={<FactureDetailPage />} />
             {/* stats */}
             <Route path="/stats" element={<DataInsightsPage />} />
             {/* antibiotique models */}

@@ -159,38 +159,50 @@ export type Database = {
       patient_result: {
         Row: {
           created_at: string
+          description: string | null
           doctor_id: string
           id: string
+          isFree: boolean | null
+          notes: string | null
           patient_id: string
           result_date: string
           status: string
           normal_price: number | null
           insurance_price: number | null
           paid_status: string
+          unpaid_amount: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
           doctor_id: string
           id?: string
+          isFree?: boolean | null
+          notes?: string | null
           patient_id: string
           result_date: string
           status?: string
           normal_price?: number | null
           insurance_price?: number | null
           paid_status?: string
+          unpaid_amount?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          description?: string | null
           doctor_id?: string
           id?: string
+          isFree?: boolean | null
+          notes?: string | null
           patient_id?: string
           result_date?: string
           status?: string
           normal_price?: number | null
           insurance_price?: number | null
           paid_status?: string
+          unpaid_amount?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -254,6 +266,133 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      invoice: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          discount_amount: number
+          doctor_id: string
+          has_insurance: boolean
+          id: string
+          invoice_number: string
+          notes: string | null
+          patient_id: string
+          patient_result_id: string
+          payment_status: string
+          remaining_amount: number
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number
+          created_at?: string
+          discount_amount?: number
+          doctor_id: string
+          has_insurance?: boolean
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          patient_id: string
+          patient_result_id: string
+          payment_status?: string
+          remaining_amount?: number
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          discount_amount?: number
+          doctor_id?: string
+          has_insurance?: boolean
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          patient_id?: string
+          patient_result_id?: string
+          payment_status?: string
+          remaining_amount?: number
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_patient_result_id_fkey"
+            columns: ["patient_result_id"]
+            isOneToOne: false
+            referencedRelation: "patient_result"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      invoice_item: {
+        Row: {
+          applied_price: number
+          created_at: string
+          id: string
+          insurance_price: number | null
+          invoice_id: string
+          normal_price: number
+          price_source: string
+          test_name: string
+          test_type_id: string
+        }
+        Insert: {
+          applied_price?: number
+          created_at?: string
+          id?: string
+          insurance_price?: number | null
+          invoice_id: string
+          normal_price?: number
+          price_source: string
+          test_name: string
+          test_type_id: string
+        }
+        Update: {
+          applied_price?: number
+          created_at?: string
+          id?: string
+          insurance_price?: number | null
+          invoice_id?: string
+          normal_price?: number
+          price_source?: string
+          test_name?: string
+          test_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_item_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_item_test_type_id_fkey"
+            columns: ["test_type_id"]
+            isOneToOne: false
+            referencedRelation: "test_type"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       result_value: {
         Row: {
@@ -386,6 +525,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          order: number
           reference_range: string | null
           test_type_id: string
           unit: string | null
@@ -396,6 +536,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          order?: number
           reference_range?: string | null
           test_type_id: string
           unit?: string | null
@@ -406,6 +547,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          order?: number
           reference_range?: string | null
           test_type_id?: string
           unit?: string | null
@@ -423,21 +565,33 @@ export type Database = {
       }
       test_type: {
         Row: {
+          category_id: string
           created_at: string
+          description: string | null
           id: string
+          insurance_price: number | null
           name: string
+          normal_price: number
           updated_at: string
         }
         Insert: {
+          category_id: string
           created_at?: string
+          description?: string | null
           id?: string
+          insurance_price?: number | null
           name: string
+          normal_price?: number
           updated_at?: string
         }
         Update: {
+          category_id?: string
           created_at?: string
+          description?: string | null
           id?: string
+          insurance_price?: number | null
           name?: string
+          normal_price?: number
           updated_at?: string
         }
         Relationships: []
@@ -588,7 +742,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_invoice_with_result: {
+        Args: {
+          p_patient: Json
+          p_doctor_id: string
+          p_test_type_ids: string[]
+          p_has_insurance: boolean
+          p_discount_amount: number
+          p_amount_paid: number
+          p_notes?: string | null
+        }
+        Returns: string
+      }
+      save_patient_result_with_values: {
+        Args: {
+          p_result_id?: string | null
+          p_patient_id?: string | null
+          p_doctor_id?: string | null
+          p_result_date?: string | null
+          p_normal_price?: number | null
+          p_insurance_price?: number | null
+          p_unpaid_amount?: number | null
+          p_is_free?: boolean | null
+          p_notes?: string | null
+          p_values_to_delete?: string[] | null
+          p_values_to_update?: Json
+          p_values_to_insert?: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

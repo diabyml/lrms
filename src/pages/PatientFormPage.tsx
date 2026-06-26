@@ -49,12 +49,22 @@ type PatientFormData = Omit<
   "id" | "created_at" | "updated_at"
 >;
 
+const splitFullName = (fullName: string | null | undefined) => {
+  const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
 const PatientFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { patientId } = useParams<{ patientId: string }>(); // Get patientId from URL
   const isEditMode = Boolean(patientId); // Determine mode based on patientId presence
 
   const [formData, setFormData] = useState<Partial<PatientFormData>>({});
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [existingId, setExistingId] = useState("");
   const [loading, setLoading] = useState(false); // For form submission
   const [initialLoading, setInitialLoading] = useState(isEditMode); // For fetching data in edit mode
@@ -79,10 +89,10 @@ const PatientFormPage: React.FC = () => {
       if (fetchError) throw fetchError;
 
       if (data) {
+        const nameParts = splitFullName(data.full_name);
         // Pre-populate form data, handle nulls correctly
         setFormData({
           patient_unique_id: data.patient_unique_id || "",
-          full_name: data.full_name || "",
           // Ensure date_of_birth is a string 'yyyy-MM-dd' if not null, otherwise undefined
           date_of_birth: data.date_of_birth
             ? format(parseISO(data.date_of_birth), "yyyy-MM-dd")
@@ -90,6 +100,8 @@ const PatientFormPage: React.FC = () => {
           gender: data.gender || undefined,
           phone: data.phone || "",
         });
+        setFirstName(nameParts.firstName);
+        setLastName(nameParts.lastName);
         setExistingId(data.patient_unique_id);
       } else {
         setError("Patient non trouvé."); // Handle case where ID is valid UUID but no patient exists
@@ -181,8 +193,8 @@ const PatientFormPage: React.FC = () => {
     event.preventDefault();
     setError(null);
 
-    if (!formData.patient_unique_id || !formData.full_name) {
-      setError("L'ID Unique et le Nom Complet sont requis.");
+    if (!formData.patient_unique_id || !firstName.trim() || !lastName.trim()) {
+      setError("L'ID Unique, le prénom et le nom sont requis.");
       return;
     }
 
@@ -192,7 +204,7 @@ const PatientFormPage: React.FC = () => {
       // Prepare data for Supabase (ensure optional fields are null if empty/undefined)
       const dataPayload = {
         patient_unique_id: formData.patient_unique_id.trim(),
-        full_name: formData.full_name.trim().toUpperCase(),
+        full_name: `${firstName.trim()} ${lastName.trim()}`.toUpperCase(),
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
         phone: formData.phone?.trim() || null,
@@ -353,20 +365,38 @@ const PatientFormPage: React.FC = () => {
               />
             </div>
 
-            {/* Full Name */}
-            <div className="space-y-2">
-              <Label htmlFor="full_name" className="font-semibold">
-                Nom Complet <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="full_name"
-                name="full_name"
-                placeholder="Ex: Jean Dupont"
-                required
-                value={formData.full_name || ""}
-                onChange={handleInputChange}
-                disabled={loading}
-              />
+            {/* Name */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name" className="font-semibold">
+                  Prénom <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="first_name"
+                  placeholder="Ex: Jean"
+                  required
+                  value={firstName}
+                  onChange={(event) =>
+                    setFirstName(event.target.value.toUpperCase())
+                  }
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name" className="font-semibold">
+                  Nom <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="last_name"
+                  placeholder="Ex: Dupont"
+                  required
+                  value={lastName}
+                  onChange={(event) =>
+                    setLastName(event.target.value.toUpperCase())
+                  }
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             {/* Optional Fields Grid */}

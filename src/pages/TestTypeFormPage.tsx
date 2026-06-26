@@ -68,6 +68,8 @@ const TestTypeFormPage: React.FC = () => {
   // --- State ---
   const [testTypeName, setTestTypeName] = useState<string>("");
   const [testTypeDescription, setTestTypeDescription] = useState<string>("");
+  const [normalPrice, setNormalPrice] = useState<string>("0");
+  const [insurancePrice, setInsurancePrice] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     string | undefined
   >(undefined);
@@ -97,6 +99,8 @@ const TestTypeFormPage: React.FC = () => {
     setOriginalTestType(null);
     setTestTypeName("");
     setTestTypeDescription("");
+    setNormalPrice("0");
+    setInsurancePrice("");
     setSelectedCategoryId(undefined);
 
     try {
@@ -131,6 +135,12 @@ const TestTypeFormPage: React.FC = () => {
         setOriginalTestType(testTypeData);
         setTestTypeName(testTypeData.name);
         setTestTypeDescription(testTypeData.description || "");
+        setNormalPrice(String(testTypeData.normal_price ?? 0));
+        setInsurancePrice(
+          testTypeData.insurance_price == null
+            ? ""
+            : String(testTypeData.insurance_price)
+        );
         setSelectedCategoryId(testTypeData.category_id);
         const initialParams = (paramsData || []).map((p) => ({
           ...p,
@@ -205,6 +215,20 @@ const TestTypeFormPage: React.FC = () => {
       setError("Veuillez sélectionner une catégorie.");
       return;
     }
+    const parsedNormalPrice = Number(normalPrice);
+    const parsedInsurancePrice =
+      insurancePrice.trim() === "" ? null : Number(insurancePrice);
+    if (Number.isNaN(parsedNormalPrice) || parsedNormalPrice < 0) {
+      setError("Le prix normal doit être un nombre positif.");
+      return;
+    }
+    if (
+      parsedInsurancePrice !== null &&
+      (Number.isNaN(parsedInsurancePrice) || parsedInsurancePrice < 0)
+    ) {
+      setError("Le prix AMO doit être vide ou un nombre positif.");
+      return;
+    }
     const invalidParam = parameters.find((p) => !p.name?.trim());
     if (invalidParam) {
       setError(
@@ -223,6 +247,8 @@ const TestTypeFormPage: React.FC = () => {
         name: testTypeName.trim(),
         category_id: selectedCategoryId,
         description: testTypeDescription.trim() || null,
+        normal_price: parsedNormalPrice,
+        insurance_price: parsedInsurancePrice,
       };
 
       if (isEditMode) {
@@ -464,6 +490,37 @@ const TestTypeFormPage: React.FC = () => {
                   placeholder="Description du type de test, instructions de préparation, etc."
                   disabled={loadingSubmit}
                   rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="normalPrice" className="font-semibold">
+                  Prix normal <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="normalPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={normalPrice}
+                  onChange={(e) => setNormalPrice(e.target.value)}
+                  placeholder="0"
+                  disabled={loadingSubmit}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="insurancePrice" className="font-semibold">
+                  Prix AMO
+                </Label>
+                <Input
+                  id="insurancePrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={insurancePrice}
+                  onChange={(e) => setInsurancePrice(e.target.value)}
+                  placeholder="Vide si non couvert"
+                  disabled={loadingSubmit}
                 />
               </div>
               <div className="space-y-2">

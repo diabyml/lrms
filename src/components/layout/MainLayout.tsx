@@ -32,6 +32,7 @@ import {
   Wallet,
   BarChart,
   ShieldCheck,
+  ReceiptText,
 } from "lucide-react";
 
 import { Settings, FileText } from "lucide-react"; // Example icons
@@ -55,6 +56,8 @@ const MainLayout: React.FC = () => {
   // Define navigation items
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
+
+    { to: "/factures", label: "Factures", icon: ReceiptText },
 
     // PatientRistourneSearch
     {
@@ -167,9 +170,9 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-muted/40">
+    <div className="flex h-screen w-full bg-muted/40 overflow-hidden">
       {/* Sidebar (Desktop) - Hidden on smaller screens */}
-      <aside className="hidden sm:flex flex-col w-64 border-r bg-background">
+      <aside className="hidden sm:flex flex-col w-64 border-r bg-background overflow-y-auto">
         <div className="flex items-center gap-2 h-16 border-b p-6">
           <FlaskConical className="h-6 w-6 text-primary" />
           <span className="font-semibold tracking-tight">LRMS</span>

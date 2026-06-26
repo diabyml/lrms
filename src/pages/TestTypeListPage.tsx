@@ -56,6 +56,12 @@ type TestTypeWithCategory = Omit<Tables<"test_type">, "category_id"> & {
   category: Pick<Category, "id" | "name"> | null; // Category can be null if join fails or relation is missing temporarily
 };
 
+const formatCurrency = (value: number | null | undefined) =>
+  new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+
 const TestTypeListPage: React.FC = () => {
   // State
   const [testTypes, setTestTypes] = useState<TestTypeWithCategory[]>([]);
@@ -85,6 +91,8 @@ const TestTypeListPage: React.FC = () => {
             name,
             created_at,
             updated_at,
+            normal_price,
+            insurance_price,
             category:category_id (id, name)
           `
           )
@@ -261,6 +269,8 @@ const TestTypeListPage: React.FC = () => {
               <TableRow>
                 <TableHead>Nom du Type de Test</TableHead>
                 <TableHead className="w-[250px]">Catégorie</TableHead>
+                <TableHead className="w-[130px] text-right">Prix normal</TableHead>
+                <TableHead className="w-[130px] text-right">AMO</TableHead>
                 {/* Add Parameter Count later if desired */}
                 {/* <TableHead className="w-[150px] text-center">Paramètres</TableHead> */}
                 <TableHead className="text-right w-[150px]">Actions</TableHead>
@@ -287,6 +297,16 @@ const TestTypeListPage: React.FC = () => {
                           </span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(testType.normal_price)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {testType.insurance_price == null ? (
+                        <span className="text-muted-foreground">Non couvert</span>
+                      ) : (
+                        formatCurrency(testType.insurance_price)
+                      )}
                     </TableCell>
                     {/* <TableCell className="text-center">{parameterCountMap[testType.id] || 0}</TableCell> */}
                     <TableCell className="text-right">
@@ -318,7 +338,7 @@ const TestTypeListPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={5}
                     className="h-24 text-center text-muted-foreground"
                   >
                     {searchTerm || categoryFilter !== "all" ? (

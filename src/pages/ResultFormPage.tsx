@@ -529,42 +529,7 @@ const ResultFormPage: React.FC = () => {
     setLoadingSubmit(true);
 
     try {
-      // 1. Save the main PatientResult record (Insert or Update)
-      const resultSaveData: any = {
-        patient_id: currentPatientId,
-        doctor_id: selectedDoctorId,
-        result_date: format(resultDate, "yyyy-MM-dd'T'HH:mm:ssXXX"),
-        // Status handled on create or via detail page, not here
-      };
-      if (normalPrice !== "") resultSaveData.normal_price = Number(normalPrice);
-      if (insurancePrice !== "")
-        resultSaveData.insurance_price = Number(insurancePrice);
-      if (unpaidAmount !== "")
-        resultSaveData.unpaid_amount = Number(unpaidAmount);
-      resultSaveData.isFree = isFree;
-      resultSaveData.notes = notes;
-
-      const { data: savedResult, error: resultSaveError } = await (isEditMode
-        ? supabase
-            .from("patient_result")
-            .update(resultSaveData)
-            .eq("id", resultId)
-            .select()
-            .single()
-        : supabase
-            .from("patient_result")
-            .insert(resultSaveData)
-            .select()
-            .single());
-
-      if (resultSaveError) throw resultSaveError;
-      const currentResultId = savedResult?.id;
-      if (!currentResultId)
-        throw new Error(
-          "Erreur lors de l'enregistrement de l'en-tête du résultat (ID manquant)."
-        );
-
-      // 2. Determine ResultValue changes
+      // Determine ResultValue changes, then save everything in one RPC call.
       const finalValuesToSave = new Map<
         string,
         { value: string; test_parameter_id: string }
@@ -609,53 +574,44 @@ const ResultFormPage: React.FC = () => {
         if (original?.id) {
           valuesToUpdate.push({
             id: original.id,
-            patient_result_id: currentResultId,
             test_parameter_id: valueData.test_parameter_id,
             value: valueData.value,
           });
         } else {
           valuesToInsert.push({
-            patient_result_id: currentResultId,
             test_parameter_id: valueData.test_parameter_id,
             value: valueData.value,
           });
         }
       });
 
-      // 3. Perform DB operations
-      if (valuesToDelete.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("result_value")
-          .delete()
-          .in("id", valuesToDelete);
-        if (deleteError) throw deleteError;
-      }
-      // Update existing values one by one (or in batch if supported)
-      for (const updateVal of valuesToUpdate) {
-        const { error: updateError } = await supabase
-          .from("result_value")
-          .update({
-            value: updateVal.value,
-            test_parameter_id: updateVal.test_parameter_id,
-            patient_result_id: updateVal.patient_result_id,
-          })
-          .eq("id", updateVal.id);
-        if (updateError) throw updateError;
-      }
-      // Insert new values (batch)
-      if (valuesToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from("result_value")
-          .insert(valuesToInsert);
-        if (insertError) throw insertError;
+      const { data: savedResultId, error: saveError } = await supabase.rpc(
+        "save_patient_result_with_values",
+        {
+          p_result_id: isEditMode ? resultId! : null,
+          p_patient_id: currentPatientId,
+          p_doctor_id: selectedDoctorId,
+          p_result_date: format(resultDate, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+          p_normal_price: Number(normalPrice),
+          p_insurance_price: Number(insurancePrice),
+          p_unpaid_amount: Number(unpaidAmount),
+          p_is_free: isFree,
+          p_notes: notes,
+          p_values_to_delete: valuesToDelete,
+          p_values_to_update: valuesToUpdate,
+          p_values_to_insert: valuesToInsert,
+        }
+      );
+
+      if (saveError) throw saveError;
+      if (!savedResultId) {
+        throw new Error(
+          "Erreur lors de l'enregistrement du résultat (ID manquant)."
+        );
       }
 
       // Success navigation
-      navigate(
-        isEditMode
-          ? `/results/${currentResultId}`
-          : `/results/${currentResultId}`
-      );
+      navigate(`/results/${savedResultId}`);
     } catch (err: any) {
       /* ... error handling ... */
       console.error(
