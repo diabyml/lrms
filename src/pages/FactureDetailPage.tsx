@@ -145,6 +145,13 @@ const FactureDetailPage: React.FC = () => {
   return (
     <div className="mx-auto max-w-2xl">
       <style>{`
+        .thermal-invoice .invoice-print-header,
+        .thermal-invoice .invoice-print-header h1,
+        .thermal-invoice .invoice-print-header p,
+        .thermal-invoice .invoice-print-header div {
+          color: #000 !important;
+          font-weight: 700 !important;
+        }
         @media print {
           @page { size: 80mm auto; margin: 3mm; }
           body { background: white !important; }
@@ -164,13 +171,21 @@ const FactureDetailPage: React.FC = () => {
             margin: 0 0 2mm 0 !important;
             padding: 0 !important;
             text-align: center !important;
+            color: #000 !important;
+            font-weight: 700 !important;
           }
           .thermal-invoice .invoice-print-header img {
             display: block !important;
             margin: 0 auto 1mm auto !important;
-            max-height: 10mm !important;
-            max-width: 22mm !important;
+            max-height: 14mm !important;
+            max-width: 32mm !important;
             object-fit: contain !important;
+          }
+          .thermal-invoice .invoice-print-header h1,
+          .thermal-invoice .invoice-print-header p,
+          .thermal-invoice .invoice-print-header div {
+            color: #000 !important;
+            font-weight: 700 !important;
           }
           .thermal-invoice p,
           .thermal-invoice div,
@@ -199,7 +214,7 @@ const FactureDetailPage: React.FC = () => {
             <img
               src={headerConfig.logo_url}
               alt="Logo laboratoire"
-              className="mx-auto mb-1 h-10 max-w-20 object-contain"
+              className="mx-auto mb-1 h-14 max-w-32 object-contain"
             />
           )}
           <h1 className="text-sm font-bold uppercase">
@@ -241,8 +256,8 @@ const FactureDetailPage: React.FC = () => {
         <div className="my-2 border-t border-dashed border-black" />
 
         <section className="space-y-1">
-          <div className="flex justify-between text-sm font-bold">
-            <span>Total</span>
+          <div className="flex gap-2 text-sm font-bold">
+            <span>Total:</span>
             <span>{formatCurrency(invoice.total)}</span>
           </div>
           {Number(invoice.remaining_amount || 0) > 0 && (
