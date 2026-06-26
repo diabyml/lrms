@@ -74,6 +74,12 @@ type PatientResult = Tables<"patient_result"> & {
   unpaid_amount: number;
 };
 
+type RistourneFormResultPayload = PatientResult & {
+  fee_amount: number | null;
+  isSelected: boolean;
+  isSelectedInitial: boolean;
+};
+
 interface PatientResultWithFee extends PatientResult {
   calculatedFee: number;
   isSelected: boolean;
@@ -105,6 +111,7 @@ const RistourneFormPage: React.FC = () => {
   const [status, setStatus] = useState<string>("paid");
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resultsLoading, setResultsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -309,34 +316,15 @@ const RistourneFormPage: React.FC = () => {
     config: DoctorFeeConfig,
     existingResultsParam?: PatientResultWithFee[]
   ) => {
-    // Get IDs of results that should be included regardless of status
     const existingResults = existingResultsParam || [];
-    const idsToInclude = existingResults.map((r) => r.id);
-    const idsToIncludeSet = new Set(idsToInclude);
+    const existingResultsMap = new Map(existingResults.map((r) => [r.id, r]));
 
-    // First, get all the IDs that should be excluded
-    let excludeResultIds: Set<string> = new Set();
-
+    setResultsLoading(true);
     try {
-      // First, fetch all unpaid results for this doctor
-      let query = supabase
-        .from("patient_result")
-        .select("*, patient:patient_id(*)")
-        .eq("isFree", false)
-        .eq("doctor_id", doctorId)
-        .order("result_date", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false });
-
-      // In edit mode, include both unpaid and already selected results
-      if (idsToInclude.length > 0) {
-        query = query.or("paid_status.eq.unpaid,paid_status.eq.paid");
-      } else {
-        // In create mode: only include unpaid
-        query = query.eq("paid_status", "unpaid");
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc("get_ristourne_form_results", {
+        p_doctor_id: doctorId,
+        p_ristourne_id: isEditMode ? ristourneId || null : null,
+      });
 
       if (error) {
         console.error("Error fetching patient results:", error);
@@ -344,53 +332,29 @@ const RistourneFormPage: React.FC = () => {
         return;
       }
 
-      // Get the list of result IDs we need to exclude
-      if (isEditMode && ristourneId) {
-        // In edit mode, exclude results that are in other paid/pending ristournes
-        const { data: lockedResults, error: lockedError } = await supabase
-          .from("ristourne_patient_result")
-          .select("patient_result_id, ristourne!inner(status, id)")
-          .not("ristourne.id", "eq", ristourneId)
-          .in("ristourne.status", ["paid", "pending"]);
-
-        if (!lockedError && Array.isArray(lockedResults)) {
-          lockedResults.forEach((r: any) => excludeResultIds.add(r.patient_result_id));
-        }
-      } else {
-        // In create mode, exclude all paid/pending results
-        const { data: lockedResults, error: lockedError } = await supabase
-          .from("ristourne_patient_result")
-          .select("patient_result_id, ristourne:ristourne_id!inner(status)")
-          .in("ristourne.status", ["paid", "pending"]);
-
-        if (!lockedError && Array.isArray(lockedResults)) {
-          lockedResults.forEach((r: any) => excludeResultIds.add(r.patient_result_id));
-        }
-      }
-
-      // Process results with client-side filtering
-      const existingResultsMap = new Map(existingResults.map((r) => [r.id, r]));
-
-      const resultsWithFee = (data || [])
-        // Filter out excluded results (unless they're in our include list)
-        .filter(result => !excludeResultIds.has(result.id) || idsToIncludeSet.has(result.id))
+      const resultsWithFee = ((data || []) as unknown as RistourneFormResultPayload[])
         .map((result) => {
           const existingResult = existingResultsMap.get(result.id);
 
-          // Create a proper PatientResult object with all required fields
           const patientResult: any = {
             ...result,
             patient: result.patient,
             unpaid_amount: result.unpaid_amount || 0,
           };
 
+          const isSelected = existingResult?.isSelected ?? Boolean(result.isSelected);
+
           return {
             ...patientResult,
             calculatedFee:
-              existingResult?.calculatedFee ||
+              existingResult?.calculatedFee ??
+              (isSelected && result.fee_amount !== null
+                ? Number(result.fee_amount)
+                : null) ??
               calculateFee(patientResult, config),
-            isSelected: existingResultsMap.has(result.id),
-            isSelectedInitial: existingResultsMap.has(result.id),
+            isSelected,
+            isSelectedInitial:
+              existingResult?.isSelectedInitial ?? Boolean(result.isSelectedInitial),
           } as PatientResultWithFee;
         });
 
@@ -404,6 +368,8 @@ const RistourneFormPage: React.FC = () => {
     } catch (error) {
       console.error("Error in loadPatientResults:", error);
       setError("Une erreur est survenue lors du chargement des résultats");
+    } finally {
+      setResultsLoading(false);
     }
   };
 
@@ -462,28 +428,15 @@ const RistourneFormPage: React.FC = () => {
     }
 
     const selectedResults = patientResults.filter((r) => r.isSelected);
+    if (selectedResults.length === 0) {
+      setError("Veuillez sélectionner au moins un résultat");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
 
     try {
-      // Find previously selected but now unselected (only in edit mode)
-      if (isEditMode) {
-        const previouslySelectedIds = patientResults
-          .filter((r) => r.isSelectedInitial)
-          .map((r) => r.id);
-        const nowUnselectedIds = previouslySelectedIds.filter(
-          (id) => !selectedResults.some((r) => r.id === id)
-        );
-        if (nowUnselectedIds.length > 0) {
-          // Update their paid_status to 'unpaid'
-          await supabase
-            .from("patient_result")
-            .update({ paid_status: "unpaid" })
-            .in("id", nowUnselectedIds);
-        }
-      }
-
       const { data, error } = await supabase.rpc("handle_ristourne_upsert", {
         p_ristourne_id: ristourneId || null,
         p_doctor_id: selectedDoctor.id,
@@ -601,6 +554,7 @@ const RistourneFormPage: React.FC = () => {
           variant="default"
           className="ml-auto"
           onClick={() => window.print()}
+          disabled={!selectedDoctor || !patientResults.some((r) => r.isSelected)}
         >
           Imprimer
         </Button>
@@ -629,15 +583,13 @@ const RistourneFormPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {patientResults.filter(
-              (r) => r.isSelected && r.paid_status === "paid"
-            ).length === 0 ? (
+            {patientResults.filter((r) => r.isSelected).length === 0 ? (
               <tr>
-                <td colSpan={5}>Aucun résultat payé sélectionné</td>
+                <td colSpan={5}>Aucun résultat sélectionné</td>
               </tr>
             ) : (
               patientResults
-                .filter((r) => r.isSelected && r.paid_status === "paid")
+                .filter((r) => r.isSelected)
                 .map((result) => (
                   <tr key={result.id}>
                     <td>{result.patient.full_name}</td>
@@ -676,7 +628,7 @@ const RistourneFormPage: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="w-[30%]">
+            <div className="w-full md:w-[30%]">
               <SearchableSelect
                 name="doctor"
                 options={doctors.map((doc) => ({
@@ -782,9 +734,21 @@ const RistourneFormPage: React.FC = () => {
               <CardTitle>Sélection des Résultats</CardTitle>
               <CardDescription>
                 Sélectionnez les résultats à inclure dans la ristourne
+                {patientResults.length > 0 && (
+                  <span className="ml-2 font-medium">
+                    ({patientResults.filter((r) => r.isSelected).length}/
+                    {patientResults.length} sélectionnés)
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {resultsLoading && (
+                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Chargement des résultats...
+                </div>
+              )}
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -814,13 +778,41 @@ const RistourneFormPage: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {patientResults.length === 0 ? (
+                    {resultsLoading ? (
                       <TableRow>
                         <TableCell
-                          colSpan={6}
+                          colSpan={7}
                           className="text-center text-muted-foreground"
                         >
-                          Aucun résultat non payé trouvé pour ce médecin
+                          Chargement des résultats...
+                        </TableCell>
+                      </TableRow>
+                    ) : patientResults.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-muted-foreground"
+                        >
+                          <div className="flex flex-col items-center gap-2 py-3">
+                            <span>Aucun résultat non payé trouvé pour ce médecin</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={!selectedDoctor || !doctorFeeConfig}
+                              onClick={() =>
+                                selectedDoctor &&
+                                doctorFeeConfig &&
+                                loadPatientResults(
+                                  selectedDoctor.id,
+                                  doctorFeeConfig,
+                                  patientResults
+                                )
+                              }
+                            >
+                              Réessayer
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -961,7 +953,14 @@ const RistourneFormPage: React.FC = () => {
             >
               Annuler
             </Button>
-            <Button type="submit" disabled={submitting || !doctorFeeConfig}>
+            <Button
+              type="submit"
+              disabled={
+                submitting ||
+                !doctorFeeConfig ||
+                !patientResults.some((r) => r.isSelected)
+              }
+            >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />
               Enregistrer

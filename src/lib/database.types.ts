@@ -782,6 +782,24 @@ export type Database = {
         }
         Returns: Json
       }
+      get_ristourne_form_results: {
+        Args: {
+          p_doctor_id: string
+          p_ristourne_id?: string | null
+        }
+        Returns: Json
+      }
+      handle_ristourne_upsert: {
+        Args: {
+          p_ristourne_id?: string | null
+          p_doctor_id: string
+          p_notes?: string | null
+          p_total_fee: number
+          p_status: string
+          p_patient_results: Json
+        }
+        Returns: string
+      }
       save_patient_result_with_values: {
         Args: {
           p_result_id?: string | null
