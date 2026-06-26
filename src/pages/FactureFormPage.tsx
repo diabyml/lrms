@@ -128,6 +128,8 @@ const SMART_AI_ENDPOINT = import.meta.env.VITE_SMART_INVOICE_ENDPOINT as
   | undefined;
 const SMART_AI_MODE =
   (import.meta.env.VITE_SMART_INVOICE_MODE as string | undefined) || "cloud";
+const SMART_AI_MODEL =
+  (import.meta.env.VITE_SMART_INVOICE_MODEL as string | undefined) || "qwen3.5:9b";
 
 const formatCurrency = (value: number | null | undefined) =>
   new Intl.NumberFormat("fr-FR", {
@@ -546,43 +548,105 @@ const FactureFormPage: React.FC = () => {
     setSmartError(null);
 
     try {
+      const systemPrompt = [
+        "Tu es un assistant de facturation pour laboratoire médical.",
+        "Analyse la transcription et extrait les informations au format JSON strict.",
+        "",
+        "Champs attendus :",
+        '- patient.firstName : prénom (string)',
+        '- patient.lastName : nom (string)',
+        '- patient.phone : téléphone (string)',
+        '- patient.dateOfBirth : date YYYY-MM-DD (string)',
+        '- patient.gender : "Male", "Female" ou "Other"',
+        '- doctor.name : nom du médecin (string)',
+        '- doctor.id : ID si trouvé dans la liste fournie, sinon null',
+        "- tests : tableau d'analyses [{ name: string, id: string|null }]",
+        "- hasInsurance : true si AMO/assurance, false sinon (boolean)",
+        "- discountAmount : remise (number)",
+        "- amountPaid : montant payé (number)",
+        "- notes : notes additionnelles (string)",
+        "",
+        "Réponds UNIQUEMENT avec l'objet JSON. Pas de markdown, pas de texte autour.",
+      ].join("\n");
+
+      const doctorsList = doctors.length
+        ? doctors.map((d) => `- ${d.full_name} (ID: ${d.id})`).join("\n")
+        : "Aucun médecin dans la base";
+      const testTypesList = testTypes.length
+        ? testTypes.map((t) => `- ${t.name} (ID: ${t.id})`).join("\n")
+        : "Aucune analyse dans la base";
+
+      const userPrompt = [
+        "Médecins disponibles :",
+        doctorsList,
+        "",
+        "Analyses disponibles :",
+        testTypesList,
+        "",
+        `Transcription : """${smartTranscript.trim()}"""`,
+        "",
+        "Extrait les informations de facture au format JSON.",
+      ].join("\n");
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90_000);
+
       const response = await fetch(SMART_AI_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: SMART_AI_MODE,
-          transcript: smartTranscript.trim(),
-          doctors,
-          testTypes,
-          responseFormat: {
-            patient: {
-              firstName: "string",
-              lastName: "string",
-              phone: "string",
-              dateOfBirth: "YYYY-MM-DD",
-              gender: "Male|Female|Other",
-            },
-            doctor: { id: "string optional", name: "string" },
-            tests: [{ id: "string optional", name: "string", query: "string" }],
-            hasInsurance: "boolean",
-            discountAmount: "number",
-            amountPaid: "number",
-            notes: "string",
-          },
+          model: SMART_AI_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+          stream: false,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(`Erreur assistant IA (${response.status})`);
+        const errorBody = await response.text().catch(() => "");
+        throw new Error(
+          `Erreur assistant IA (${response.status})${errorBody ? " : " + errorBody.slice(0, 300) : ""}`
+        );
       }
 
-      const contentType = response.headers.get("content-type") || "";
-      const raw = contentType.includes("application/json")
-        ? await response.json()
-        : JSON.parse(await response.text());
-      setSmartReview(buildSmartReview(raw, doctors, testTypes));
+      const data = await response.json();
+
+      // Ollama / OpenAI-compatible: choices[0].message.content
+      let content =
+        data?.choices?.[0]?.message?.content ||
+        data?.response ||
+        data?.message?.content ||
+        "";
+      if (!content) {
+        throw new Error("Réponse vide du modèle.");
+      }
+
+      // Strip markdown fences if present
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr
+          .replace(/^```(?:json)?\s*\n?/, "")
+          .replace(/\n?```\s*$/, "");
+      }
+
+      const parsed = JSON.parse(jsonStr);
+      setSmartReview(buildSmartReview(parsed, doctors, testTypes));
     } catch (err: any) {
-      setSmartError(err?.message || "Impossible d'analyser la facture.");
+      if (err?.name === "AbortError") {
+        setSmartError(
+          "Délai dépassé (90s). Le modèle " +
+            SMART_AI_MODEL +
+            " est peut-être trop lent. Essayez un modèle plus rapide (ex: qwen3.5:9b)."
+        );
+      } else {
+        setSmartError(err?.message || "Impossible d'analyser la facture.");
+      }
     } finally {
       setSmartLoading(false);
     }
