@@ -42,6 +42,15 @@ begin
    and current_rpr.ristourne_id = p_ristourne_id
   where pr.doctor_id = p_doctor_id
     and coalesce(pr."isFree", false) = false
+    and not exists (
+      select 1
+      from public.invoice i
+      where i.patient_result_id = pr.id
+        and coalesce(pr."isFree", false) = false
+        and coalesce(i.subtotal, 0) > 0
+        and abs(coalesce(i.discount_amount, 0) - (coalesce(i.subtotal, 0) / 2)) < 0.01
+        and abs(coalesce(i.total, 0) - (coalesce(i.subtotal, 0) / 2)) < 0.01
+    )
     and (
       pr.paid_status = 'unpaid'
       or current_rpr.patient_result_id is not null
@@ -161,6 +170,28 @@ begin
       and pr.doctor_id <> p_doctor_id
   ) then
     raise exception 'All selected results must belong to the selected doctor';
+  end if;
+
+  if exists (
+    select 1
+    from public.patient_result pr
+    where pr.id = any(v_new_result_ids)
+      and coalesce(pr."isFree", false) = true
+  ) then
+    raise exception 'Free patient results cannot be added to a ristourne';
+  end if;
+
+  if exists (
+    select 1
+    from public.patient_result pr
+    join public.invoice i on i.patient_result_id = pr.id
+    where pr.id = any(v_new_result_ids)
+      and coalesce(pr."isFree", false) = false
+      and coalesce(i.subtotal, 0) > 0
+      and abs(coalesce(i.discount_amount, 0) - (coalesce(i.subtotal, 0) / 2)) < 0.01
+      and abs(coalesce(i.total, 0) - (coalesce(i.subtotal, 0) / 2)) < 0.01
+  ) then
+    raise exception 'Demi tarif patient results cannot be added to a ristourne';
   end if;
 
   if exists (

@@ -89,6 +89,7 @@ const TestTypeListPage: React.FC = () => {
             `
             id,
             name,
+            code,
             created_at,
             updated_at,
             normal_price,
@@ -137,7 +138,8 @@ const TestTypeListPage: React.FC = () => {
     if (debouncedSearchTerm) {
       const lowerCaseSearch = debouncedSearchTerm.toLowerCase();
       results = results.filter((tt) =>
-        tt.name.toLowerCase().includes(lowerCaseSearch)
+        tt.name.toLowerCase().includes(lowerCaseSearch) ||
+        (tt.code || "").toLowerCase().includes(lowerCaseSearch)
       );
     }
 
@@ -214,14 +216,14 @@ const TestTypeListPage: React.FC = () => {
             htmlFor="testTypeSearch"
             className="text-xs font-medium text-muted-foreground"
           >
-            Rechercher par Nom
+            Rechercher par nom ou code
           </Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="testTypeSearch"
               type="search"
-              placeholder="Nom du type de test..."
+              placeholder="Nom ou code du type de test..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 h-10 w-full"
@@ -268,6 +270,7 @@ const TestTypeListPage: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Nom du Type de Test</TableHead>
+                <TableHead className="w-[120px]">Code</TableHead>
                 <TableHead className="w-[250px]">Catégorie</TableHead>
                 <TableHead className="w-[130px] text-right">Prix normal</TableHead>
                 <TableHead className="w-[130px] text-right">AMO</TableHead>
@@ -282,6 +285,13 @@ const TestTypeListPage: React.FC = () => {
                   <TableRow key={testType.id}>
                     <TableCell className="font-medium">
                       {testType.name}
+                    </TableCell>
+                    <TableCell>
+                      {testType.code ? (
+                        <span className="font-mono text-sm">{testType.code}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -338,7 +348,7 @@ const TestTypeListPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="h-24 text-center text-muted-foreground"
                   >
                     {searchTerm || categoryFilter !== "all" ? (

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid"; // For temporary parameter IDs
 
 // --- Shadcn/ui Imports ---
 import { Button } from "@/components/ui/button"; // Adjust path
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input"; // Adjust path
 import { Label } from "@/components/ui/label"; // Adjust path
 import {
@@ -67,9 +68,14 @@ const TestTypeFormPage: React.FC = () => {
 
   // --- State ---
   const [testTypeName, setTestTypeName] = useState<string>("");
+  const [testTypeCode, setTestTypeCode] = useState<string>("");
   const [testTypeDescription, setTestTypeDescription] = useState<string>("");
   const [normalPrice, setNormalPrice] = useState<string>("0");
   const [insurancePrice, setInsurancePrice] = useState<string>("");
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [isOrderable, setIsOrderable] = useState<boolean>(true);
+  const [includeInInvoiceDescription, setIncludeInInvoiceDescription] =
+    useState<boolean>(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     string | undefined
   >(undefined);
@@ -98,9 +104,13 @@ const TestTypeFormPage: React.FC = () => {
     setOriginalParameters([]);
     setOriginalTestType(null);
     setTestTypeName("");
+    setTestTypeCode("");
     setTestTypeDescription("");
     setNormalPrice("0");
     setInsurancePrice("");
+    setIsActive(true);
+    setIsOrderable(true);
+    setIncludeInInvoiceDescription(true);
     setSelectedCategoryId(undefined);
 
     try {
@@ -134,12 +144,18 @@ const TestTypeFormPage: React.FC = () => {
         // Populate state
         setOriginalTestType(testTypeData);
         setTestTypeName(testTypeData.name);
+        setTestTypeCode(testTypeData.code || "");
         setTestTypeDescription(testTypeData.description || "");
         setNormalPrice(String(testTypeData.normal_price ?? 0));
         setInsurancePrice(
           testTypeData.insurance_price == null
             ? ""
             : String(testTypeData.insurance_price)
+        );
+        setIsActive(testTypeData.is_active ?? true);
+        setIsOrderable(testTypeData.is_orderable ?? true);
+        setIncludeInInvoiceDescription(
+          testTypeData.include_in_invoice_description ?? true
         );
         setSelectedCategoryId(testTypeData.category_id);
         const initialParams = (paramsData || []).map((p) => ({
@@ -245,10 +261,14 @@ const TestTypeFormPage: React.FC = () => {
       // 1. Save Test Type (Insert or Update)
       const testTypePayload = {
         name: testTypeName.trim(),
+        code: testTypeCode.trim() || null,
         category_id: selectedCategoryId,
         description: testTypeDescription.trim() || null,
         normal_price: parsedNormalPrice,
         insurance_price: parsedInsurancePrice,
+        is_active: isActive,
+        is_orderable: isOrderable,
+        include_in_invoice_description: includeInInvoiceDescription,
       };
 
       if (isEditMode) {
@@ -374,6 +394,13 @@ const TestTypeFormPage: React.FC = () => {
       navigate("/test-types"); // Navigate back to list
     } catch (err: any) {
       console.error("Erreur sauvegarde type de test:", err);
+      if (
+        err?.code === "23505" &&
+        String(err?.message || "").includes("test_type_code_normalized_key")
+      ) {
+        setError("Ce code de test existe déjà. Veuillez choisir un code unique.");
+        return;
+      }
       setError(
         err.message ||
           `Une erreur est survenue lors de ${
@@ -480,6 +507,18 @@ const TestTypeFormPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="testTypeCode" className="font-semibold">
+                  Code
+                </Label>
+                <Input
+                  id="testTypeCode"
+                  value={testTypeCode}
+                  onChange={(e) => setTestTypeCode(e.target.value)}
+                  placeholder="Ex: NFS"
+                  disabled={loadingSubmit}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="testTypeDescription" className="font-semibold">
                   Description
                 </Label>
@@ -549,6 +588,48 @@ const TestTypeFormPage: React.FC = () => {
                     )}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-3 sm:col-span-2">
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <Checkbox
+                    id="isActive"
+                    checked={isActive}
+                    onCheckedChange={(checked) => setIsActive(Boolean(checked))}
+                    disabled={loadingSubmit}
+                  />
+                  <Label htmlFor="isActive" className="font-medium">
+                    Actif
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <Checkbox
+                    id="isOrderable"
+                    checked={isOrderable}
+                    onCheckedChange={(checked) =>
+                      setIsOrderable(Boolean(checked))
+                    }
+                    disabled={loadingSubmit}
+                  />
+                  <Label htmlFor="isOrderable" className="font-medium">
+                    Commandable en facture
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <Checkbox
+                    id="includeInInvoiceDescription"
+                    checked={includeInInvoiceDescription}
+                    onCheckedChange={(checked) =>
+                      setIncludeInInvoiceDescription(Boolean(checked))
+                    }
+                    disabled={loadingSubmit}
+                  />
+                  <Label
+                    htmlFor="includeInInvoiceDescription"
+                    className="font-medium"
+                  >
+                    Ajouter à la description de facture si sans paramètres
+                  </Label>
+                </div>
               </div>
             </div>
 

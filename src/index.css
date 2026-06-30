@@ -150,6 +150,26 @@ body {
 @layer utilities {
   /* Or place directly after @tailwind utilities */
   @media print {
+    html,
+    body,
+    #root {
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+    }
+
+    #root,
+    #root > div,
+    main {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    #root > div {
+      height: auto !important;
+      min-height: 0 !important;
+    }
+
     /* --- Hide elements not for print --- */
     /* Hide main layout sidebar and header */
     aside, /* Target the <aside> tag used in MainLayout */
@@ -188,6 +208,10 @@ body {
     main {
       padding: 0 !important;
       margin: 0 !important;
+      display: block !important;
+      flex: none !important;
+      height: auto !important;
+      min-height: 0 !important;
       overflow: visible !important; /* Show all content */
       max-width: none !important; /* Remove max-width */
     }
@@ -332,6 +356,5 @@ body {
     rgba(6, 24, 44, 0.65) 0px 4px 6px -1px,
     rgba(255, 255, 255, 0.08) 0px 1px 0px inset;
 }
-
 
 

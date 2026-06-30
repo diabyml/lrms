@@ -1,10 +1,9 @@
 // src/components/layout/MainLayout.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom"; // Use NavLink for active styling
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 
-import { useState } from "react";
 import { CreateDoctorDialog } from "@/components/app/doctors/CreateDoctorDialog"; // Adjust path
 
 // Import shadcn/ui components and icons
@@ -19,13 +18,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"; // For mobile menu
-import { TooltipProvider } from "@/components/ui/tooltip"; // For icon-only sidebar option later
 import {
   ClipboardList,
   FlaskConical,
   Layers, // Test Types Icon
   LogOut, // User profile icon
   Menu, // Patients Icon
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sparkles,
   Stethoscope, // App Logo Icon
   Users,
   Banknote,
@@ -33,12 +34,107 @@ import {
   BarChart,
   ShieldCheck,
   ReceiptText,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Settings, FileText } from "lucide-react"; // Example icons
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type NavSection = {
+  label: string;
+  items: NavItem[];
+};
+
+const SIDEBAR_STORAGE_KEY = "lrms-sidebar-collapsed";
+
+const navSections: NavSection[] = [
+  {
+    label: "Principal",
+    items: [
+      { to: "/patients", label: "Patients", icon: Users },
+      { to: "/factures", label: "Factures", icon: ReceiptText },
+      { to: "/ristournes", label: "Ristournes", icon: Banknote },
+      { to: "/bilan-amo", label: "Bilan AMO", icon: ShieldCheck },
+      { to: "/doctors", label: "Médecins", icon: Stethoscope },
+      { to: "/stats", label: "Statistiques", icon: BarChart },
+    ],
+  },
+  {
+    label: "Facturation",
+    items: [
+      {
+        to: "/patient-ristourne-search",
+        label: "Recherche Ristournes",
+        icon: Banknote,
+      },
+      {
+        to: "/results-prices",
+        label: "Bilans - Prix - Restants",
+        icon: Layers,
+      },
+      { to: "/gestion-depenses", label: "Suivi des dépenses", icon: Wallet },
+    ],
+  },
+  {
+    label: "Laboratoire",
+    items: [
+      { to: "/test-types", label: "Types de Tests", icon: ClipboardList },
+      { to: "/test-profiles", label: "Profils de Tests", icon: ClipboardList },
+      { to: "/categories", label: "Catégories", icon: Layers },
+      { to: "/atbs", label: "Gestion ATBs", icon: Layers },
+    ],
+  },
+  {
+    label: "Configuration",
+    items: [
+      {
+        to: "/settings/print-header",
+        label: "En-tête Impression",
+        icon: FileText,
+      },
+      {
+        to: "/settings/invoice-ai",
+        label: "IA Factures",
+        icon: Sparkles,
+      },
+      {
+        to: "/skip-range-management",
+        label: "Paramètres Validations",
+        icon: Settings,
+      },
+      { to: "/ecb-models", label: "Modèles ECB", icon: Layers },
+      {
+        to: "/hemoculture-models",
+        label: "Modèles Hémoculture",
+        icon: Layers,
+      },
+      {
+        to: "/antibiotique-models",
+        label: "Modèles Antibiotiques",
+        icon: Layers,
+      },
+      { to: "/abbreviations", label: "Abbreviations", icon: Layers },
+    ],
+  },
+];
 
 const MainLayout: React.FC = () => {
   const { user } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+  });
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -53,106 +149,91 @@ const MainLayout: React.FC = () => {
     return email ? email.substring(0, 2).toUpperCase() : "??";
   };
 
-  // Define navigation items
-  const navItems = [
-    { to: "/patients", label: "Patients", icon: Users },
+  useEffect(() => {
+    window.localStorage.setItem(
+      SIDEBAR_STORAGE_KEY,
+      String(isSidebarCollapsed)
+    );
+  }, [isSidebarCollapsed]);
 
-    { to: "/factures", label: "Factures", icon: ReceiptText },
+  const SidebarNav = ({
+    collapsed,
+    mobile = false,
+  }: {
+    collapsed: boolean;
+    mobile?: boolean;
+  }) => (
+    <nav
+      className={`flex flex-col gap-5 py-4 ${
+        collapsed && !mobile ? "px-2" : "px-3"
+      }`}
+    >
+      {navSections.map((section) => (
+        <div key={section.label} className="space-y-1">
+          {(!collapsed || mobile) && (
+            <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {section.label}
+            </div>
+          )}
+          <div className="space-y-1">
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const navLink = (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    [
+                      "group flex h-10 items-center rounded-md text-sm font-medium transition-colors",
+                      collapsed && !mobile
+                        ? "justify-center px-0"
+                        : "gap-3 px-3",
+                      isActive
+                        ? collapsed && !mobile
+                          ? "bg-accent text-black ring-1 ring-border"
+                          : "bg-primary text-primary-foreground shadow-sm"
+                        : collapsed && !mobile
+                          ? "text-black hover:bg-accent hover:text-black"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    ].join(" ")
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={`h-5 w-5 shrink-0 opacity-100 ${
+                          collapsed && !mobile ? "stroke-[2.75]" : ""
+                        }`}
+                        style={
+                          collapsed && !mobile
+                            ? {
+                                color: "#111827",
+                                stroke: "#111827",
+                              }
+                            : undefined
+                        }
+                      />
+                      {(!collapsed || mobile) && (
+                        <span className="truncate">{item.label}</span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              );
 
-    // PatientRistourneSearch
-    {
-      to: "/patient-ristourne-search",
-      label: "Recherche Ristournes",
-      icon: Banknote,
-    },
+              if (!collapsed || mobile) return navLink;
 
-    // results prices
-    {
-      to: "/results-prices",
-      label: "Bilans - Prix -  Restants ",
-      icon: Layers,
-    },
-    {
-      to: "/bilan-amo",
-      label: "Bilan AMO",
-      icon: ShieldCheck,
-    },
-
-    { to: "/ristournes", label: "Ristournes", icon: Banknote }, // Add ristourne management
-
-    // expense tracking
-    { to: "/gestion-depenses", label: "Suivi des dépenses", icon: Wallet },
-
-    { to: "/doctors", label: "Médecins", icon: Stethoscope }, // Doctors in French
-
-    { to: "/stats", label: "Statistiques", icon: BarChart },
-
-    { to: "/test-types", label: "Types de Tests", icon: ClipboardList }, // Test Types in French
-    { to: "/categories", label: "Catégories", icon: Layers }, // Add this item
-
-    {
-      to: "/settings/print-header",
-      label: "En-tête Impression",
-      icon: FileText,
-    },
-    {
-      to: "/skip-range-management",
-      label: "Parametres Validations",
-      icon: Settings,
-    },
-    // ECB Model Management
-    {
-      to: "/ecb-models",
-      label: "Modèles ECB",
-      icon: Layers,
-    },
-
-    {
-      to: "/hemoculture-models",
-      label: "Modèles Hémoculture",
-      icon: Layers,
-    },
-
-    {
-      to: "/antibiotique-models",
-      label: "Modèles Antibiotiques",
-      icon: Layers,
-    },
-
-    {
-      to: "/atbs",
-      label: "Gestion ATBs",
-      icon: Layers,
-    },
-    {
-      to: "/abbreviations",
-      label: "Abbreviations",
-      icon: Layers,
-    },
-    // Add other main navigation items here
-  ];
-
-  // Sidebar content, reusable for desktop and mobile sheet
-  const sidebarContent = (
-    <nav className="flex flex-col gap-2 px-2 sm:px-4 py-4">
-      {/* Use NavLink for automatic active class styling */}
-      {navItems.map((item) => (
-        <NavLink
-          key={item.label}
-          to={item.to}
-          // Use a function to conditionally apply classes based on `isActive`
-          className={({ isActive }) =>
-            `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive
-              ? "bg-primary text-primary-foreground" // Active state style
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground" // Inactive state style
-            }`
-          }
-        // Optionally end prop if you only want exact matches
-        // end
-        >
-          <item.icon className="h-5 w-5" />
-          <span>{item.label}</span>
-        </NavLink>
+              return (
+                <Tooltip key={item.label}>
+                  <TooltipTrigger asChild>{navLink}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </div>
       ))}
     </nav>
   );
@@ -170,15 +251,55 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-muted/40 overflow-hidden">
+    <TooltipProvider>
+      <div className="flex h-screen w-full bg-muted/40 overflow-hidden">
       {/* Sidebar (Desktop) - Hidden on smaller screens */}
-      <aside className="hidden sm:flex flex-col w-64 border-r bg-background overflow-y-auto">
-        <div className="flex items-center gap-2 h-16 border-b p-6">
-          <FlaskConical className="h-6 w-6 text-primary" />
-          <span className="font-semibold tracking-tight">LRMS</span>
+      <aside
+        className={`hidden shrink-0 flex-col border-r bg-background transition-[width] duration-300 sm:flex ${
+          isSidebarCollapsed ? "w-16" : "w-64"
+        }`}
+      >
+        <div
+          className={`relative flex h-16 items-center border-b px-3 ${
+            isSidebarCollapsed ? "justify-center" : "justify-between gap-2"
+          }`}
+        >
+          <div
+            className={`flex min-w-0 items-center ${
+              isSidebarCollapsed ? "justify-center" : "gap-2"
+            }`}
+          >
+            <FlaskConical className="h-6 w-6 shrink-0 text-primary" />
+            {!isSidebarCollapsed && (
+              <span className="truncate font-semibold tracking-tight">LRMS</span>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={
+              isSidebarCollapsed
+                ? "absolute -right-4 h-8 w-8 border bg-background shadow-sm hover:bg-accent"
+                : "h-8 w-8"
+            }
+            onClick={() => setIsSidebarCollapsed((current) => !current)}
+            aria-label={
+              isSidebarCollapsed
+                ? "Développer la barre latérale"
+                : "Réduire la barre latérale"
+            }
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        {sidebarContent}
-        {/* Optional: Add footer or other sidebar elements here */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <SidebarNav collapsed={isSidebarCollapsed} />
+        </div>
       </aside>
 
       {/* Main Content Area */}
@@ -194,11 +315,8 @@ const MainLayout: React.FC = () => {
                   <span className="sr-only">Ouvrir le menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-64 p-0 pt-10">
-                {" "}
-                {/* Adjust padding */}
-                {/* Reuse sidebar content inside the mobile sheet */}
-                {sidebarContent}
+              <SheetContent side="left" className="w-72 p-0 pt-10">
+                <SidebarNav collapsed={false} mobile />
               </SheetContent>
             </Sheet>
           </div>
@@ -258,12 +376,9 @@ const MainLayout: React.FC = () => {
         </header>
 
         {/* Page Content - Outlet renders the matched child route */}
-        {/* Added TooltipProvider required by shadcn Tooltip */}
-        <TooltipProvider>
           <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 bg-white">
             <Outlet />
           </main>
-        </TooltipProvider>
       </div>
 
       <CreateDoctorDialog
@@ -272,6 +387,7 @@ const MainLayout: React.FC = () => {
         onDoctorCreated={handleDoctorCreated}
       />
     </div>
+    </TooltipProvider>
   );
 };
 

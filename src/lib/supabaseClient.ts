@@ -43,6 +43,7 @@ export interface AbbreModel {
 export interface TestType {
   id: string;
   name: string;
+  code?: string | null;
   // Add other fields if you need them elsewhere, but for this task, name is key
   created_at: string;
 }

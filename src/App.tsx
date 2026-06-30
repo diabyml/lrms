@@ -22,6 +22,8 @@ import ResultDetailPage from "./pages/ResultDetailPage";
 import ResultFormPage from "./pages/ResultFormPage";
 import TestTypeListPage from "./pages/TestTypeListPage";
 import TestTypeFormPage from "./pages/TestTypeFormPage";
+import TestProfileListPage from "./pages/TestProfileListPage";
+import TestProfileFormPage from "./pages/TestProfileFormPage";
 import DoctorFormPage from "./pages/DoctorFormPage";
 import CategoryListPage from "./pages/CategoryListPage";
 import PrintHeaderDesignPage from "./pages/PrintHeaderDesignPage";
@@ -52,6 +54,8 @@ import BilanAmoPrintPage from "./pages/BilanAmoPrintPage";
 import FactureListPage from "./pages/FactureListPage";
 import FactureFormPage from "./pages/FactureFormPage";
 import FactureDetailPage from "./pages/FactureDetailPage";
+import InvoiceAiSettingsPage from "./pages/InvoiceAiSettingsPage";
+import ReceiptVerificationPage from "./pages/ReceiptVerificationPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -63,6 +67,10 @@ function App() {
       <Routes>
         {/* Public Route */}
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/verify-receipt/:token"
+          element={<ReceiptVerificationPage />}
+        />
 
         {/* Protected Routes */}
         {/* All routes nested under MainLayout will share its structure */}
@@ -113,6 +121,12 @@ function App() {
               path="/test-types/:testTypeId/edit"
               element={<TestTypeFormPage />}
             />
+            <Route path="/test-profiles" element={<TestProfileListPage />} />
+            <Route path="/test-profiles/new" element={<TestProfileFormPage />} />
+            <Route
+              path="/test-profiles/:profileId/edit"
+              element={<TestProfileFormPage />}
+            />
             {/* categories */}
             <Route path="/categories" element={<CategoryListPage />} />{" "}
             {/* ristournes */}
@@ -131,6 +145,10 @@ function App() {
             <Route
               path="/settings/print-header"
               element={<PrintHeaderDesignPage />}
+            />
+            <Route
+              path="/settings/invoice-ai"
+              element={<InvoiceAiSettingsPage />}
             />
             <Route
               path="/protidogramme/:resultId"
@@ -169,6 +187,7 @@ function App() {
             <Route path="/bilan-amo/print" element={<BilanAmoPrintPage />} />
             <Route path="/factures" element={<FactureListPage />} />
             <Route path="/factures/new" element={<FactureFormPage />} />
+            <Route path="/factures/:invoiceId/edit" element={<FactureFormPage />} />
             <Route path="/factures/:invoiceId" element={<FactureDetailPage />} />
             {/* stats */}
             <Route path="/stats" element={<DataInsightsPage />} />

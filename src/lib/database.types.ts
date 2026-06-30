@@ -267,6 +267,24 @@ export type Database = {
         }
         Relationships: []
       }
+      settings: {
+        Row: {
+          invoice_ai_access_code: string | null
+          invoice_ai_enabled: boolean
+          ristourne_access_code: string | null
+        }
+        Insert: {
+          invoice_ai_access_code?: string | null
+          invoice_ai_enabled?: boolean
+          ristourne_access_code?: string | null
+        }
+        Update: {
+          invoice_ai_access_code?: string | null
+          invoice_ai_enabled?: boolean
+          ristourne_access_code?: string | null
+        }
+        Relationships: []
+      }
       invoice: {
         Row: {
           amount_paid: number
@@ -284,6 +302,7 @@ export type Database = {
           subtotal: number
           total: number
           updated_at: string
+          verification_token: string
         }
         Insert: {
           amount_paid?: number
@@ -301,6 +320,7 @@ export type Database = {
           subtotal?: number
           total?: number
           updated_at?: string
+          verification_token?: string
         }
         Update: {
           amount_paid?: number
@@ -318,6 +338,7 @@ export type Database = {
           subtotal?: number
           total?: number
           updated_at?: string
+          verification_token?: string
         }
         Relationships: [
           {
@@ -566,35 +587,113 @@ export type Database = {
       test_type: {
         Row: {
           category_id: string
+          code: string | null
           created_at: string
           description: string | null
           id: string
+          include_in_invoice_description: boolean
           insurance_price: number | null
+          is_active: boolean
+          is_orderable: boolean
           name: string
           normal_price: number
           updated_at: string
         }
         Insert: {
           category_id: string
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          include_in_invoice_description?: boolean
           insurance_price?: number | null
+          is_active?: boolean
+          is_orderable?: boolean
           name: string
           normal_price?: number
           updated_at?: string
         }
         Update: {
           category_id?: string
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          include_in_invoice_description?: boolean
           insurance_price?: number | null
+          is_active?: boolean
+          is_orderable?: boolean
           name?: string
           normal_price?: number
           updated_at?: string
         }
         Relationships: []
+      }
+      test_profile: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      test_profile_item: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+          sort_order: number
+          test_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+          sort_order?: number
+          test_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+          sort_order?: number
+          test_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_profile_item_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "test_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_profile_item_test_type_id_fkey"
+            columns: ["test_type_id"]
+            isOneToOne: false
+            referencedRelation: "test_type"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       hemoculture_observation_model: {
         Row: {
@@ -742,21 +841,67 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_invoice_with_result: {
+        Args: {
+          p_invoice_id: string
+        }
+        Returns: undefined
+      }
       create_invoice_with_result: {
         Args: {
           p_patient: Json
           p_doctor_id: string
-          p_test_type_ids: string[]
+          p_items: Json
           p_has_insurance: boolean
           p_discount_amount: number
           p_amount_paid: number
           p_notes?: string | null
+          p_is_free?: boolean
+          p_is_half_pay?: boolean
+        }
+        Returns: string
+      }
+      pay_invoice_remaining: {
+        Args: {
+          p_invoice_id: string
+        }
+        Returns: undefined
+      }
+      verify_invoice_receipt: {
+        Args: {
+          p_token: string
+        }
+        Returns: Json
+      }
+      update_invoice_with_result: {
+        Args: {
+          p_invoice_id: string
+          p_patient: Json
+          p_doctor_id: string
+          p_items: Json
+          p_has_insurance: boolean
+          p_discount_amount: number
+          p_amount_paid: number
+          p_notes?: string | null
+          p_is_free?: boolean
+          p_is_half_pay?: boolean
         }
         Returns: string
       }
       get_patient_detail: {
         Args: {
           p_patient_id: string
+        }
+        Returns: Json
+      }
+      get_invoices_page: {
+        Args: {
+          p_search?: string | null
+          p_doctor_id?: string | null
+          p_start_date?: string | null
+          p_end_date?: string | null
+          p_page?: number
+          p_page_size?: number
         }
         Returns: Json
       }
