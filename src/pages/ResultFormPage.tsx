@@ -10,7 +10,7 @@ import React, {
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed
 import { cn, extractTestTypeName } from "@/lib/utils"; // Adjust path if needed
-import { useDebounce } from "../hooks/useDebounce"; // Adjust path if needed
+import { TestTypeSelector } from "@/components/TestTypeSelector";
 
 // --- Shadcn/ui Imports ---
 import { Button } from "@/components/ui/button"; // Adjust path
@@ -23,13 +23,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"; // Adjust path
 import { Label } from "@/components/ui/label"; // Adjust path
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"; // Adjust path
 import {
   Popover,
   PopoverContent,
@@ -55,7 +48,6 @@ import {
   User,
   Stethoscope,
   Check,
-  Search,
   X,
   Edit as EditIcon,
   RefreshCw,
@@ -116,9 +108,6 @@ const ResultFormPage: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [availableTestTypes, setAvailableTestTypes] = useState<TestType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<
-    string | undefined
-  >(undefined);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | undefined>(
     undefined
   );
@@ -126,7 +115,6 @@ const ResultFormPage: React.FC = () => {
   const [selectedTestTypes, setSelectedTestTypes] = useState<
     Map<string, SelectedTestType>
   >(new Map());
-  const [testTypeSearchTerm, setTestTypeSearchTerm] = useState<string>("");
   const [loadingInitialData, setLoadingInitialData] = useState<boolean>(true);
   const [loadingSubmit, setLoadingSubmit] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,8 +129,6 @@ const ResultFormPage: React.FC = () => {
   // unpaid amount state
   const [unpaidAmount, setUnpaidAmount] = useState<number | "" | undefined>("");
   // --- End State ---
-
-  const debouncedTestTypeSearch = useDebounce(testTypeSearchTerm, 250);
 
   // --- Data Fetching ---
   const fetchBootstrapData = useCallback(async () => {
@@ -215,21 +201,6 @@ const ResultFormPage: React.FC = () => {
     fetchBootstrapData();
   }, [fetchBootstrapData]);
   // --- End Data Fetching ---
-
-  // Filter available test types based on search term
-  const filteredTestTypes = useMemo(() => {
-    if (!selectedCategoryId) {
-      if (!debouncedTestTypeSearch) return availableTestTypes;
-      const lowerCaseSearch = debouncedTestTypeSearch.toLowerCase();
-      return availableTestTypes.filter((tt) =>
-        tt.name.toLowerCase().includes(lowerCaseSearch)
-      );
-    } else {
-      return availableTestTypes.filter(
-        (tt) => tt.category_id === selectedCategoryId
-      );
-    }
-  }, [availableTestTypes, debouncedTestTypeSearch, selectedCategoryId]);
 
   const loadParametersForTestType = useCallback(
     async (testTypeId: string) => {
@@ -534,31 +505,27 @@ const ResultFormPage: React.FC = () => {
     }
   };
 
-  function handleRapidSelectionTestTypeSubmit(e: FormEvent) {
-    e.preventDefault();
-
-    // Add all filtered test types to selectedTestTypes
+  const handleRapidTestTypeSelection = (testTypeIds: string[]) => {
+    const testTypeIdSet = new Set(testTypeIds);
     setSelectedTestTypes((prevMap) => {
       const newMap = new Map(prevMap);
-      filteredTestTypes.forEach((testType) => {
+      availableTestTypes
+        .filter((testType) => testTypeIdSet.has(testType.id))
+        .forEach((testType) => {
         newMap.set(testType.id, {
           ...testType,
           parameters: [],
           loadingParams: true,
           errorLoadingParams: false,
         });
-      });
+        });
       return newMap;
     });
 
-    // Start loading parameters for all added test types
-    filteredTestTypes.forEach((testType) => {
-      void loadParametersForTestType(testType.id);
+    testTypeIds.forEach((testTypeId) => {
+      void loadParametersForTestType(testTypeId);
     });
-
-    // Clear the search input
-    setTestTypeSearchTerm("");
-  }
+  };
 
   // --- Render Logic ---
   if (loadingInitialData) {
@@ -880,82 +847,14 @@ const ResultFormPage: React.FC = () => {
             />
           </div>
 
-          {/* Category Filter */}
-          <div style={{ marginBottom: 16 }}>
-            <Label htmlFor="category-filter">Catégorie</Label>
-            <Select
-              value={selectedCategoryId ?? "all"}
-              onValueChange={(val) =>
-                setSelectedCategoryId(val === "all" ? undefined : val)
-              }
-            >
-              <SelectTrigger id="category-filter">
-                <SelectValue placeholder="Filtrer par catégorie" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les catégories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Test Type Selection with Search */}
-          <div className="space-y-4">
-            <Label className="font-semibold text-base">
-              Types de Tests Inclus
-            </Label>
-
-            <form onSubmit={handleRapidSelectionTestTypeSubmit}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Rechercher et ajouter un type de test..."
-                  value={testTypeSearchTerm}
-                  onChange={(e) => setTestTypeSearchTerm(e.target.value)}
-                  className="pl-10 w-full h-9"
-                  disabled={availableTestTypes.length === 0}
-                />
-              </div>
-            </form>
-
-            {availableTestTypes.length > 0 ? (
-              <div className="grid grid-cols-2 _sm:grid-cols-3 _md:grid-cols-4 gap-x-4 gap-y-3 rounded-md border p-4 max-h-80 overflow-y-auto">
-                {filteredTestTypes.length > 0 ? (
-                  filteredTestTypes.map((tt) => (
-                    <div key={tt.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`test-type-${tt.id}`}
-                        checked={selectedTestTypes.has(tt.id)}
-                        onCheckedChange={(checked) =>
-                          handleTestTypeToggle(checked, tt.id)
-                        }
-                        disabled={loadingSubmit}
-                      />
-                      <label
-                        htmlFor={`test-type-${tt.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {extractTestTypeName(tt.name)}
-                      </label>
-                    </div>
-                  ))
-                ) : (
-                  <p className="col-span-full text-sm text-muted-foreground text-center py-4">
-                    Aucun type de test ne correspond.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">
-                Aucun type de test configuré.
-              </p>
-            )}
-          </div>
+          <TestTypeSelector
+            categories={categories}
+            tests={availableTestTypes}
+            selectedTestIds={Array.from(selectedTestTypes.keys())}
+            onTestToggle={handleTestTypeToggle}
+            onAddTests={handleRapidTestTypeSelection}
+            disabled={loadingSubmit}
+          />
 
           {/* Dynamically Rendered Parameter Inputs */}
           {selectedTestTypes.size > 0 && <Separator />}

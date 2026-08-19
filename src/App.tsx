@@ -187,6 +187,10 @@ function App() {
             <Route path="/bilan-amo/print" element={<BilanAmoPrintPage />} />
             <Route path="/factures" element={<FactureListPage />} />
             <Route path="/factures/new" element={<FactureFormPage />} />
+            <Route
+              path="/factures/drafts/:draftId/edit"
+              element={<FactureFormPage />}
+            />
             <Route path="/factures/:invoiceId/edit" element={<FactureFormPage />} />
             <Route path="/factures/:invoiceId" element={<FactureDetailPage />} />
             {/* stats */}

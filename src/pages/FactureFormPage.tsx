@@ -58,13 +58,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  getDisplayTestName,
-  InvoicePickerProfile,
-  InvoiceTestPicker,
-} from "@/components/invoice/InvoiceTestPicker";
+import { TestTypeSelector } from "@/components/TestTypeSelector";
 import { supabase, Tables } from "@/lib/supabaseClient";
-import { extractId, generateId, validateId } from "@/lib/utils";
+import {
+  extractId,
+  extractTestTypeName,
+  generateId,
+  validateId,
+} from "@/lib/utils";
 
 type Doctor = Pick<Tables<"doctor">, "id" | "full_name" | "hospital">;
 type TestType = Pick<
@@ -72,12 +73,15 @@ type TestType = Pick<
   | "id"
   | "name"
   | "code"
+  | "category_id"
   | "normal_price"
   | "insurance_price"
   | "is_active"
   | "is_orderable"
   | "include_in_invoice_description"
 >;
+
+type Category = Pick<Tables<"category">, "id" | "name">;
 
 type SpeechRecognitionConstructor = new () => {
   lang: string;
@@ -147,6 +151,7 @@ type InvoiceEditPayload = {
   has_insurance: boolean;
   subtotal: number;
   discount_amount: number;
+  discount_price_source: "amo" | "normal";
   total: number;
   amount_paid: number;
   notes: string | null;
@@ -167,12 +172,28 @@ type InvoiceEditPayload = {
   }>;
 };
 
-type TestProfilePayload = {
+type InvoiceDraftEditPayload = {
   id: string;
-  name: string;
-  description: string | null;
-  test_profile_item: Array<{
-    sort_order: number;
+  patient: {
+    patient_unique_id?: string | null;
+    full_name?: string | null;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    phone?: string | null;
+  };
+  doctor_id: string;
+  has_insurance: boolean;
+  subtotal: number;
+  discount_amount: number;
+  discount_price_source: "amo" | "normal";
+  total: number;
+  amount_paid: number;
+  notes: string | null;
+  is_free: boolean;
+  is_half_pay: boolean;
+  invoice_draft_item: Array<{
+    test_type_id: string;
+    applied_price: number;
     test_type: TestType | null;
   }>;
 };
@@ -710,11 +731,15 @@ const buildSmartReview = (
 
 const FactureFormPage: React.FC = () => {
   const navigate = useNavigate();
-  const { invoiceId } = useParams<{ invoiceId: string }>();
+  const { invoiceId, draftId } = useParams<{
+    invoiceId?: string;
+    draftId?: string;
+  }>();
   const isEditMode = Boolean(invoiceId);
+  const isDraftMode = Boolean(draftId);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [testTypes, setTestTypes] = useState<TestType[]>([]);
-  const [testProfiles, setTestProfiles] = useState<InvoicePickerProfile[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | undefined>();
   const [selectedTestTypeIds, setSelectedTestTypeIds] = useState<string[]>([]);
   const [appliedPrices, setAppliedPrices] = useState<Record<string, string>>({});
@@ -731,11 +756,17 @@ const FactureFormPage: React.FC = () => {
   const [isFreeInvoice, setIsFreeInvoice] = useState(false);
   const [isHalfPayInvoice, setIsHalfPayInvoice] = useState(false);
   const [discountAmount, setDiscountAmount] = useState("0");
+  const [discountPriceSource, setDiscountPriceSource] = useState<
+    "amo" | "normal"
+  >("amo");
   const [amountPaid, setAmountPaid] = useState("0");
   const [amountPaidTouched, setAmountPaidTouched] = useState(false);
   const [notes, setNotes] = useState("");
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<
+    "draft" | "invoice" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [invoiceAiEnabled, setInvoiceAiEnabled] = useState(false);
   const [smartOpen, setSmartOpen] = useState(false);
@@ -770,6 +801,7 @@ const FactureFormPage: React.FC = () => {
             has_insurance,
             subtotal,
             discount_amount,
+            discount_price_source,
             total,
             amount_paid,
             notes,
@@ -782,6 +814,7 @@ const FactureFormPage: React.FC = () => {
                 id,
                 name,
                 code,
+                category_id,
                 normal_price,
                 insurance_price,
                 is_active,
@@ -794,13 +827,46 @@ const FactureFormPage: React.FC = () => {
           .eq("id", invoiceId)
           .single()
       : Promise.resolve({ data: null, error: null });
+    const draftPromise = draftId
+      ? supabase
+          .from("invoice_draft")
+          .select(
+            `
+            *,
+            invoice_draft_item(
+              test_type_id,
+              applied_price,
+              test_type:test_type_id(
+                id,
+                name,
+                code,
+                category_id,
+                normal_price,
+                insurance_price,
+                is_active,
+                is_orderable,
+                include_in_invoice_description
+              )
+            )
+          `
+          )
+          .eq("id", draftId)
+          .single()
+      : Promise.resolve({ data: null, error: null });
     const invoiceAiSettingsPromise = supabase
       .from("settings")
       .select("invoice_ai_enabled")
       .limit(1)
       .maybeSingle();
 
-    const [doctorRes, testTypeRes, profileRes, invoiceRes, invoiceAiSettingsRes] =
+    const [
+      doctorRes,
+      testTypeRes,
+      categoryRes,
+      invoiceRes,
+      draftRes,
+      invoiceAiSettingsRes,
+    ] =
       await Promise.all([
         supabase
           .from("doctor")
@@ -809,35 +875,14 @@ const FactureFormPage: React.FC = () => {
         supabase
           .from("test_type")
           .select(
-            "id, name, code, normal_price, insurance_price, is_active, is_orderable, include_in_invoice_description"
+            "id, name, code, category_id, normal_price, insurance_price, is_active, is_orderable, include_in_invoice_description"
           )
           .eq("is_active", true)
           .eq("is_orderable", true)
           .order("name"),
-        supabase
-          .from("test_profile")
-          .select(
-            `
-          id,
-          name,
-          description,
-          test_profile_item(
-            sort_order,
-            test_type:test_type_id(
-              id,
-              name,
-              code,
-              normal_price,
-              insurance_price,
-              is_active,
-              is_orderable,
-              include_in_invoice_description
-            )
-          )
-        `
-          )
-          .order("name"),
+        supabase.from("category").select("id, name").order("name"),
         invoicePromise,
+        draftPromise,
         invoiceAiSettingsPromise,
       ]);
 
@@ -850,16 +895,20 @@ const FactureFormPage: React.FC = () => {
       setError(doctorRes.error.message);
     } else if (testTypeRes.error) {
       setError(testTypeRes.error.message);
-    } else if (profileRes.error) {
-      setError(profileRes.error.message);
+    } else if (categoryRes.error) {
+      setError(categoryRes.error.message);
     } else if (invoiceRes.error) {
       setError(invoiceRes.error.message);
+    } else if (draftRes.error) {
+      setError(draftRes.error.message);
     } else {
       setDoctors((doctorRes.data || []) as Doctor[]);
+      setCategories((categoryRes.data || []) as Category[]);
       const activeTestTypes = (testTypeRes.data || []) as TestType[];
       const invoice = invoiceRes.data as unknown as InvoiceEditPayload | null;
+      const draft = draftRes.data as unknown as InvoiceDraftEditPayload | null;
       const invoiceTests =
-        invoice?.invoice_item
+        (invoice?.invoice_item || draft?.invoice_draft_item)
           ?.map((item) => item.test_type)
           .filter(Boolean) as TestType[] | undefined;
       const mergedTests = new Map<string, TestType>();
@@ -872,24 +921,6 @@ const FactureFormPage: React.FC = () => {
           left.name.localeCompare(right.name)
         )
       );
-      setTestProfiles(
-        ((profileRes.data || []) as unknown as TestProfilePayload[]).map(
-          (profile) => ({
-            id: profile.id,
-            name: profile.name,
-            description: profile.description,
-            tests: (profile.test_profile_item || [])
-              .slice()
-              .sort((left, right) => left.sort_order - right.sort_order)
-              .map((item) => item.test_type)
-              .filter(
-                (test): test is TestType =>
-                  Boolean(test?.is_active && test?.is_orderable)
-              ),
-          })
-        )
-      );
-
       if (invoice) {
         const fullName = invoice.patient?.full_name || "";
         const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -916,6 +947,7 @@ const FactureFormPage: React.FC = () => {
         );
         setHasInsurance(invoice.has_insurance);
         setDiscountAmount(String(invoice.discount_amount || 0));
+        setDiscountPriceSource(invoice.discount_price_source || "amo");
         setAmountPaid(String(invoice.amount_paid || 0));
         setAmountPaidTouched(true);
         const savedSubtotal = Number(invoice.subtotal || 0);
@@ -933,11 +965,45 @@ const FactureFormPage: React.FC = () => {
             almostEqual(savedDiscount, savedSubtotal / 2)
         );
         setNotes(invoice.notes || "");
+      } else if (draft) {
+        const nameParts = (draft.patient?.full_name || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        setPatientFirstName(nameParts[0] || "");
+        setPatientLastName(nameParts.slice(1).join(" ") || "");
+        setPatientPrefix(draft.patient?.patient_unique_id || "");
+        setDateOfBirth(draft.patient?.date_of_birth || "");
+        setGender(draft.patient?.gender || undefined);
+        setPhone(draft.patient?.phone || "");
+        setSelectedDoctorId(draft.doctor_id);
+        setSelectedTestTypeIds(
+          draft.invoice_draft_item.map((item) => item.test_type_id)
+        );
+        setAppliedPrices(
+          Object.fromEntries(
+            draft.invoice_draft_item.map((item) => [
+              item.test_type_id,
+              String(item.applied_price),
+            ])
+          )
+        );
+        setManualPriceTestIds(
+          new Set(draft.invoice_draft_item.map((item) => item.test_type_id))
+        );
+        setHasInsurance(draft.has_insurance);
+        setDiscountAmount(String(draft.discount_amount || 0));
+        setDiscountPriceSource(draft.discount_price_source || "amo");
+        setAmountPaid(String(draft.amount_paid || 0));
+        setAmountPaidTouched(true);
+        setIsFreeInvoice(draft.is_free);
+        setIsHalfPayInvoice(draft.is_half_pay);
+        setNotes(draft.notes || "");
       }
     }
 
     setLoadingInitial(false);
-  }, [invoiceId]);
+  }, [draftId, invoiceId]);
 
   useEffect(() => {
     fetchData();
@@ -1064,8 +1130,24 @@ const FactureFormPage: React.FC = () => {
     }
   }, [isFreeInvoice, isHalfPayInvoice, totals.subtotal]);
 
-  const handleSelectedTestIdsChange = (ids: string[]) => {
-    setSelectedTestTypeIds(ids);
+  const handleTestTypeToggle = (
+    checked: boolean | "indeterminate",
+    testTypeId: string
+  ) => {
+    setSelectedTestTypeIds((current) => {
+      if (checked === true) {
+        return current.includes(testTypeId)
+          ? current
+          : [...current, testTypeId];
+      }
+      return current.filter((id) => id !== testTypeId);
+    });
+  };
+
+  const handleRapidTestTypeSelection = (testTypeIds: string[]) => {
+    setSelectedTestTypeIds((current) => [
+      ...new Set([...current, ...testTypeIds]),
+    ]);
   };
 
   const handleAppliedPriceChange = (testId: string, value: string) => {
@@ -1510,6 +1592,94 @@ const FactureFormPage: React.FC = () => {
     handleSmartOpenChange(false);
   };
 
+  const validateDraftFields = () => {
+    if (!patientFirstName.trim() || !patientLastName.trim()) {
+      setError("Le prénom et le nom du patient sont requis.");
+      return false;
+    }
+    if (!selectedDoctorId) {
+      setError("Veuillez sélectionner un médecin.");
+      return false;
+    }
+    if (selectedTestTypeIds.length === 0) {
+      setError("Veuillez sélectionner au moins un type de test.");
+      return false;
+    }
+    const invalidPriceTest = selectedTests.find((test) => {
+      const price = Number(appliedPrices[test.id]);
+      return !Number.isFinite(price) || price < 0;
+    });
+    if (invalidPriceTest) {
+      setError(
+        `Le prix appliqué est invalide pour ${extractTestTypeName(
+          invalidPriceTest.name
+        )}.`
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const saveDraftFromForm = async () => {
+    setError(null);
+    if (!validateDraftFields() || !selectedDoctorId) return null;
+    setSubmitting(true);
+
+    const submitDiscount = isFreeInvoice
+      ? totals.subtotal
+      : isHalfPayInvoice
+        ? totals.subtotal / 2
+        : totals.discount;
+    const submitAmountPaid = isFreeInvoice
+      ? 0
+      : isHalfPayInvoice
+        ? Math.max(totals.subtotal - submitDiscount, 0)
+        : totals.paid;
+
+    const { data, error: draftError } = await supabase.rpc(
+      "save_invoice_draft",
+      {
+        p_draft_id: draftId || null,
+        p_patient: {
+          patient_unique_id: patientPrefix.trim() || null,
+          full_name: `${patientFirstName.trim()} ${patientLastName.trim()}`,
+          date_of_birth: dateOfBirth || null,
+          gender: gender || null,
+          phone: phone.trim() || null,
+        },
+        p_doctor_id: selectedDoctorId,
+        p_items: selectedTests.map((test) => ({
+          test_type_id: test.id,
+          applied_price: Math.max(toNumber(appliedPrices[test.id] || "0"), 0),
+        })),
+        p_has_insurance: hasInsurance,
+        p_discount_amount: submitDiscount,
+        p_discount_price_source: discountPriceSource,
+        p_amount_paid: submitAmountPaid,
+        p_notes: notes.trim() || null,
+        p_is_free: isFreeInvoice,
+        p_is_half_pay: isHalfPayInvoice,
+      }
+    );
+
+    if (draftError) {
+      setError(draftError.message);
+      setSubmitting(false);
+      setSubmittingAction(null);
+      return null;
+    }
+    return data as string;
+  };
+
+  const handleSaveDraft = async () => {
+    setSubmittingAction("draft");
+    const savedDraftId = await saveDraftFromForm();
+    setSubmitting(false);
+    setSubmittingAction(null);
+    if (!savedDraftId) return;
+    if (!draftId) navigate(`/factures/drafts/${savedDraftId}/edit`);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -1544,10 +1714,30 @@ const FactureFormPage: React.FC = () => {
     });
     if (invalidPriceTest) {
       setError(
-        `Le prix appliqué est invalide pour ${getDisplayTestName(
+        `Le prix appliqué est invalide pour ${extractTestTypeName(
           invalidPriceTest.name
         )}.`
       );
+      return;
+    }
+
+    setSubmittingAction("invoice");
+
+    if (isDraftMode) {
+      const savedDraftId = await saveDraftFromForm();
+      if (!savedDraftId) return;
+      const { data: finalizedInvoiceId, error: finalizeError } =
+        await supabase.rpc("finalize_invoice_draft", {
+          p_draft_id: savedDraftId,
+          p_patient_unique_id: generateId(patientPrefix.trim()),
+        });
+      if (finalizeError) {
+        setError(finalizeError.message);
+        setSubmitting(false);
+        setSubmittingAction(null);
+        return;
+      }
+      navigate(`/factures/${finalizedInvoiceId}`);
       return;
     }
 
@@ -1584,6 +1774,7 @@ const FactureFormPage: React.FC = () => {
       })),
       p_has_insurance: hasInsurance,
       p_discount_amount: submitDiscount,
+      p_discount_price_source: discountPriceSource,
       p_amount_paid: submitAmountPaid,
       p_notes: notes.trim() || null,
       p_is_free: isFreeInvoice,
@@ -1600,6 +1791,7 @@ const FactureFormPage: React.FC = () => {
     if (rpcError) {
       setError(rpcError.message);
       setSubmitting(false);
+      setSubmittingAction(null);
       return;
     }
 
@@ -1637,6 +1829,17 @@ const FactureFormPage: React.FC = () => {
           </Button>
         )}
       </div>
+
+      {isDraftMode && (
+        <Alert>
+          <FileText className="h-4 w-4" />
+          <AlertTitle>Brouillon de facture</AlertTitle>
+          <AlertDescription>
+            Aucun résultat, paiement de ristourne, numéro officiel ou reçu ne
+            sera créé avant la finalisation.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {invoiceAiEnabled && (
         <Dialog open={smartOpen} onOpenChange={handleSmartOpenChange}>
@@ -2066,7 +2269,7 @@ const FactureFormPage: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="patientPrefix">
                   {isEditMode ? "ID patient" : "Préfixe ID"}{" "}
-                  <span className="text-destructive">*</span>
+                  {!isDraftMode && <span className="text-destructive">*</span>}
                 </Label>
                 <Input
                   id="patientPrefix"
@@ -2074,10 +2277,14 @@ const FactureFormPage: React.FC = () => {
                   onChange={(event) => setPatientPrefix(event.target.value)}
                   placeholder={isEditMode ? "Ex: 021-27-0626" : "Ex: 021"}
                   disabled={submitting}
-                  required
+                  required={!isDraftMode}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {isEditMode
+                  {isDraftMode
+                    ? validateId(patientPrefix)
+                      ? `ID final: ${generateId(patientPrefix)}`
+                      : "Facultatif pour enregistrer · requis pour finaliser"
+                    : isEditMode
                     ? "Le suffixe technique de la facture est conservé automatiquement."
                     : `ID généré: ${
                         validateId(patientPrefix)
@@ -2223,12 +2430,14 @@ const FactureFormPage: React.FC = () => {
                 <Label>
                   Examens <span className="text-destructive">*</span>
                 </Label>
-                <InvoiceTestPicker
+                <TestTypeSelector
+                  categories={categories}
                   tests={testTypes}
-                  profiles={testProfiles}
                   selectedTestIds={selectedTestTypeIds}
-                  onSelectedTestIdsChange={handleSelectedTestIdsChange}
+                  onTestToggle={handleTestTypeToggle}
+                  onAddTests={handleRapidTestTypeSelection}
                   disabled={submitting}
+                  showSelectedPills
                 />
               </div>
               {selectedTests.length > 0 && (
@@ -2250,7 +2459,7 @@ const FactureFormPage: React.FC = () => {
                         className="grid grid-cols-[minmax(0,1fr)_88px_88px_112px] items-center gap-3 border-t px-3 py-2 text-sm"
                       >
                         <span className="min-w-0 font-medium">
-                          {getDisplayTestName(test.name)}
+                          {extractTestTypeName(test.name)}
                         </span>
                         <span className="text-right tabular-nums">
                           {formatCurrency(test.normal_price)}
@@ -2270,7 +2479,7 @@ const FactureFormPage: React.FC = () => {
                           }
                           disabled={submitting}
                           className="h-8 w-full text-right tabular-nums"
-                          aria-label={`Prix appliqué ${getDisplayTestName(
+                          aria-label={`Prix appliqué ${extractTestTypeName(
                             test.name
                           )}`}
                         />
@@ -2301,6 +2510,30 @@ const FactureFormPage: React.FC = () => {
                   onChange={(event) => setDiscountAmount(event.target.value)}
                   disabled={submitting || isFreeInvoice || isHalfPayInvoice}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="discountPriceSource">
+                  Déduire la remise de
+                </Label>
+                <UiSelect
+                  value={discountPriceSource}
+                  onValueChange={(value: "amo" | "normal") =>
+                    setDiscountPriceSource(value)
+                  }
+                  disabled={submitting}
+                >
+                  <SelectTrigger id="discountPriceSource">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="amo">Prix assurance</SelectItem>
+                    <SelectItem value="normal">Prix normal</SelectItem>
+                  </SelectContent>
+                </UiSelect>
+                <p className="text-xs text-muted-foreground">
+                  Si ce prix est insuffisant, le reste sera déduit de l’autre
+                  prix.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="amountPaid">Montant payé</Label>
@@ -2389,14 +2622,38 @@ const FactureFormPage: React.FC = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? (
+            <CardFooter className="flex flex-col gap-2">
+              {!isEditMode && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={submitting}
+                  onClick={handleSaveDraft}
+                >
+                  {submittingAction === "draft" && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isDraftMode
+                    ? "Enregistrer les modifications"
+                    : "Enregistrer le brouillon"}
+                </Button>
+              )}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting || (isDraftMode && !validateId(patientPrefix.trim()))}
+              >
+                {submittingAction === "invoice" ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <FileText className="mr-2 h-4 w-4" />
                 )}
-                {isEditMode ? "Mettre à jour la facture" : "Créer la facture"}
+                {isEditMode
+                  ? "Mettre à jour la facture"
+                  : isDraftMode
+                    ? "Finaliser la facture"
+                    : "Créer la facture"}
               </Button>
             </CardFooter>
           </Card>

@@ -285,11 +285,113 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_draft: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          discount_amount: number
+          discount_price_source: string
+          doctor_id: string
+          has_insurance: boolean
+          id: string
+          is_free: boolean
+          is_half_pay: boolean
+          notes: string | null
+          patient: Json
+          payment_status: string
+          remaining_amount: number
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number
+          created_at?: string
+          discount_amount?: number
+          discount_price_source?: string
+          doctor_id: string
+          has_insurance?: boolean
+          id?: string
+          is_free?: boolean
+          is_half_pay?: boolean
+          notes?: string | null
+          patient: Json
+          payment_status?: string
+          remaining_amount?: number
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          discount_amount?: number
+          discount_price_source?: string
+          doctor_id?: string
+          has_insurance?: boolean
+          id?: string
+          is_free?: boolean
+          is_half_pay?: boolean
+          notes?: string | null
+          patient?: Json
+          payment_status?: string
+          remaining_amount?: number
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_draft_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctor"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      invoice_draft_item: {
+        Row: {
+          applied_price: number
+          draft_id: string
+          id: string
+          test_type_id: string
+        }
+        Insert: {
+          applied_price: number
+          draft_id: string
+          id?: string
+          test_type_id: string
+        }
+        Update: {
+          applied_price?: number
+          draft_id?: string
+          id?: string
+          test_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_draft_item_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_draft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_draft_item_test_type_id_fkey"
+            columns: ["test_type_id"]
+            isOneToOne: false
+            referencedRelation: "test_type"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       invoice: {
         Row: {
           amount_paid: number
           created_at: string
           discount_amount: number
+          discount_price_source: string
           doctor_id: string
           has_insurance: boolean
           id: string
@@ -308,6 +410,7 @@ export type Database = {
           amount_paid?: number
           created_at?: string
           discount_amount?: number
+          discount_price_source?: string
           doctor_id: string
           has_insurance?: boolean
           id?: string
@@ -326,6 +429,7 @@ export type Database = {
           amount_paid?: number
           created_at?: string
           discount_amount?: number
+          discount_price_source?: string
           doctor_id?: string
           has_insurance?: boolean
           id?: string
@@ -847,6 +951,41 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_invoice_draft: {
+        Args: { p_draft_id: string }
+        Returns: undefined
+      }
+      finalize_invoice_draft: {
+        Args: { p_draft_id: string; p_patient_unique_id: string }
+        Returns: string
+      }
+      get_invoice_drafts_page: {
+        Args: {
+          p_search?: string | null
+          p_doctor_id?: string | null
+          p_start_date?: string | null
+          p_end_date?: string | null
+          p_page?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
+      save_invoice_draft: {
+        Args: {
+          p_draft_id: string | null
+          p_patient: Json
+          p_doctor_id: string
+          p_items: Json
+          p_has_insurance: boolean
+          p_discount_amount: number
+          p_discount_price_source: string
+          p_amount_paid: number
+          p_notes?: string | null
+          p_is_free?: boolean
+          p_is_half_pay?: boolean
+        }
+        Returns: string
+      }
       create_invoice_with_result: {
         Args: {
           p_patient: Json
@@ -854,6 +993,7 @@ export type Database = {
           p_items: Json
           p_has_insurance: boolean
           p_discount_amount: number
+          p_discount_price_source?: string
           p_amount_paid: number
           p_notes?: string | null
           p_is_free?: boolean
@@ -881,6 +1021,7 @@ export type Database = {
           p_items: Json
           p_has_insurance: boolean
           p_discount_amount: number
+          p_discount_price_source?: string
           p_amount_paid: number
           p_notes?: string | null
           p_is_free?: boolean

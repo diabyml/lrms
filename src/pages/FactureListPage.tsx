@@ -11,10 +11,21 @@ import {
   FileText,
   PlusCircle,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +62,11 @@ type InvoiceRow = {
   doctor: { full_name: string | null } | null;
 };
 
+type DraftRow = Omit<InvoiceRow, "invoice_number"> & {
+  updated_at: string;
+  patient: { full_name: string | null; phone: string | null } | null;
+};
+
 type DoctorOption = {
   id: string;
   full_name: string;
@@ -60,6 +76,8 @@ type InvoicesPagePayload = {
   invoices: InvoiceRow[];
   totalCount: number;
 };
+
+type DraftsPagePayload = { drafts: DraftRow[]; totalCount: number };
 
 const ALL_DOCTORS = "__all_doctors__";
 
@@ -83,6 +101,10 @@ const statusVariant = (status: string) => {
 
 const FactureListPage: React.FC = () => {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [activeTab, setActiveTab] = useState<"invoices" | "drafts">("invoices");
+  const [draftCount, setDraftCount] = useState(0);
+  const [draftToDelete, setDraftToDelete] = useState<DraftRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -127,8 +149,9 @@ const FactureListPage: React.FC = () => {
     setLoading(true);
     setError(null);
 
+    const rpcName = activeTab === "drafts" ? "get_invoice_drafts_page" : "get_invoices_page";
     const { data, error: fetchError } = await supabase.rpc(
-      "get_invoices_page",
+      rpcName,
       {
         p_search: debouncedSearchTerm.trim() || null,
         p_doctor_id: doctorFilter === ALL_DOCTORS ? null : doctorFilter,
@@ -142,15 +165,22 @@ const FactureListPage: React.FC = () => {
     if (fetchError) {
       setError(fetchError.message);
       setInvoices([]);
+      setDrafts([]);
       setTotalCount(0);
     } else {
-      const payload = data as InvoicesPagePayload | null;
-      setInvoices(payload?.invoices || []);
-      setTotalCount(payload?.totalCount ?? 0);
+      if (activeTab === "drafts") {
+        const payload = data as DraftsPagePayload | null;
+        setDrafts(payload?.drafts || []);
+        setTotalCount(payload?.totalCount ?? 0);
+      } else {
+        const payload = data as InvoicesPagePayload | null;
+        setInvoices(payload?.invoices || []);
+        setTotalCount(payload?.totalCount ?? 0);
+      }
     }
 
     setLoading(false);
-  }, [debouncedSearchTerm, doctorFilter, endDate, page, pageSize, startDate]);
+  }, [activeTab, debouncedSearchTerm, doctorFilter, endDate, page, pageSize, startDate]);
 
   useEffect(() => {
     fetchInvoices();
@@ -162,7 +192,28 @@ const FactureListPage: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearchTerm, doctorFilter, startDate, endDate]);
+  }, [activeTab, debouncedSearchTerm, doctorFilter, startDate, endDate]);
+
+  useEffect(() => {
+    supabase
+      .from("invoice_draft")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => setDraftCount(count || 0));
+  }, []);
+
+  const handleDeleteDraft = async () => {
+    if (!draftToDelete) return;
+    const { error: deleteError } = await supabase.rpc("delete_invoice_draft", {
+      p_draft_id: draftToDelete.id,
+    });
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    setDraftToDelete(null);
+    setDraftCount((current) => Math.max(current - 1, 0));
+    fetchInvoices();
+  };
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -195,6 +246,24 @@ const FactureListPage: React.FC = () => {
         </Alert>
       )}
 
+      <div className="inline-flex rounded-lg border bg-muted p-1">
+        <Button
+          variant={activeTab === "invoices" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("invoices")}
+        >
+          Factures
+        </Button>
+        <Button
+          variant={activeTab === "drafts" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("drafts")}
+        >
+          Brouillons
+          <Badge variant="secondary" className="ml-2">{draftCount}</Badge>
+        </Button>
+      </div>
+
       <div className="grid gap-3 rounded-lg border bg-background p-4 lg:grid-cols-[minmax(220px,1fr)_220px_160px_160px_auto] lg:items-end">
         <div className="space-y-2">
           <Label htmlFor="invoice-search">Recherche</Label>
@@ -205,7 +274,11 @@ const FactureListPage: React.FC = () => {
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Patient, ID ou n° facture..."
+              placeholder={
+                activeTab === "drafts"
+                  ? "Patient ou téléphone..."
+                  : "Patient, ID ou n° facture..."
+              }
               className="pl-9"
             />
           </div>
@@ -271,7 +344,7 @@ const FactureListPage: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>N°</TableHead>
+                <TableHead>{activeTab === "drafts" ? "Type" : "N°"}</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Patient</TableHead>
                 <TableHead>Médecin</TableHead>
@@ -283,7 +356,7 @@ const FactureListPage: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length > 0 ? (
+              {activeTab === "invoices" && invoices.length > 0 ? (
                 invoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">
@@ -338,13 +411,39 @@ const FactureListPage: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))
+              ) : activeTab === "drafts" && drafts.length > 0 ? (
+                drafts.map((draft) => (
+                  <TableRow key={draft.id}>
+                    <TableCell><Badge variant="secondary">Brouillon</Badge></TableCell>
+                    <TableCell>{format(parseISO(draft.updated_at), "Pp", { locale: fr })}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{draft.patient?.full_name || "Patient inconnu"}</div>
+                      <div className="text-xs text-muted-foreground">{draft.patient?.phone || "ID à renseigner"}</div>
+                    </TableCell>
+                    <TableCell>{draft.doctor?.full_name || "Médecin inconnu"}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(draft.total)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(draft.amount_paid)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(draft.remaining_amount)}</TableCell>
+                    <TableCell><Badge variant="outline">Non finalisé</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Link to={`/factures/drafts/${draft.id}/edit`}>
+                          <Button variant="secondary" size="sm"><Edit className="mr-2 h-4 w-4" />Continuer</Button>
+                        </Link>
+                        <Button variant="destructive" size="sm" onClick={() => setDraftToDelete(draft)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : (
                 <TableRow>
                   <TableCell
                     colSpan={9}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    Aucune facture trouvée.
+                    {activeTab === "drafts" ? "Aucun brouillon trouvé." : "Aucune facture trouvée."}
                   </TableCell>
                 </TableRow>
               )}
@@ -355,7 +454,7 @@ const FactureListPage: React.FC = () => {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">
-          Page {page} sur {totalPages} · {totalCount} facture(s)
+          Page {page} sur {totalPages} · {totalCount} {activeTab === "drafts" ? "brouillon(s)" : "facture(s)"}
         </div>
         <div className="flex items-center gap-2">
           <Select
@@ -394,6 +493,23 @@ const FactureListPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={Boolean(draftToDelete)} onOpenChange={(open) => !open && setDraftToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce brouillon ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le brouillon sera supprimé définitivement. Aucune facture ni ristourne ne sera affectée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Garder</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDraft} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
