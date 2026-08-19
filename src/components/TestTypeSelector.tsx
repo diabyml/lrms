@@ -1,4 +1,4 @@
-import React, { FormEvent, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -76,8 +76,12 @@ export function TestTypeSelector({
     return tests.filter((test) => test.category_id === selectedCategoryId);
   }, [debouncedSearch, selectedCategoryId, tests]);
 
-  const handleRapidSelection = (event: FormEvent) => {
+  const handleRapidSelection = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key !== "Enter") return;
     event.preventDefault();
+    event.stopPropagation();
     void onAddTests(filteredTests.map((test) => test.id));
     setSearchTerm("");
   };
@@ -109,19 +113,18 @@ export function TestTypeSelector({
 
       <Label className="text-base font-semibold">Types de Tests Inclus</Label>
 
-      <form onSubmit={handleRapidSelection}>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Rechercher et ajouter un type de test..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            className="h-9 w-full pl-10"
-            disabled={disabled || tests.length === 0}
-          />
-        </div>
-      </form>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Rechercher et ajouter un type de test..."
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          onKeyDown={handleRapidSelection}
+          className="h-9 w-full pl-10"
+          disabled={disabled || tests.length === 0}
+        />
+      </div>
 
       {showSelectedPills && selectedTests.length > 0 && (
         <div className="space-y-2">
