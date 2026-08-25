@@ -270,7 +270,6 @@ const TestTypeListPage: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Nom du Type de Test</TableHead>
-                <TableHead className="w-[120px]">Code</TableHead>
                 <TableHead className="w-[250px]">Catégorie</TableHead>
                 <TableHead className="w-[130px] text-right">Prix normal</TableHead>
                 <TableHead className="w-[130px] text-right">AMO</TableHead>
@@ -283,15 +282,17 @@ const TestTypeListPage: React.FC = () => {
               {filteredTestTypes.length > 0 ? (
                 filteredTestTypes.map((testType) => (
                   <TableRow key={testType.id}>
-                    <TableCell className="font-medium">
-                      {testType.name}
-                    </TableCell>
                     <TableCell>
-                      {testType.code ? (
-                        <span className="font-mono text-sm">{testType.code}</span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">{testType.name}</span>
+                        {testType.code ? (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {testType.code}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -348,7 +349,7 @@ const TestTypeListPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={5}
                     className="h-24 text-center text-muted-foreground"
                   >
                     {searchTerm || categoryFilter !== "all" ? (

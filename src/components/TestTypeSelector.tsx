@@ -24,6 +24,7 @@ export type TestTypeSelectorTest = {
   id: string;
   name: string;
   category_id: string;
+  code?: string | null;
 };
 
 type TestTypeSelectorProps = {
@@ -65,15 +66,23 @@ export function TestTypeSelector({
   }, [selectedTestIds, tests]);
 
   const filteredTests = useMemo(() => {
-    if (!selectedCategoryId) {
-      if (!debouncedSearch) return tests;
-      const normalizedSearch = debouncedSearch.toLowerCase();
-      return tests.filter((test) =>
-        test.name.toLowerCase().includes(normalizedSearch)
-      );
-    }
+    const normalizedSearch = debouncedSearch.trim().toLowerCase();
+    const byCategory = selectedCategoryId
+      ? tests.filter((test) => test.category_id === selectedCategoryId)
+      : tests;
 
-    return tests.filter((test) => test.category_id === selectedCategoryId);
+    if (!normalizedSearch) return byCategory;
+
+    const exactCodeMatch = tests.find(
+      (test) => (test.code || "").trim().toLowerCase() === normalizedSearch
+    );
+    if (exactCodeMatch) return [exactCodeMatch];
+
+    return byCategory.filter((test) => {
+      const name = extractTestTypeName(test.name).toLowerCase();
+      const code = (test.code || "").toLowerCase();
+      return name.includes(normalizedSearch) || code.includes(normalizedSearch);
+    });
   }, [debouncedSearch, selectedCategoryId, tests]);
 
   const handleRapidSelection = (
@@ -171,7 +180,14 @@ export function TestTypeSelector({
                   htmlFor={`test-type-${test.id}`}
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  {extractTestTypeName(test.name)}
+                  <span className="block">
+                    {extractTestTypeName(test.name)}
+                  </span>
+                  {test.code ? (
+                    <span className="block font-mono text-xs text-muted-foreground font-normal">
+                      {test.code}
+                    </span>
+                  ) : null}
                 </label>
               </div>
             ))

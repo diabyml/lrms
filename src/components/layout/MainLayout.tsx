@@ -1,6 +1,6 @@
 // src/components/layout/MainLayout.tsx
 import React, { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom"; // Use NavLink for active styling
+import { NavLink, Outlet, useNavigate } from "react-router-dom"; // Use NavLink for active styling
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -34,6 +34,8 @@ import {
   BarChart,
   ShieldCheck,
   ReceiptText,
+  Bell,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -93,6 +95,11 @@ const navSections: NavSection[] = [
       { to: "/test-profiles", label: "Profils de Tests", icon: ClipboardList },
       { to: "/categories", label: "Catégories", icon: Layers },
       { to: "/atbs", label: "Gestion ATBs", icon: Layers },
+      {
+        to: "/pending-tests",
+        label: "Examens en cours",
+        icon: ListChecks,
+      },
     ],
   },
   {
@@ -143,6 +150,25 @@ const MainLayout: React.FC = () => {
     }
     // Auth listener handles navigation implicitly
   };
+
+  const navigate = useNavigate();
+
+  // Pending tests count for bell badge
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const { count } = await supabase
+        .from("patient_result")
+        .select("*", { count: "exact", head: true })
+        .ilike("description", "%en cours%");
+      setPendingCount(count ?? 0);
+    };
+    fetchPendingCount();
+
+    const interval = setInterval(fetchPendingCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Function to get user initials for Avatar fallback
   const getInitials = (email?: string | null) => {
@@ -332,6 +358,22 @@ const MainLayout: React.FC = () => {
               Ajouter un Médecin
             </Button>
           </div>
+
+          {/* Pending Tests Bell */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative mr-2"
+            onClick={() => navigate("/pending-tests")}
+            title="Examens en cours"
+          >
+            <Bell className="h-5 w-5" />
+            {pendingCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+                {pendingCount > 99 ? "99+" : pendingCount}
+              </span>
+            )}
+          </Button>
 
           {/* User Menu */}
           <DropdownMenu>

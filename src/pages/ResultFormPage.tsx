@@ -5,7 +5,6 @@ import React, {
   useEffect,
   FormEvent,
   useCallback,
-  useMemo,
 } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase, Tables } from "../lib/supabaseClient"; // Adjust path if needed

@@ -198,6 +198,15 @@ const PlaceholderPage: React.FC = () => {
     fetchResultDetails();
   }, [resultId]);
 
+  const lastSyncedResultId = useRef<string | undefined>();
+
+  useEffect(() => {
+    if (resultData && lastSyncedResultId.current !== resultId) {
+      setDescription(resultData.description ?? "");
+      lastSyncedResultId.current = resultId;
+    }
+  }, [resultData, resultId]);
+
   useEffect(() => {
     setNormalPrice(
       resultData?.normal_price != null ? String(resultData.normal_price) : ""
@@ -220,6 +229,10 @@ const PlaceholderPage: React.FC = () => {
           .eq("id", resultId);
 
         if (error) throw error;
+
+        setResultData((prev) =>
+          prev ? { ...prev, description: newDescription } : null
+        );
       } catch (err: any) {
         console.error("Error saving description:", err);
       }

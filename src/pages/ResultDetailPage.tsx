@@ -424,11 +424,14 @@ const ResultDetailPage: React.FC = () => {
     fetchResultDetails();
   }, [fetchResultDetails]);
 
+  const lastSyncedResultId = useRef<string | undefined>();
+
   useEffect(() => {
-    if (resultData?.description) {
-      setDescription(resultData.description);
+    if (resultData && lastSyncedResultId.current !== resultId) {
+      setDescription(resultData.description ?? "");
+      lastSyncedResultId.current = resultId;
     }
-  }, [resultData]);
+  }, [resultData, resultId]);
 
   useEffect(() => {
     setNormalPrice(
@@ -457,6 +460,10 @@ const ResultDetailPage: React.FC = () => {
           .eq("id", resultId);
 
         if (error) throw error;
+
+        setResultData((prev) =>
+          prev ? { ...prev, description: newDescription } : null
+        );
       } catch (err: any) {
         console.error("Error saving description:", err);
       } finally {

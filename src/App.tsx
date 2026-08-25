@@ -56,6 +56,7 @@ import FactureFormPage from "./pages/FactureFormPage";
 import FactureDetailPage from "./pages/FactureDetailPage";
 import InvoiceAiSettingsPage from "./pages/InvoiceAiSettingsPage";
 import ReceiptVerificationPage from "./pages/ReceiptVerificationPage";
+import PendingTestsPage from "./pages/PendingTestsPage";
 // Import other placeholders as you create them
 
 function App() {
@@ -99,6 +100,7 @@ function App() {
               element={<ResultFormPage />}
             />
             <Route path="/results/:resultId" element={<ResultDetailPage />} />
+            <Route path="/pending-tests" element={<PendingTestsPage />} />
             {/* Edit Result */}
             <Route
               path="/results/:resultId/edit"
